@@ -31,9 +31,9 @@ const NAV_ITEMS = [
   { href: "/decisions", label: "Decisions", icon: BookOpen },
   { href: "/meetings", label: "Meetings", icon: Calendar },
   { href: "/actions", label: "Actions", icon: ListChecks },
-  { href: "/documents", label: "Documents", icon: FileText, disabled: true },
-  { href: "/proposals", label: "Proposals", icon: MessageSquare, disabled: true },
-  { href: "/topics", label: "Topics", icon: Lightbulb, disabled: true },
+  { href: "/documents", label: "Documents", icon: FileText },
+  { href: "/proposals", label: "Proposals", icon: MessageSquare },
+  { href: "/topics", label: "Topics", icon: Lightbulb },
 ];
 
 const BOTTOM_ITEMS = [
@@ -155,17 +155,13 @@ export function Sidebar({ currentSpace, userSpaces }: SidebarProps) {
           return (
             <Link
               key={item.href}
-              href={item.disabled ? "#" : item.href}
+              href={item.href}
               className={cn(
                 "flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[0.8125rem] transition-colors",
                 isActive
                   ? "bg-canopy-pale text-canopy font-medium"
-                  : item.disabled
-                    ? "text-bark-muted/50 cursor-not-allowed"
-                    : "text-bark-muted hover:text-bark hover:bg-paper-deep"
+                  : "text-bark-muted hover:text-bark hover:bg-paper-deep"
               )}
-              onClick={item.disabled ? (e) => e.preventDefault() : undefined}
-              aria-disabled={item.disabled}
             >
               <Icon
                 size={17}
@@ -174,11 +170,6 @@ export function Sidebar({ currentSpace, userSpaces }: SidebarProps) {
               />
               {!collapsed && (
                 <span className="truncate">{item.label}</span>
-              )}
-              {!collapsed && item.disabled && (
-                <span className="ml-auto text-[0.625rem] uppercase tracking-wider text-bark-muted/40 font-medium">
-                  Soon
-                </span>
               )}
             </Link>
           );

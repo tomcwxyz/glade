@@ -11,8 +11,14 @@ import {
   meetingDecisions,
   spaceMembers,
   users,
+  documents,
+  documentVersions,
+  documentSectionLinks,
+  proposals,
+  proposalComments,
+  topics,
 } from "@/db/schema";
-import { eq, and, desc, count, sql } from "drizzle-orm";
+import { eq, and, desc, asc, count, sql } from "drizzle-orm";
 
 // ============================================================
 // Decisions
@@ -396,4 +402,217 @@ export async function getSpaceMembers(spaceId: string) {
     .from(spaceMembers)
     .innerJoin(users, eq(users.id, spaceMembers.userId))
     .where(eq(spaceMembers.spaceId, spaceId));
+}
+
+// ============================================================
+// Documents
+// ============================================================
+
+export async function getDocuments(spaceId: string) {
+  const rows = await db
+    .select({
+      id: documents.id,
+      title: documents.title,
+      type: documents.type,
+      status: documents.status,
+      currentVersion: documents.currentVersion,
+      updatedAt: documents.updatedAt,
+      createdByName: users.name,
+    })
+    .from(documents)
+    .leftJoin(users, eq(users.id, documents.createdBy))
+    .where(eq(documents.spaceId, spaceId))
+    .orderBy(desc(documents.updatedAt));
+
+  return rows;
+}
+
+export async function getDocumentById(spaceId: string, documentId: string) {
+  const [doc] = await db
+    .select()
+    .from(documents)
+    .where(and(eq(documents.spaceId, spaceId), eq(documents.id, documentId)))
+    .limit(1);
+
+  if (!doc) return null;
+
+  const versions = await db
+    .select({
+      id: documentVersions.id,
+      versionNumber: documentVersions.versionNumber,
+      changeDescription: documentVersions.changeDescription,
+      decisionId: documentVersions.decisionId,
+      createdByName: users.name,
+      createdAt: documentVersions.createdAt,
+    })
+    .from(documentVersions)
+    .leftJoin(users, eq(users.id, documentVersions.createdBy))
+    .where(eq(documentVersions.documentId, doc.id))
+    .orderBy(desc(documentVersions.versionNumber));
+
+  const sectionLinks = await db
+    .select({
+      id: documentSectionLinks.id,
+      sectionId: documentSectionLinks.sectionId,
+      decisionId: decisions.id,
+      decisionNumber: decisions.number,
+      decisionTitle: decisions.title,
+    })
+    .from(documentSectionLinks)
+    .innerJoin(decisions, eq(decisions.id, documentSectionLinks.decisionId))
+    .where(eq(documentSectionLinks.documentId, doc.id));
+
+  const createdByUser = doc.createdBy
+    ? await db
+        .select({ name: users.name })
+        .from(users)
+        .where(eq(users.id, doc.createdBy))
+        .limit(1)
+    : [];
+
+  return {
+    ...doc,
+    versions,
+    sectionLinks,
+    createdByName: createdByUser[0]?.name || null,
+  };
+}
+
+export async function getDocumentVersions(documentId: string) {
+  return db
+    .select({
+      id: documentVersions.id,
+      versionNumber: documentVersions.versionNumber,
+      content: documentVersions.content,
+      changeDescription: documentVersions.changeDescription,
+      decisionId: documentVersions.decisionId,
+      decisionNumber: decisions.number,
+      decisionTitle: decisions.title,
+      createdByName: users.name,
+      createdAt: documentVersions.createdAt,
+    })
+    .from(documentVersions)
+    .leftJoin(users, eq(users.id, documentVersions.createdBy))
+    .leftJoin(decisions, eq(decisions.id, documentVersions.decisionId))
+    .where(eq(documentVersions.documentId, documentId))
+    .orderBy(desc(documentVersions.versionNumber));
+}
+
+// ============================================================
+// Proposals
+// ============================================================
+
+export async function getProposals(spaceId: string) {
+  const rows = await db
+    .select({
+      id: proposals.id,
+      title: proposals.title,
+      description: proposals.description,
+      status: proposals.status,
+      createdByName: users.name,
+      createdAt: proposals.createdAt,
+      updatedAt: proposals.updatedAt,
+    })
+    .from(proposals)
+    .leftJoin(users, eq(users.id, proposals.createdBy))
+    .where(eq(proposals.spaceId, spaceId))
+    .orderBy(desc(proposals.updatedAt));
+
+  const enriched = await Promise.all(
+    rows.map(async (p) => {
+      const commentCount = await db
+        .select({ count: count() })
+        .from(proposalComments)
+        .where(eq(proposalComments.proposalId, p.id));
+
+      return {
+        ...p,
+        commentCount: commentCount[0]?.count || 0,
+      };
+    })
+  );
+
+  return enriched;
+}
+
+export async function getProposalById(spaceId: string, proposalId: string) {
+  const [p] = await db
+    .select()
+    .from(proposals)
+    .where(and(eq(proposals.spaceId, spaceId), eq(proposals.id, proposalId)))
+    .limit(1);
+
+  if (!p) return null;
+
+  const createdByUser = p.createdBy
+    ? await db
+        .select({ name: users.name })
+        .from(users)
+        .where(eq(users.id, p.createdBy))
+        .limit(1)
+    : [];
+
+  const commentRows = await db
+    .select({
+      id: proposalComments.id,
+      content: proposalComments.content,
+      parentId: proposalComments.parentId,
+      authorId: proposalComments.authorId,
+      authorName: users.name,
+      createdAt: proposalComments.createdAt,
+    })
+    .from(proposalComments)
+    .leftJoin(users, eq(users.id, proposalComments.authorId))
+    .where(eq(proposalComments.proposalId, p.id))
+    .orderBy(asc(proposalComments.createdAt));
+
+  return {
+    ...p,
+    createdByName: createdByUser[0]?.name || null,
+    comments: commentRows,
+  };
+}
+
+// ============================================================
+// Topics
+// ============================================================
+
+export async function getTopics(spaceId: string) {
+  return db
+    .select({
+      id: topics.id,
+      title: topics.title,
+      description: topics.description,
+      type: topics.type,
+      promotedToProposalId: topics.promotedToProposalId,
+      createdByName: users.name,
+      createdAt: topics.createdAt,
+    })
+    .from(topics)
+    .leftJoin(users, eq(users.id, topics.createdBy))
+    .where(eq(topics.spaceId, spaceId))
+    .orderBy(desc(topics.createdAt));
+}
+
+export async function getTopicById(spaceId: string, topicId: string) {
+  const [t] = await db
+    .select()
+    .from(topics)
+    .where(and(eq(topics.spaceId, spaceId), eq(topics.id, topicId)))
+    .limit(1);
+
+  if (!t) return null;
+
+  const createdByUser = t.createdBy
+    ? await db
+        .select({ name: users.name })
+        .from(users)
+        .where(eq(users.id, t.createdBy))
+        .limit(1)
+    : [];
+
+  return {
+    ...t,
+    createdByName: createdByUser[0]?.name || null,
+  };
 }

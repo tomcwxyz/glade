@@ -1,0 +1,138 @@
+import { getCurrentSpace } from "@/lib/space";
+import { getDocumentById } from "@/lib/queries";
+import { notFound } from "next/navigation";
+import Link from "next/link";
+import { ArrowLeft, Clock, Edit, FileText, History } from "lucide-react";
+import { formatDate } from "@/lib/utils";
+import { TiptapViewer } from "./tiptap-viewer";
+import { DocumentStatusActions } from "./document-status-actions";
+
+const TYPE_LABELS: Record<string, string> = {
+  constitution: "Constitution",
+  terms_of_reference: "Terms of Reference",
+  policy: "Policy",
+  role_description: "Role Description",
+  standing_orders: "Standing Orders",
+  custom: "Other",
+};
+
+export default async function DocumentDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  const space = await getCurrentSpace();
+  if (!space) return null;
+
+  const doc = await getDocumentById(space.id, id);
+  if (!doc) notFound();
+
+  return (
+    <div className="max-w-4xl mx-auto px-4 sm:px-8 py-6 sm:py-10">
+      <Link
+        href="/documents"
+        className="inline-flex items-center gap-1.5 text-sm text-bark-muted hover:text-canopy transition-colors mb-8"
+      >
+        <ArrowLeft size={14} />
+        Documents
+      </Link>
+
+      <header className="mb-8">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-xs uppercase tracking-wider text-bark-muted font-medium">
+                {TYPE_LABELS[doc.type] || doc.type}
+              </span>
+              {doc.status === "draft" ? (
+                <span className="text-[0.625rem] uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-pale text-amber font-medium">
+                  Draft
+                </span>
+              ) : (
+                <span className="text-[0.625rem] uppercase tracking-wider px-1.5 py-0.5 rounded bg-canopy-pale text-canopy font-medium">
+                  Published
+                </span>
+              )}
+            </div>
+            <h1
+              className="text-3xl font-light tracking-tight mb-2"
+              style={{ fontFamily: "var(--font-display)" }}
+            >
+              {doc.title}
+            </h1>
+            <div className="flex items-center gap-3 text-sm text-bark-muted">
+              <span className="flex items-center gap-1">
+                <FileText size={13} />
+                v{doc.currentVersion}
+              </span>
+              {doc.createdByName && (
+                <span>by {doc.createdByName}</span>
+              )}
+              <span className="flex items-center gap-1">
+                <Clock size={13} />
+                {formatDate(doc.updatedAt.toISOString())}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <DocumentStatusActions
+              documentId={doc.id}
+              currentStatus={doc.status}
+            />
+            <Link
+              href={`/documents/${doc.id}/edit`}
+              className="flex items-center gap-1.5 px-3 py-2 text-sm bg-paper-deep border border-border rounded-lg text-bark-muted hover:text-bark hover:bg-paper-warm transition-colors"
+            >
+              <Edit size={14} />
+              Edit
+            </Link>
+            <Link
+              href={`/documents/${doc.id}/history`}
+              className="flex items-center gap-1.5 px-3 py-2 text-sm bg-paper-deep border border-border rounded-lg text-bark-muted hover:text-bark hover:bg-paper-warm transition-colors"
+            >
+              <History size={14} />
+              History
+            </Link>
+          </div>
+        </div>
+      </header>
+
+      {/* Document content */}
+      <div className="bg-paper-warm rounded-xl border border-border p-8">
+        {doc.content ? (
+          <TiptapViewer content={doc.content as Record<string, unknown>} />
+        ) : (
+          <p className="text-bark-muted italic">No content yet.</p>
+        )}
+      </div>
+
+      {/* Linked decisions */}
+      {doc.sectionLinks.length > 0 && (
+        <div className="mt-8">
+          <h2
+            className="text-lg font-medium tracking-tight mb-3"
+            style={{ fontFamily: "var(--font-display)" }}
+          >
+            Linked decisions
+          </h2>
+          <div className="space-y-1">
+            {doc.sectionLinks.map((link) => (
+              <Link
+                key={link.id}
+                href={`/decisions/${link.decisionNumber}`}
+                className="flex items-center gap-3 px-4 py-2.5 rounded-lg hover:bg-paper-warm transition-colors text-sm"
+              >
+                <span className="font-mono text-xs text-bark-muted">
+                  #{link.decisionNumber}
+                </span>
+                <span className="text-bark">{link.decisionTitle}</span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

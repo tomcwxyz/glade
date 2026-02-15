@@ -59,6 +59,34 @@ export const agendaItemTypeEnum = pgEnum("agenda_item_type", [
   "for_information",
 ]);
 
+export const documentTypeEnum = pgEnum("document_type", [
+  "constitution",
+  "terms_of_reference",
+  "policy",
+  "role_description",
+  "standing_orders",
+  "custom",
+]);
+
+export const documentStatusEnum = pgEnum("document_status", [
+  "draft",
+  "published",
+]);
+
+export const proposalStatusEnum = pgEnum("proposal_status", [
+  "draft",
+  "open_for_discussion",
+  "ready_for_decision",
+  "decided",
+  "implemented",
+]);
+
+export const topicTypeEnum = pgEnum("topic_type", [
+  "question",
+  "tension",
+  "agenda_suggestion",
+]);
+
 // ============================================================
 // NextAuth tables
 // ============================================================
@@ -318,6 +346,124 @@ export const actions = pgTable(
   ]
 );
 
+// --- Documents ---
+
+export const documents = pgTable(
+  "documents",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    spaceId: uuid("space_id")
+      .notNull()
+      .references(() => spaces.id, { onDelete: "cascade" }),
+    title: varchar("title", { length: 500 }).notNull(),
+    type: documentTypeEnum("type").notNull(),
+    content: jsonb("content"),
+    status: documentStatusEnum("status").default("draft").notNull(),
+    currentVersion: integer("current_version").default(1).notNull(),
+    createdBy: uuid("created_by").references(() => users.id),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (d) => [
+    index("documents_space_idx").on(d.spaceId),
+    index("documents_type_idx").on(d.type),
+  ]
+);
+
+export const documentVersions = pgTable(
+  "document_versions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    documentId: uuid("document_id")
+      .notNull()
+      .references(() => documents.id, { onDelete: "cascade" }),
+    versionNumber: integer("version_number").notNull(),
+    content: jsonb("content"),
+    changeDescription: text("change_description"),
+    decisionId: uuid("decision_id").references(() => decisions.id),
+    createdBy: uuid("created_by").references(() => users.id),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (dv) => [index("doc_versions_document_idx").on(dv.documentId)]
+);
+
+export const documentSectionLinks = pgTable(
+  "document_section_links",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    documentId: uuid("document_id")
+      .notNull()
+      .references(() => documents.id, { onDelete: "cascade" }),
+    sectionId: varchar("section_id", { length: 255 }).notNull(),
+    decisionId: uuid("decision_id")
+      .notNull()
+      .references(() => decisions.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (dsl) => [index("doc_section_links_document_idx").on(dsl.documentId)]
+);
+
+// --- Proposals ---
+
+export const proposals = pgTable(
+  "proposals",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    spaceId: uuid("space_id")
+      .notNull()
+      .references(() => spaces.id, { onDelete: "cascade" }),
+    title: varchar("title", { length: 500 }).notNull(),
+    description: text("description"),
+    rationale: text("rationale"),
+    suggestedMethod: decisionMethodEnum("suggested_method"),
+    status: proposalStatusEnum("status").default("draft").notNull(),
+    createdBy: uuid("created_by").references(() => users.id),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (p) => [
+    index("proposals_space_idx").on(p.spaceId),
+    index("proposals_status_idx").on(p.status),
+  ]
+);
+
+export const proposalComments = pgTable(
+  "proposal_comments",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    proposalId: uuid("proposal_id")
+      .notNull()
+      .references(() => proposals.id, { onDelete: "cascade" }),
+    authorId: uuid("author_id")
+      .notNull()
+      .references(() => users.id),
+    content: text("content").notNull(),
+    parentId: uuid("parent_id"),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (pc) => [index("proposal_comments_proposal_idx").on(pc.proposalId)]
+);
+
+// --- Topics ---
+
+export const topics = pgTable(
+  "topics",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    spaceId: uuid("space_id")
+      .notNull()
+      .references(() => spaces.id, { onDelete: "cascade" }),
+    title: varchar("title", { length: 500 }).notNull(),
+    description: text("description"),
+    type: topicTypeEnum("type").notNull(),
+    promotedToProposalId: uuid("promoted_to_proposal_id").references(() => proposals.id),
+    createdBy: uuid("created_by").references(() => users.id),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (t) => [index("topics_space_idx").on(t.spaceId)]
+);
+
 // ============================================================
 // Relations
 // ============================================================
@@ -334,6 +480,9 @@ export const spacesRelations = relations(spaces, ({ many }) => ({
   meetings: many(meetings),
   actions: many(actions),
   tags: many(tags),
+  documents: many(documents),
+  proposals: many(proposals),
+  topics: many(topics),
 }));
 
 export const spaceMembersRelations = relations(spaceMembers, ({ one }) => ({
@@ -349,6 +498,8 @@ export const decisionsRelations = relations(decisions, ({ one, many }) => ({
   linksFrom: many(decisionLinks, { relationName: "fromDecision" }),
   linksTo: many(decisionLinks, { relationName: "toDecision" }),
   meetingDecisions: many(meetingDecisions),
+  documentVersions: many(documentVersions),
+  documentSectionLinks: many(documentSectionLinks),
 }));
 
 export const decisionLinksRelations = relations(decisionLinks, ({ one }) => ({
@@ -400,4 +551,45 @@ export const actionsRelations = relations(actions, ({ one }) => ({
   space: one(spaces, { fields: [actions.spaceId], references: [spaces.id] }),
   decision: one(decisions, { fields: [actions.decisionId], references: [decisions.id] }),
   owner: one(users, { fields: [actions.ownerId], references: [users.id] }),
+}));
+
+// --- Document relations ---
+
+export const documentsRelations = relations(documents, ({ one, many }) => ({
+  space: one(spaces, { fields: [documents.spaceId], references: [spaces.id] }),
+  createdByUser: one(users, { fields: [documents.createdBy], references: [users.id] }),
+  versions: many(documentVersions),
+  sectionLinks: many(documentSectionLinks),
+}));
+
+export const documentVersionsRelations = relations(documentVersions, ({ one }) => ({
+  document: one(documents, { fields: [documentVersions.documentId], references: [documents.id] }),
+  decision: one(decisions, { fields: [documentVersions.decisionId], references: [decisions.id] }),
+  createdByUser: one(users, { fields: [documentVersions.createdBy], references: [users.id] }),
+}));
+
+export const documentSectionLinksRelations = relations(documentSectionLinks, ({ one }) => ({
+  document: one(documents, { fields: [documentSectionLinks.documentId], references: [documents.id] }),
+  decision: one(decisions, { fields: [documentSectionLinks.decisionId], references: [decisions.id] }),
+}));
+
+// --- Proposal relations ---
+
+export const proposalsRelations = relations(proposals, ({ one, many }) => ({
+  space: one(spaces, { fields: [proposals.spaceId], references: [spaces.id] }),
+  createdByUser: one(users, { fields: [proposals.createdBy], references: [users.id] }),
+  comments: many(proposalComments),
+}));
+
+export const proposalCommentsRelations = relations(proposalComments, ({ one }) => ({
+  proposal: one(proposals, { fields: [proposalComments.proposalId], references: [proposals.id] }),
+  author: one(users, { fields: [proposalComments.authorId], references: [users.id] }),
+}));
+
+// --- Topic relations ---
+
+export const topicsRelations = relations(topics, ({ one }) => ({
+  space: one(spaces, { fields: [topics.spaceId], references: [spaces.id] }),
+  createdByUser: one(users, { fields: [topics.createdBy], references: [users.id] }),
+  promotedToProposal: one(proposals, { fields: [topics.promotedToProposalId], references: [proposals.id] }),
 }));
