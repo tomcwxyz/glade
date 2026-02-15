@@ -1,0 +1,288 @@
+# Plan — Glade
+
+> Last updated: 2026-02-15
+> Status: Phase 1 nearly complete — remaining: Vercel deploy, Resend email, advanced filters, breadcrumbs
+
+## Objective
+
+Build **Glade**, a decision-centric governance platform for social purpose organisations. The platform treats governance decisions as the primary unit of organisational memory — traceable, reviewable, and connected to living governance documents. Hosted SaaS with open source core.
+
+## Approach
+
+**Stack:** Next.js 15 (App Router), NextAuth (Auth.js v5), Neon PostgreSQL, Drizzle ORM, Tiptap editor, Anthropic API, Vercel hosting, Stripe billing, Resend email, Socket.io/PartyKit for real-time.
+
+**Architecture:** Event-sourced decision model. Decisions are immutable events; document state is a projection computed from the decision trail. Multi-tenant from day one via NextAuth + spaces with row-level security.
+
+**Build order:** Five phases, each independently valuable. Phase 1 produces an MVP. Later phases add documents, AI, live meetings, and SaaS infrastructure.
+
+---
+
+## Phase 0 — Project Setup & Foundation
+
+- [x] Initialise Next.js 15 project with App Router, TypeScript, Tailwind CSS
+- [x] Configure ESLint and project structure (`src/app`, `src/lib`, `src/components`, `src/db`)
+- [x] Set up NextAuth authentication (credentials, magic link, Google, Microsoft)
+- [x] Set up Neon PostgreSQL database and Drizzle ORM
+- [x] Create initial database schema (15 tables) and migration system
+- [ ] Configure Vercel deployment pipeline
+- [ ] Set up Resend for transactional email (provider configured, needs API key)
+- [x] Establish UI component foundation (custom design system, lucide-react, clsx)
+- [x] Update CLAUDE.md with actual project conventions
+- [x] Build UI prototype with mock data (landing, dashboard, decisions, actions, meetings, glade canvas)
+
+---
+
+## Phase 1 — Core Decision Log (MVP)
+
+### 1.1 Data Model & Schema
+
+- [ ] `spaces` table — organisation container (name, slug, description, settings, created_at)
+- [ ] `space_members` table — membership with roles (admin, member, observer)
+- [ ] `decisions` table — title, description, rationale, method, outcome, status, participants, date, conditions, tags, review_date, space_id
+- [ ] `decision_links` table — relationships between decisions (supersedes, relates_to, amends)
+- [ ] `meetings` table — date, type, notes, space_id
+- [ ] `meeting_attendees` table — meeting ↔ member join
+- [ ] `meeting_agenda_items` table — ordered items with type (for_decision, for_discussion, for_information)
+- [ ] `meeting_decisions` table — meeting ↔ decision join
+- [ ] `actions` table — description, owner, due_date, status (open, in_progress, complete, overdue), decision_id
+- [ ] `tags` table + `decision_tags` join — theme tagging (finance, HR, strategy, etc.)
+- [ ] Run initial migration against Neon
+
+### 1.2 Space Management
+
+- [x] Space creation flow (name, slug, description)
+- [x] Space switcher in navigation (cookie-based)
+- [x] Member invitation flow via email link
+- [x] Role management UI (admin, member, observer)
+- [x] Space settings page
+
+### 1.3 Decision Log — Core CRUD
+
+- [x] Create decision form — all fields: title, description, rationale, method, outcome, participants, date, conditions, tags
+- [x] Decision detail page — full display with linked meeting, actions, related decisions
+- [x] Edit decision
+- [x] Decision status lifecycle: decided → implemented → reviewed → learned
+- [x] Schedule review: set review date
+- [x] Tag decisions by theme (built-in + custom tags)
+- [x] Link decisions to each other from UI (supersedes, relates_to, amends)
+- [x] Decision status change from detail page
+
+### 1.4 Meeting Records
+
+- [x] Create meeting record — date, type, attendees, notes
+- [x] Meeting list view
+- [x] Meeting detail page — agenda, attendees, linked decisions
+- [x] Link decisions to the meeting where they were made
+- [x] Simple agenda: ordered list of items discussed
+
+### 1.5 Actions
+
+- [x] Create actions from decision form — description, owner, due date
+- [x] Action status tracking: open → in_progress → complete (click-to-cycle)
+- [x] Actions page — outstanding actions across the space, sorted by urgency
+- [x] Overdue action highlighting
+
+### 1.6 Views, Search & Analytics
+
+- [x] Timeline view — all decisions in chronological order (default view)
+- [ ] Filter by: theme, status, method, date range, participant
+- [x] Full-text search across decisions and meeting records
+- [x] Simple analytics dashboard: decision count, review rate, action completion rate
+- [x] Space home/dashboard page
+
+### 1.7 Navigation & Layout
+
+- [x] App shell: sidebar navigation, top bar with space switcher + user menu
+- [x] Responsive layout (desktop-first, mobile-usable)
+- [ ] Breadcrumb navigation
+- [x] Loading states and error boundaries
+
+---
+
+## Phase 2 — Governance Documents & Proposals
+
+### 2.1 Document Schema
+
+- [ ] `documents` table — title, type (constitution, TOR, policy, role_description, standing_orders, custom), content (JSON for Tiptap), space_id, current_version
+- [ ] `document_versions` table — version_number, content snapshot, decision_id that triggered the change, created_at
+- [ ] `document_section_links` table — link decisions to specific sections within documents
+
+### 2.2 Document Editor
+
+- [ ] Integrate Tiptap block-based editor
+- [ ] Document types: constitution, terms of reference, policy, role description, standing orders, custom
+- [ ] Create, edit, and publish governance documents
+- [ ] Auto-save drafts
+
+### 2.3 Document Provenance
+
+- [ ] Link decisions to specific sections of documents
+- [ ] Version history with diffs — what changed and which decision drove the change
+- [ ] Historical view: "show me this document as it was on [date]"
+- [ ] "Why does this clause exist?" — click any section to see the decision trail
+- [ ] Document list with last-updated indicators
+
+### 2.4 Proposals
+
+- [ ] `proposals` table — title, description, rationale, affected_documents, suggested_method, status, space_id
+- [ ] `proposal_comments` table — threaded discussion
+- [ ] Create proposal with: title, description, rationale, affected documents, suggested decision method
+- [ ] Discussion thread on each proposal: comments, questions, amendments
+- [ ] Proposal lifecycle: draft → open_for_discussion → ready_for_decision → decided → implemented
+- [ ] Attach supporting materials (links, references)
+- [ ] When proposal becomes a decision, prompt governance document update
+
+### 2.5 Topics
+
+- [ ] `topics` table — title, description, type (question, tension, agenda_suggestion), space_id
+- [ ] Lightweight topic creation
+- [ ] Promote topic to proposal
+- [ ] Pull topics into meeting agendas
+
+---
+
+## Phase 3 — AI Layer
+
+### 3.1 Infrastructure
+
+- [ ] Anthropic API integration with structured prompts and system instructions
+- [ ] Prompt template system — each analysis type has its own template
+- [ ] Background job processing (e.g. Vercel Cron or Inngest)
+- [ ] Per-space toggle to disable AI features entirely
+- [ ] `insights` table — AI-generated observations linked to decisions or the space
+
+### 3.2 Pattern Analysis
+
+- [ ] Background job: periodic analysis of decision log
+- [ ] Surface patterns: frequently revisited decision types, consultation gaps, recurring themes
+- [ ] Store results as Insights linked to relevant decisions
+
+### 3.3 Decision Review Prompter
+
+- [ ] When a decision comes up for review, generate context-aware reflection questions
+- [ ] Reference original rationale, concerns raised, method used
+- [ ] Structured review output: what happened, expected vs actual, surprises, what we'd change
+
+### 3.4 Governance Document Intelligence
+
+- [ ] On new decision: suggest which governance documents might be affected
+- [ ] Flag documents not reviewed relative to recent decisions
+- [ ] Help draft document updates from decision text
+
+### 3.5 Insights & Digest
+
+- [ ] Insights panel: browsable list of AI observations, dismissable or actionable
+- [ ] Monthly governance digest (email via Resend): summary of decisions, patterns, suggested reviews
+- [ ] New member briefing generator: "what you need to know about how we govern"
+
+---
+
+## Phase 4 — Meeting Mode
+
+### 4.1 Meeting Setup
+
+- [ ] Create meeting from proposals and topics: drag-and-drop agenda builder
+- [ ] Assign time estimates and decision methods per agenda item
+- [ ] Mark items as: for decision, for discussion, for information
+- [ ] Shareable agenda link
+
+### 4.2 Real-time Infrastructure
+
+- [ ] Socket.io or PartyKit integration for live state synchronisation
+- [ ] Room-based connection model (one room per meeting)
+- [ ] Facilitator actions broadcast to all participants
+- [ ] Connection management: join, leave, reconnect handling
+
+### 4.3 Facilitator View
+
+- [ ] Single-screen facilitator interface: current agenda item, timer, proposal text, decision controls
+- [ ] Sequential agenda item navigation
+- [ ] Trigger decision method flows (consent round, vote, etc.)
+- [ ] Capture decisions in real-time: outcome, conditions, actions
+
+### 4.4 Participant View
+
+- [ ] Join via QR code or short link (no account required for observers)
+- [ ] Current agenda item and proposal text display
+- [ ] Participate in: temperature checks, reactions, votes, objection rounds
+- [ ] Request to speak / stack management
+
+### 4.5 Consent-Based Decision Flow
+
+- [ ] Guided flow: present proposal → clarifying questions → quick reactions → objection round → integration → decision recorded
+- [ ] Other methods: majority vote, advice process, delegation, consensus, lazy consensus
+- [ ] Configurable thresholds per method
+
+### 4.6 Post-Meeting
+
+- [ ] Auto-generated meeting summary from structured data
+- [ ] Shareable meeting record (link)
+- [ ] Decisions automatically added to decision log
+- [ ] Actions automatically created and assigned
+- [ ] PDF export of meeting record
+
+---
+
+## Phase 5 — SaaS Infrastructure & Scale
+
+### 5.1 Billing
+
+- [ ] Stripe integration for subscription billing
+- [ ] Free tier: 1 space, limited history, core features
+- [ ] Paid tier(s): multiple spaces, full history, AI features, meeting mode
+- [ ] Charity/social enterprise discounted pricing
+- [ ] Billing management UI (upgrade, downgrade, invoices)
+
+### 5.2 Transparency Layer
+
+- [ ] Per-space setting: public decision log, public documents, or fully private
+- [ ] Configurable per-decision and per-document visibility
+- [ ] Public-facing read-only pages with clean presentation
+- [ ] Embeddable decision log widget
+
+### 5.3 Onboarding
+
+- [ ] Guided onboarding flow: create space → invite members → log first decision
+- [ ] Interactive walkthrough of key concepts
+- [ ] Help documentation
+
+### 5.4 API & Integrations
+
+- [ ] REST API for programmatic access to decision log and governance documents
+- [ ] Webhook support for decision events
+- [ ] Export: PDF minutes, CSV decision data
+- [ ] Calendar integration for meeting scheduling and review reminders
+
+---
+
+## Decisions Made
+
+| Decision | Rationale | Date |
+|----------|-----------|------|
+| Project name: Glade | Already chosen, used in directory structure | 2026-02-14 |
+| Full spec reviewed and decomposed into implementation tasks | Basis for build plan | 2026-02-14 |
+| NextAuth (Auth.js v5) instead of Clerk | Self-hosted, no vendor lock-in, open source. Supports credentials + magic link + Google + Microsoft OAuth | 2026-02-14 |
+| Custom design system instead of shadcn/ui | "Clearing in the Forest" theme with Fraunces + DM Sans, oklch palette. More distinctive than component library defaults | 2026-02-14 |
+
+## Open Questions
+
+- [x] ~~shadcn/ui vs other component library~~ — using custom design system
+- [ ] Socket.io vs PartyKit for real-time — decide before Phase 4
+- [ ] Open source licence model (AGPL, MIT, BSL) — decide before public release
+- [ ] WCAG 2.1 AA from Phase 1 or progressive enhancement?
+- [ ] Which integration priorities (Google Workspace, Microsoft 365, Notion)?
+- [ ] Pilot organisation identified?
+
+## Out of Scope (deferred / module features)
+
+- Advanced AI features (governance health dashboard, cross-space learning, natural language queries, facilitation coaching, risk flagging)
+- Governance templates library (pre-built templates for common org types)
+- Advanced meeting flows (sociocratic templates, anonymous voting, async decision mode, recording integration)
+- Ecosystem features (governance pattern library, starter kits, community templates, benchmarking, API marketplace, white-label)
+- Offline/PWA support
+- White-label option
+
+<!--
+Update this file as work progresses. Tell Claude:
+"Update PLAN.md to reflect what we just did, then continue with the next task."
+-->

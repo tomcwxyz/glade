@@ -1,0 +1,293 @@
+import { getCurrentSpace } from "@/lib/space";
+import { getDecisions, getActions, getMeetings, getSpaceStats } from "@/lib/queries";
+import { formatDate, formatDateRelative } from "@/lib/utils";
+import {
+  ArrowRight,
+  BookOpen,
+  CalendarClock,
+  CheckCircle2,
+  Circle,
+  Clock,
+  ListChecks,
+  TriangleAlert,
+} from "lucide-react";
+import Link from "next/link";
+
+const METHOD_LABELS: Record<string, string> = {
+  consent: "Consent",
+  majority_vote: "Majority Vote",
+  advice_process: "Advice Process",
+  delegation: "Delegation",
+  consensus: "Consensus",
+  lazy_consensus: "Lazy Consensus",
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  decided: "Decided",
+  implemented: "Implemented",
+  reviewed: "Reviewed",
+  learned: "Learned",
+};
+
+function StatValue({ value, label }: { value: string | number; label: string }) {
+  return (
+    <div>
+      <div
+        className="text-2xl font-light tracking-tight text-bark"
+        style={{ fontFamily: "var(--font-display)" }}
+      >
+        {value}
+      </div>
+      <div className="text-sm text-bark-muted mt-0.5">{label}</div>
+    </div>
+  );
+}
+
+function StatusDot({ status }: { status: string }) {
+  const colors: Record<string, string> = {
+    decided: "bg-status-decided",
+    implemented: "bg-status-implemented",
+    reviewed: "bg-status-reviewed",
+    learned: "bg-status-learned",
+  };
+  return <span className={`inline-block w-2 h-2 rounded-full ${colors[status] || "bg-bark-muted"}`} />;
+}
+
+function ActionStatusIcon({ status }: { status: string }) {
+  switch (status) {
+    case "complete":
+      return <CheckCircle2 size={14} className="text-canopy" />;
+    case "in_progress":
+      return <Clock size={14} className="text-amber" />;
+    case "overdue":
+      return <TriangleAlert size={14} className="text-earth" />;
+    default:
+      return <Circle size={14} className="text-bark-muted" />;
+  }
+}
+
+function getGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 18) return "Good afternoon";
+  return "Good evening";
+}
+
+export default async function DashboardPage() {
+  const space = await getCurrentSpace();
+  if (!space) return null;
+
+  const [allDecisions, allActions, allMeetings, stats] = await Promise.all([
+    getDecisions(space.id),
+    getActions(space.id),
+    getMeetings(space.id),
+    getSpaceStats(space.id),
+  ]);
+
+  const recentDecisions = allDecisions.slice(0, 4);
+  const urgentActions = allActions
+    .filter((a) => a.status !== "complete")
+    .sort((a, b) => {
+      const order: Record<string, number> = { overdue: 0, in_progress: 1, open: 2 };
+      return (order[a.status] ?? 3) - (order[b.status] ?? 3);
+    })
+    .slice(0, 4);
+  const nextReviews = allDecisions.filter((d) => d.reviewDate).slice(0, 3);
+
+  return (
+    <div className="max-w-5xl mx-auto px-4 sm:px-8 py-6 sm:py-10">
+      {/* Page header */}
+      <header className="mb-12">
+        <h1
+          className="text-3xl font-light tracking-tight mb-2"
+          style={{ fontFamily: "var(--font-display)" }}
+        >
+          {getGreeting()}
+        </h1>
+        <p className="text-bark-muted text-base">
+          {space.name} has made{" "}
+          <span className="text-bark font-medium">{stats.totalDecisions} decisions</span>.
+          Here&apos;s what needs your attention.
+        </p>
+      </header>
+
+      {/* Stats strip */}
+      <div className="flex flex-wrap gap-6 sm:gap-12 mb-14 pb-8 border-b border-border">
+        <StatValue value={stats.decisionsThisMonth} label="decisions this month" />
+        <StatValue value={stats.activeActions} label="open actions" />
+        <StatValue value={`${Math.round(stats.actionCompletionRate * 100)}%`} label="follow-through" />
+        <StatValue value={`${Math.round(stats.reviewRate * 100)}%`} label="review rate" />
+        <StatValue value={stats.upcomingReviews} label="reviews due" />
+      </div>
+
+      {/* Two-column layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-10 lg:gap-16">
+        {/* Left: Recent decisions */}
+        <section>
+          <div className="flex items-center justify-between mb-6">
+            <h2
+              className="text-xl font-medium tracking-tight"
+              style={{ fontFamily: "var(--font-display)" }}
+            >
+              Recent decisions
+            </h2>
+            <Link
+              href="/decisions"
+              className="text-sm text-canopy hover:text-canopy-light flex items-center gap-1 transition-colors"
+            >
+              View all <ArrowRight size={14} />
+            </Link>
+          </div>
+
+          <div className="space-y-0">
+            {recentDecisions.map((decision) => (
+              <Link
+                key={decision.id}
+                href={`/decisions/${decision.number}`}
+                className="group block py-5 border-b border-border last:border-b-0 hover:bg-paper-warm -mx-4 px-4 rounded-lg transition-colors"
+              >
+                <div className="flex items-start gap-4">
+                  <div className="flex flex-col items-center gap-1.5 pt-0.5 shrink-0">
+                    <span className="text-xs text-bark-muted font-medium tabular-nums">
+                      #{decision.number}
+                    </span>
+                    <StatusDot status={decision.status} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-[0.9375rem] font-medium text-bark leading-snug mb-1 group-hover:text-canopy transition-colors">
+                      {decision.title}
+                    </h3>
+                    <div className="flex items-center gap-3 text-xs text-bark-muted">
+                      <span>{formatDateRelative(decision.date.toISOString())}</span>
+                      <span className="text-border-strong">|</span>
+                      <span>{METHOD_LABELS[decision.method] || decision.method}</span>
+                      <span className="text-border-strong">|</span>
+                      <span>{STATUS_LABELS[decision.status] || decision.status}</span>
+                    </div>
+                  </div>
+                  {decision.actionsCount > 0 && (
+                    <div className="flex items-center gap-1.5 text-xs text-bark-muted shrink-0 pt-1">
+                      <ListChecks size={13} />
+                      <span>
+                        {decision.actionsComplete}/{decision.actionsCount}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+
+        {/* Right column */}
+        <div className="space-y-10">
+          {/* Open actions */}
+          <section>
+            <div className="flex items-center justify-between mb-4">
+              <h2
+                className="text-base font-medium tracking-tight"
+                style={{ fontFamily: "var(--font-display)" }}
+              >
+                Open actions
+              </h2>
+              <Link
+                href="/actions"
+                className="text-xs text-canopy hover:text-canopy-light transition-colors"
+              >
+                All actions
+              </Link>
+            </div>
+
+            <div className="space-y-2.5">
+              {urgentActions.map((action) => (
+                <div key={action.id} className="flex items-start gap-2.5 py-2">
+                  <ActionStatusIcon status={action.status} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[0.8125rem] text-bark leading-snug">
+                      {action.description}
+                    </p>
+                    <div className="flex items-center gap-2 mt-1 text-xs text-bark-muted">
+                      <span>{action.ownerName?.split(" ")[0] || "Unassigned"}</span>
+                      <span className="text-border-strong">·</span>
+                      <span className={action.status === "overdue" ? "text-earth font-medium" : ""}>
+                        {action.dueDate ? formatDate(action.dueDate.toISOString()) : "No due date"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* Upcoming reviews */}
+          <section>
+            <h2
+              className="text-base font-medium tracking-tight mb-4"
+              style={{ fontFamily: "var(--font-display)" }}
+            >
+              Reviews coming up
+            </h2>
+
+            <div className="space-y-2.5">
+              {nextReviews.map((decision) => (
+                <Link
+                  key={decision.id}
+                  href={`/decisions/${decision.number}`}
+                  className="flex items-start gap-2.5 py-2 group"
+                >
+                  <CalendarClock size={14} className="text-amber mt-0.5 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[0.8125rem] text-bark leading-snug group-hover:text-canopy transition-colors">
+                      #{decision.number} {decision.title}
+                    </p>
+                    <p className="text-xs text-bark-muted mt-0.5">
+                      Review by {formatDate(decision.reviewDate!.toISOString())}
+                    </p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </section>
+
+          {/* Recent meetings */}
+          <section>
+            <div className="flex items-center justify-between mb-4">
+              <h2
+                className="text-base font-medium tracking-tight"
+                style={{ fontFamily: "var(--font-display)" }}
+              >
+                Recent meetings
+              </h2>
+              <Link
+                href="/meetings"
+                className="text-xs text-canopy hover:text-canopy-light transition-colors"
+              >
+                All meetings
+              </Link>
+            </div>
+
+            <div className="space-y-2.5">
+              {allMeetings.slice(0, 3).map((meeting) => (
+                <div key={meeting.id} className="flex items-start gap-2.5 py-2">
+                  <BookOpen size={14} className="text-bark-muted mt-0.5 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[0.8125rem] text-bark leading-snug">
+                      {meeting.title}
+                    </p>
+                    <div className="flex items-center gap-2 mt-0.5 text-xs text-bark-muted">
+                      <span>{formatDate(meeting.date.toISOString())}</span>
+                      <span className="text-border-strong">·</span>
+                      <span>{meeting.decisionsCount} decisions</span>
+                      <span className="text-border-strong">·</span>
+                      <span>{meeting.attendees.length} present</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+  );
+}
