@@ -2,8 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, TriangleAlert } from "lucide-react";
-import { updateSpace, deleteSpace } from "@/lib/space-actions";
+import { Loader2, TriangleAlert, Sparkles } from "lucide-react";
+import { updateSpace, deleteSpace, updateSpaceSettings } from "@/lib/space-actions";
 
 const inputClass =
   "w-full px-4 py-2.5 text-sm bg-paper-warm border border-border rounded-lg placeholder:text-bark-muted/50 focus:outline-none focus:border-canopy focus:ring-1 focus:ring-canopy/20 transition-colors";
@@ -13,11 +13,15 @@ export function SpaceSettingsForm({
   description,
   slug,
   isAdmin,
+  aiAvailable,
+  aiEnabled,
 }: {
   name: string;
   description: string;
   slug: string;
   isAdmin: boolean;
+  aiAvailable: boolean;
+  aiEnabled: boolean;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -40,6 +44,15 @@ export function SpaceSettingsForm({
   function handleDelete() {
     startTransition(async () => {
       const result = await deleteSpace();
+      if (result?.error) {
+        setError(result.error);
+      }
+    });
+  }
+
+  function handleToggleAi(enabled: boolean) {
+    startTransition(async () => {
+      const result = await updateSpaceSettings({ aiEnabled: enabled });
       if (result?.error) {
         setError(result.error);
       }
@@ -112,6 +125,42 @@ export function SpaceSettingsForm({
           </p>
         )}
       </form>
+
+      {/* AI Features */}
+      {aiAvailable && isAdmin && (
+        <section className="border border-border rounded-xl p-6">
+          <div className="flex items-center gap-2 mb-2">
+            <Sparkles size={16} className="text-canopy" />
+            <h2 className="text-base font-medium text-bark" style={{ fontFamily: "var(--font-display)" }}>
+              AI Features
+            </h2>
+          </div>
+          <p className="text-sm text-bark-muted mb-4">
+            Enable AI-powered governance insights, pattern analysis, and document intelligence.
+          </p>
+          <label className="flex items-center gap-3 cursor-pointer">
+            <button
+              type="button"
+              role="switch"
+              aria-checked={aiEnabled}
+              onClick={() => handleToggleAi(!aiEnabled)}
+              disabled={isPending}
+              className={`relative w-10 h-5.5 rounded-full transition-colors ${
+                aiEnabled ? "bg-canopy" : "bg-paper-deep border border-border"
+              }`}
+            >
+              <span
+                className={`absolute top-0.5 left-0.5 w-4.5 h-4.5 rounded-full bg-paper shadow transition-transform ${
+                  aiEnabled ? "translate-x-[18px]" : ""
+                }`}
+              />
+            </button>
+            <span className="text-sm text-bark">
+              {aiEnabled ? "AI features enabled" : "AI features disabled"}
+            </span>
+          </label>
+        </section>
+      )}
 
       {/* Danger zone */}
       {isAdmin && (

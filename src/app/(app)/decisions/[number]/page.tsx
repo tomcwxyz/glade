@@ -5,7 +5,9 @@ import {
   getDecisionMeetings,
   getDecisionsList,
   getMeetingsList,
+  getDecisionReviewInsight,
 } from "@/lib/queries";
+import { isAiEnabled } from "@/lib/ai";
 import { formatDate } from "@/lib/utils";
 import {
   ArrowLeft,
@@ -22,6 +24,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { StatusAdvance } from "./status-advance";
 import { DecisionLinksEditor } from "./decision-links-editor";
+import { ReviewQuestions } from "./review-questions";
+import { DocumentSuggestions } from "./document-suggestions";
 
 type DecisionStatus = "decided" | "implemented" | "reviewed" | "learned";
 type DecisionMethod =
@@ -146,11 +150,14 @@ export default async function DecisionDetailPage({
   const decision = await getDecisionByNumber(space.id, parseInt(number, 10));
   if (!decision) return notFound();
 
-  const [linksWithIds, decisionMeetings, allDecisions, allMeetings] = await Promise.all([
+  const aiOn = isAiEnabled(space.settings);
+
+  const [linksWithIds, decisionMeetings, allDecisions, allMeetings, reviewInsight] = await Promise.all([
     getDecisionLinksWithIds(decision.id),
     getDecisionMeetings(decision.id),
     getDecisionsList(space.id),
     getMeetingsList(space.id),
+    aiOn && decision.reviewDate ? getDecisionReviewInsight(decision.id) : Promise.resolve(null),
   ]);
 
   const participants = decision.participants as string[];
@@ -339,6 +346,19 @@ export default async function DecisionDetailPage({
               ))}
             </div>
           </section>
+
+          {/* AI: Review questions */}
+          {aiOn && decision.reviewDate && (
+            <ReviewQuestions
+              decisionId={decision.id}
+              cachedContent={reviewInsight?.content ?? null}
+            />
+          )}
+
+          {/* AI: Document suggestions */}
+          {aiOn && (
+            <DocumentSuggestions decisionId={decision.id} />
+          )}
 
           {/* Decision method detail */}
           <section>

@@ -2,12 +2,19 @@
 
 import { useState } from "react";
 import { createMeeting, updateMeeting } from "@/lib/meeting-actions";
-import { ArrowLeft, Check, GripVertical, Loader2, Plus, X } from "lucide-react";
+import { ArrowLeft, Check, Loader2, Plus, X, MessageSquarePlus } from "lucide-react";
 import Link from "next/link";
 
 interface Member {
   id: string;
   name: string;
+}
+
+interface Topic {
+  id: string;
+  title: string;
+  description: string | null;
+  type: string;
 }
 
 interface MeetingData {
@@ -29,15 +36,23 @@ const MEETING_TYPES = [
   "Other",
 ];
 
+const TOPIC_TYPE_TO_AGENDA: Record<string, string> = {
+  question: "for_discussion",
+  tension: "for_discussion",
+  agenda_suggestion: "for_discussion",
+};
+
 const inputClass =
   "w-full px-4 py-2.5 text-sm bg-paper-warm border border-border rounded-lg placeholder:text-bark-muted/50 focus:outline-none focus:border-canopy focus:ring-1 focus:ring-canopy/20 transition-colors";
 
 export function MeetingForm({
   members,
   meeting,
+  topics,
 }: {
   members: Member[];
   meeting?: MeetingData;
+  topics?: Topic[];
 }) {
   const isEditing = !!meeting;
   const [loading, setLoading] = useState(false);
@@ -48,11 +63,27 @@ export function MeetingForm({
   const [agendaItems, setAgendaItems] = useState<
     { title: string; description: string; type: string }[]
   >(meeting?.agendaItems || []);
+  const [addedTopicIds, setAddedTopicIds] = useState<Set<string>>(new Set());
+  const [showTopicPicker, setShowTopicPicker] = useState(false);
+
+  const availableTopics = (topics || []).filter((t) => !addedTopicIds.has(t.id));
 
   function toggleAttendee(id: string) {
     setSelectedAttendees((prev) =>
       prev.includes(id) ? prev.filter((a) => a !== id) : [...prev, id]
     );
+  }
+
+  function addTopicAsAgendaItem(topic: Topic) {
+    setAgendaItems((prev) => [
+      ...prev,
+      {
+        title: topic.title,
+        description: topic.description || "",
+        type: TOPIC_TYPE_TO_AGENDA[topic.type] || "for_discussion",
+      },
+    ]);
+    setAddedTopicIds((prev) => new Set([...prev, topic.id]));
   }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -226,19 +257,57 @@ export function MeetingForm({
             <label className="block text-sm font-medium text-bark">
               Agenda <span className="font-normal text-bark-muted">(optional)</span>
             </label>
-            <button
-              type="button"
-              onClick={() =>
-                setAgendaItems([
-                  ...agendaItems,
-                  { title: "", description: "", type: "for_discussion" },
-                ])
-              }
-              className="flex items-center gap-1 text-xs text-canopy hover:text-canopy-light transition-colors"
-            >
-              <Plus size={14} />
-              Add item
-            </button>
+            <div className="flex items-center gap-2">
+              {availableTopics.length > 0 && (
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setShowTopicPicker(!showTopicPicker)}
+                    className="flex items-center gap-1 text-xs text-canopy hover:text-canopy-light transition-colors"
+                  >
+                    <MessageSquarePlus size={14} />
+                    Add from topics
+                  </button>
+                  {showTopicPicker && (
+                    <div className="absolute right-0 top-full mt-1 w-72 bg-paper border border-border rounded-lg shadow-lg z-10 py-1 max-h-60 overflow-y-auto">
+                      {availableTopics.map((topic) => (
+                        <button
+                          key={topic.id}
+                          type="button"
+                          onClick={() => {
+                            addTopicAsAgendaItem(topic);
+                            if (availableTopics.length <= 1) setShowTopicPicker(false);
+                          }}
+                          className="w-full text-left px-3 py-2 hover:bg-paper-warm transition-colors"
+                        >
+                          <span className="text-sm text-bark block truncate">
+                            {topic.title}
+                          </span>
+                          {topic.description && (
+                            <span className="text-xs text-bark-muted block truncate">
+                              {topic.description}
+                            </span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={() =>
+                  setAgendaItems([
+                    ...agendaItems,
+                    { title: "", description: "", type: "for_discussion" },
+                  ])
+                }
+                className="flex items-center gap-1 text-xs text-canopy hover:text-canopy-light transition-colors"
+              >
+                <Plus size={14} />
+                Add item
+              </button>
+            </div>
           </div>
 
           {agendaItems.length === 0 && (

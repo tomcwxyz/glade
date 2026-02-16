@@ -68,6 +68,32 @@ export async function deleteSpace() {
   }
 }
 
+export async function updateSpaceSettings(settings: Record<string, unknown>) {
+  const user = await requireUser();
+  const space = await getCurrentSpace();
+  if (!space) return { error: "No space selected" };
+
+  // Verify admin
+  const [membership] = await db
+    .select({ role: spaceMembers.role })
+    .from(spaceMembers)
+    .where(
+      and(eq(spaceMembers.spaceId, space.id), eq(spaceMembers.userId, user.id))
+    );
+
+  if (membership?.role !== "admin") return { error: "Only admins can update settings" };
+
+  const currentSettings = (space.settings as Record<string, unknown>) || {};
+  const merged = { ...currentSettings, ...settings };
+
+  await db
+    .update(spaces)
+    .set({ settings: merged, updatedAt: new Date() })
+    .where(eq(spaces.id, space.id));
+
+  redirect("/settings");
+}
+
 export async function updateMemberRole(
   memberId: string,
   role: "admin" | "member" | "observer"

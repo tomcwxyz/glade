@@ -16,7 +16,9 @@ import {
   documentSectionLinks,
   proposals,
   proposalComments,
+  proposalReferences,
   topics,
+  insights,
 } from "@/db/schema";
 import { eq, and, desc, asc, count, sql } from "drizzle-orm";
 
@@ -498,6 +500,27 @@ export async function getDocumentVersions(documentId: string) {
     .orderBy(desc(documentVersions.versionNumber));
 }
 
+export async function getDocumentVersionAtDate(documentId: string, targetDate: Date) {
+  const [version] = await db
+    .select({
+      id: documentVersions.id,
+      versionNumber: documentVersions.versionNumber,
+      content: documentVersions.content,
+      createdAt: documentVersions.createdAt,
+    })
+    .from(documentVersions)
+    .where(
+      and(
+        eq(documentVersions.documentId, documentId),
+        sql`${documentVersions.createdAt} <= ${targetDate}`
+      )
+    )
+    .orderBy(desc(documentVersions.versionNumber))
+    .limit(1);
+
+  return version || null;
+}
+
 // ============================================================
 // Proposals
 // ============================================================
@@ -566,10 +589,32 @@ export async function getProposalById(spaceId: string, proposalId: string) {
     .where(eq(proposalComments.proposalId, p.id))
     .orderBy(asc(proposalComments.createdAt));
 
+  const referenceRows = await db
+    .select({
+      id: proposalReferences.id,
+      title: proposalReferences.title,
+      url: proposalReferences.url,
+    })
+    .from(proposalReferences)
+    .where(eq(proposalReferences.proposalId, p.id));
+
+  // Fetch linked decision number if decidedAsDecisionId is set
+  let linkedDecisionNumber: number | null = null;
+  if (p.decidedAsDecisionId) {
+    const [dec] = await db
+      .select({ number: decisions.number })
+      .from(decisions)
+      .where(eq(decisions.id, p.decidedAsDecisionId))
+      .limit(1);
+    linkedDecisionNumber = dec?.number ?? null;
+  }
+
   return {
     ...p,
     createdByName: createdByUser[0]?.name || null,
     comments: commentRows,
+    references: referenceRows,
+    linkedDecisionNumber,
   };
 }
 
@@ -591,6 +636,60 @@ export async function getTopics(spaceId: string) {
     .from(topics)
     .leftJoin(users, eq(users.id, topics.createdBy))
     .where(eq(topics.spaceId, spaceId))
+    .orderBy(desc(topics.createdAt));
+}
+
+// ============================================================
+// Insights
+// ============================================================
+
+export async function getActiveInsights(spaceId: string) {
+  return db
+    .select({
+      id: insights.id,
+      type: insights.type,
+      title: insights.title,
+      content: insights.content,
+      relatedDecisionId: insights.relatedDecisionId,
+      relatedDocumentId: insights.relatedDocumentId,
+      createdAt: insights.createdAt,
+    })
+    .from(insights)
+    .where(and(eq(insights.spaceId, spaceId), eq(insights.status, "active")))
+    .orderBy(desc(insights.createdAt));
+}
+
+export async function getDecisionReviewInsight(decisionId: string) {
+  const [insight] = await db
+    .select({ id: insights.id, content: insights.content })
+    .from(insights)
+    .where(
+      and(
+        eq(insights.type, "review"),
+        eq(insights.relatedDecisionId, decisionId),
+        eq(insights.status, "active")
+      )
+    )
+    .limit(1);
+
+  return insight || null;
+}
+
+export async function getAvailableTopics(spaceId: string) {
+  return db
+    .select({
+      id: topics.id,
+      title: topics.title,
+      description: topics.description,
+      type: topics.type,
+    })
+    .from(topics)
+    .where(
+      and(
+        eq(topics.spaceId, spaceId),
+        sql`${topics.promotedToProposalId} is null`
+      )
+    )
     .orderBy(desc(topics.createdAt));
 }
 

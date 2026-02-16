@@ -4,7 +4,8 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { eq, and } from "drizzle-orm";
 import { db } from "@/db";
-import { proposals, proposalComments } from "@/db/schema";
+import { proposals, proposalComments, proposalReferences, decisions } from "@/db/schema";
+import { getNextDecisionNumber } from "@/lib/queries";
 import { getCurrentSpace, requireUser } from "@/lib/space";
 
 export async function createProposal(formData: FormData) {
@@ -129,6 +130,98 @@ export async function deleteProposalComment(commentId: string) {
 
   await db.delete(proposalComments).where(eq(proposalComments.id, commentId));
 
+  revalidatePath("/proposals");
+}
+
+export async function createDecisionFromProposal(
+  proposalId: string,
+  formData: FormData
+) {
+  const user = await requireUser();
+  const space = await getCurrentSpace();
+  if (!space) return { error: "No space selected" };
+
+  // Verify proposal
+  const [proposal] = await db
+    .select()
+    .from(proposals)
+    .where(and(eq(proposals.id, proposalId), eq(proposals.spaceId, space.id)))
+    .limit(1);
+
+  if (!proposal) return { error: "Proposal not found" };
+  if (proposal.decidedAsDecisionId) return { error: "Decision already created for this proposal" };
+
+  const method = formData.get("method") as string;
+  if (!method) return { error: "Decision method is required" };
+
+  const dateStr = formData.get("date") as string;
+  if (!dateStr) return { error: "Date is required" };
+
+  const outcome = (formData.get("outcome") as string)?.trim() || null;
+  const participantsRaw = formData.get("participants") as string;
+  const participants = participantsRaw
+    ? participantsRaw.split(",").map((p) => p.trim()).filter(Boolean)
+    : [];
+
+  const number = await getNextDecisionNumber(space.id);
+
+  const [decision] = await db
+    .insert(decisions)
+    .values({
+      number,
+      spaceId: space.id,
+      title: proposal.title,
+      description: proposal.description,
+      rationale: proposal.rationale,
+      method: method as "consent" | "majority_vote" | "advice_process" | "delegation" | "consensus" | "lazy_consensus",
+      outcome,
+      status: "decided",
+      participants,
+      date: new Date(dateStr),
+      createdBy: user.id,
+    })
+    .returning({ id: decisions.id, number: decisions.number });
+
+  // Link proposal to decision
+  await db
+    .update(proposals)
+    .set({ decidedAsDecisionId: decision.id, updatedAt: new Date() })
+    .where(eq(proposals.id, proposalId));
+
+  redirect(`/decisions/${decision.number}`);
+}
+
+export async function addProposalReference(
+  proposalId: string,
+  title: string,
+  url: string
+) {
+  const space = await getCurrentSpace();
+  if (!space) return { error: "No space selected" };
+
+  if (!title.trim()) return { error: "Title is required" };
+  if (!url.trim()) return { error: "URL is required" };
+
+  // Verify proposal belongs to this space
+  const [existing] = await db
+    .select({ id: proposals.id })
+    .from(proposals)
+    .where(and(eq(proposals.id, proposalId), eq(proposals.spaceId, space.id)))
+    .limit(1);
+
+  if (!existing) return { error: "Proposal not found" };
+
+  await db.insert(proposalReferences).values({
+    proposalId,
+    title: title.trim(),
+    url: url.trim(),
+  });
+
+  revalidatePath(`/proposals/${proposalId}`);
+}
+
+export async function removeProposalReference(referenceId: string) {
+  await db.delete(proposalReferences).where(eq(proposalReferences.id, referenceId));
   revalidatePath("/proposals");
 }
 

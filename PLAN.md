@@ -1,7 +1,7 @@
 # Plan — Glade
 
-> Last updated: 2026-02-15
-> Status: Phase 1 nearly complete — remaining: Vercel deploy, Resend email, advanced filters, breadcrumbs
+> Last updated: 2026-02-16
+> Status: Phase 2 + Phase 3 complete. Remaining: Vercel deploy, Resend email, advanced filters, breadcrumbs
 
 ## Objective
 
@@ -103,41 +103,42 @@ Build **Glade**, a decision-centric governance platform for social purpose organ
 
 ### 2.1 Document Schema
 
-- [ ] `documents` table — title, type (constitution, TOR, policy, role_description, standing_orders, custom), content (JSON for Tiptap), space_id, current_version
-- [ ] `document_versions` table — version_number, content snapshot, decision_id that triggered the change, created_at
-- [ ] `document_section_links` table — link decisions to specific sections within documents
+- [x] `documents` table — title, type (constitution, TOR, policy, role_description, standing_orders, custom), content (JSON for Tiptap), space_id, current_version
+- [x] `document_versions` table — version_number, content snapshot, decision_id that triggered the change, created_at
+- [x] `document_section_links` table — link decisions to specific sections within documents
 
 ### 2.2 Document Editor
 
-- [ ] Integrate Tiptap block-based editor
-- [ ] Document types: constitution, terms of reference, policy, role description, standing orders, custom
-- [ ] Create, edit, and publish governance documents
-- [ ] Auto-save drafts
+- [x] Integrate Tiptap block-based editor
+- [x] Document types: constitution, terms of reference, policy, role description, standing orders, custom
+- [x] Create, edit, and publish governance documents
+- [x] Auto-save drafts
 
 ### 2.3 Document Provenance
 
-- [ ] Link decisions to specific sections of documents
-- [ ] Version history with diffs — what changed and which decision drove the change
-- [ ] Historical view: "show me this document as it was on [date]"
-- [ ] "Why does this clause exist?" — click any section to see the decision trail
-- [ ] Document list with last-updated indicators
+- [x] Link decisions to specific sections of documents (schema + display)
+- [x] Version history — what changed and which decision drove the change
+- [x] Version diffs — visual diff between versions
+- [x] Historical view: "show me this document as it was on [date]"
+- [x] "Why does this clause exist?" — click any section to see the decision trail
+- [x] Document list with last-updated indicators
 
 ### 2.4 Proposals
 
-- [ ] `proposals` table — title, description, rationale, affected_documents, suggested_method, status, space_id
-- [ ] `proposal_comments` table — threaded discussion
-- [ ] Create proposal with: title, description, rationale, affected documents, suggested decision method
-- [ ] Discussion thread on each proposal: comments, questions, amendments
-- [ ] Proposal lifecycle: draft → open_for_discussion → ready_for_decision → decided → implemented
-- [ ] Attach supporting materials (links, references)
-- [ ] When proposal becomes a decision, prompt governance document update
+- [x] `proposals` table — title, description, rationale, suggested_method, status, space_id
+- [x] `proposal_comments` table — threaded discussion
+- [x] Create proposal with: title, description, rationale, suggested decision method
+- [x] Discussion thread on each proposal: comments with replies
+- [x] Proposal lifecycle: draft → open_for_discussion → ready_for_decision → decided → implemented
+- [x] Attach supporting materials (links, references)
+- [x] When proposal becomes a decision, prompt governance document update
 
 ### 2.5 Topics
 
-- [ ] `topics` table — title, description, type (question, tension, agenda_suggestion), space_id
-- [ ] Lightweight topic creation
-- [ ] Promote topic to proposal
-- [ ] Pull topics into meeting agendas
+- [x] `topics` table — title, description, type (question, tension, agenda_suggestion), space_id
+- [x] Lightweight topic creation
+- [x] Promote topic to proposal
+- [x] Pull topics into meeting agendas
 
 ---
 
@@ -145,35 +146,35 @@ Build **Glade**, a decision-centric governance platform for social purpose organ
 
 ### 3.1 Infrastructure
 
-- [ ] Anthropic API integration with structured prompts and system instructions
-- [ ] Prompt template system — each analysis type has its own template
-- [ ] Background job processing (e.g. Vercel Cron or Inngest)
-- [ ] Per-space toggle to disable AI features entirely
-- [ ] `insights` table — AI-generated observations linked to decisions or the space
+- [x] Anthropic API integration with structured prompts and system instructions
+- [x] Prompt template system — each analysis type has its own template
+- [x] Per-space toggle to disable AI features entirely
+- [x] `insights` table — AI-generated observations linked to decisions or the space
+- [ ] Background job processing (e.g. Vercel Cron or Inngest) — deferred, using manual triggers instead
 
 ### 3.2 Pattern Analysis
 
-- [ ] Background job: periodic analysis of decision log
-- [ ] Surface patterns: frequently revisited decision types, consultation gaps, recurring themes
-- [ ] Store results as Insights linked to relevant decisions
+- [x] Manual-trigger analysis of decision log (dashboard "Analyse patterns" button)
+- [x] Surface patterns: frequently revisited decision types, consultation gaps, recurring themes
+- [x] Store results as Insights linked to relevant decisions
 
 ### 3.3 Decision Review Prompter
 
-- [ ] When a decision comes up for review, generate context-aware reflection questions
-- [ ] Reference original rationale, concerns raised, method used
-- [ ] Structured review output: what happened, expected vs actual, surprises, what we'd change
+- [x] When a decision comes up for review, generate context-aware reflection questions
+- [x] Reference original rationale, concerns raised, method used
+- [x] Structured review output: what happened, expected vs actual, surprises, what we'd change
 
 ### 3.4 Governance Document Intelligence
 
-- [ ] On new decision: suggest which governance documents might be affected
+- [x] On new decision: suggest which governance documents might be affected
 - [ ] Flag documents not reviewed relative to recent decisions
 - [ ] Help draft document updates from decision text
 
 ### 3.5 Insights & Digest
 
-- [ ] Insights panel: browsable list of AI observations, dismissable or actionable
+- [x] Insights panel: browsable list of AI observations, dismissable or actionable
 - [ ] Monthly governance digest (email via Resend): summary of decisions, patterns, suggested reviews
-- [ ] New member briefing generator: "what you need to know about how we govern"
+- [x] New member briefing generator: "what you need to know about how we govern"
 
 ---
 

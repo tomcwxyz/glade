@@ -1,6 +1,6 @@
 # State
 
-> Last updated: 2026-02-15
+> Last updated: 2026-02-16
 
 ## System State Diagram
 
@@ -28,7 +28,7 @@ stateDiagram-v2
 | Design system (globals.css) | ✅ Done | Forest palette (oklch), fluid type scale, status colours |
 | NextAuth (Auth.js v5) | ✅ Done | Credentials + magic link + Google + Microsoft OAuth. Edge-compatible middleware. |
 | Neon PostgreSQL + Drizzle ORM | ✅ Done | Connected, schema pushed, migrations generated |
-| Database schema (15 tables) | ✅ Done | Auth tables + spaces, decisions, meetings, actions, tags, links |
+| Database schema (21 tables) | ✅ Done | Auth tables + spaces, decisions, meetings, actions, tags, links, documents, proposals, topics |
 | Sign-in / sign-up pages | ✅ Done | Styled in Glade design system, all auth methods |
 | Route protection (middleware) | ✅ Done | Public: `/`, `/sign-in`, `/sign-up`. All app routes require auth. |
 | Update CLAUDE.md | ✅ Done | Full project conventions documented |
@@ -72,6 +72,30 @@ stateDiagram-v2
 | Loading skeleton | ✅ Done | Generic skeleton loading component |
 | Responsive layout | ✅ Done | Mobile hamburger nav, responsive padding, single-column on mobile |
 
+### Phase 2 — Governance Documents & Proposals
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| Document schema (3 tables) | ✅ Done | `documents`, `document_versions`, `document_section_links` + enums |
+| Proposal schema (2 tables) | ✅ Done | `proposals`, `proposal_comments` + enum |
+| Topic schema (1 table) | ✅ Done | `topics` + enum |
+| Tiptap editor component | ✅ Done | Reusable with toolbar, read-only mode, Glade-styled |
+| Document CRUD | ✅ Done | List (grouped by type), create, edit, detail, publish/unpublish |
+| Document version history | ✅ Done | Timeline view with version descriptions, linked decisions |
+| Proposal CRUD | ✅ Done | List (grouped by status), create, edit, detail |
+| Proposal status lifecycle | ✅ Done | draft → open_for_discussion → ready_for_decision → decided → implemented |
+| Proposal threaded discussion | ✅ Done | Comments with replies, inline reply form |
+| Topic CRUD | ✅ Done | List with type icons, create with radio selector, detail |
+| Promote topic to proposal | ✅ Done | Creates proposal, links back to topic |
+| Sidebar nav enabled | ✅ Done | Documents, Proposals, Topics all active |
+| Auto-save drafts | ✅ Done | Debounced 1.5s auto-save with status indicator |
+| Document diffs | ✅ Done | Visual diff between any two versions |
+| Historical document view | ✅ Done | Date picker to view document as it was |
+| Decision trail on sections | ✅ Done | Heading → decision mapping with popover + manager |
+| Pull topics into agendas | ✅ Done | "Add from topics" dropdown in meeting form |
+| Proposal references | ✅ Done | URL+title references on proposals |
+| Proposal → decision flow | ✅ Done | Create decision from decided proposal |
+
 ## Data Flow
 
 ```mermaid
@@ -86,19 +110,34 @@ flowchart LR
     H --> C
 ```
 
-Next milestone: Vercel deployment, Resend email, advanced decision filters. Phase 2 (Documents & Proposals) ready to begin.
+### Phase 3 — AI Layer
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| Anthropic SDK integration | ✅ Done | `@anthropic-ai/sdk`, singleton client in `src/lib/ai.ts` |
+| AI prompts system | ✅ Done | `src/lib/ai-prompts.ts` — 4 prompt templates (pattern, review, document, briefing) |
+| Per-space AI toggle | ✅ Done | Settings page toggle, `spaces.settings` JSONB |
+| Insights table | ✅ Done | `insights` table with type/status enums, relations to spaces/decisions/documents |
+| Pattern analysis | ✅ Done | Manual "Analyse patterns" button on dashboard, generates insights |
+| Insights panel | ✅ Done | Dashboard right column, dismissable insights with decision links |
+| Decision review prompter | ✅ Done | Generate review questions on decision detail (when review date set) |
+| Document intelligence | ✅ Done | "Check document impact" on decision detail, suggests documents to update |
+| Member briefing | ✅ Done | On-demand governance briefing on dashboard |
+
+Next milestone: Vercel deployment, Resend email. Phase 4 (Meeting Mode) ready to begin.
 
 ## Dependencies
 
 | Dependency | Status | Notes |
 |------------|--------|-------|
 | NextAuth (Auth.js v5) | ✅ Working | JWT sessions, Drizzle adapter, credentials + OAuth |
-| Neon (PostgreSQL) | ✅ Connected | Schema pushed (15 tables), pooler endpoint |
+| Neon (PostgreSQL) | ✅ Connected | Schema pushed (24 tables), pooler endpoint |
 | Drizzle ORM | ✅ Installed | Schema, relations, migrations configured |
+| Anthropic SDK | ✅ Installed | `@anthropic-ai/sdk`, needs `ANTHROPIC_API_KEY` in env |
+| diff | ✅ Installed | Text diffing for document version comparison |
 | Vercel (hosting) | Not set up | |
 | Resend (email) | Partial | Provider configured, needs `AUTH_RESEND_KEY` |
 | Stripe (billing) | Not set up | Phase 5 |
-| Anthropic API (AI) | Not set up | Phase 3 |
 
 <!--
 Keep this file as the single source of truth for "where are we?"

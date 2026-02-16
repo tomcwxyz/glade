@@ -1,5 +1,6 @@
 import { getCurrentSpace, requireUser } from "@/lib/space";
 import { getSpaceMembers } from "@/lib/queries";
+import { isAiAvailable, isAiEnabled } from "@/lib/ai";
 import { Settings } from "lucide-react";
 import { SpaceSettingsForm } from "./settings-form";
 
@@ -34,6 +35,8 @@ export default async function SettingsPage() {
         description={space.description || ""}
         slug={space.slug}
         isAdmin={isAdmin}
+        aiAvailable={isAiAvailable()}
+        aiEnabled={isAiEnabled(space.settings)}
       />
     </div>
   );

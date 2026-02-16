@@ -1,0 +1,265 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { eq, and } from "drizzle-orm";
+import { db } from "@/db";
+import { insights, decisions, documents } from "@/db/schema";
+import { getCurrentSpace } from "@/lib/space";
+import { isAiEnabled, generateText } from "@/lib/ai";
+import { SYSTEM_PROMPT, patternAnalysisPrompt, reviewQuestionsPrompt, documentImpactPrompt, memberBriefingPrompt } from "@/lib/ai-prompts";
+import { getDecisions, getDocuments, getDecisionByNumber } from "@/lib/queries";
+
+async function checkAiEnabled() {
+  const space = await getCurrentSpace();
+  if (!space) return { error: "No space selected", space: null };
+  if (!isAiEnabled(space.settings)) return { error: "AI features are not enabled", space: null };
+  return { error: null, space };
+}
+
+export async function dismissInsight(insightId: string) {
+  await db
+    .update(insights)
+    .set({ status: "dismissed" })
+    .where(eq(insights.id, insightId));
+
+  revalidatePath("/dashboard");
+}
+
+export async function analysePatterns() {
+  const { error, space } = await checkAiEnabled();
+  if (error || !space) return { error: error || "No space" };
+
+  const allDecisions = await getDecisions(space.id);
+  if (allDecisions.length === 0) return { error: "No decisions to analyse" };
+
+  const decisionsJson = JSON.stringify(
+    allDecisions.map((d) => ({
+      number: d.number,
+      title: d.title,
+      description: d.description,
+      method: d.method,
+      status: d.status,
+      date: d.date.toISOString().split("T")[0],
+      tags: d.tags,
+      actionsCount: d.actionsCount,
+      actionsComplete: d.actionsComplete,
+    }))
+  );
+
+  const response = await generateText(
+    SYSTEM_PROMPT,
+    patternAnalysisPrompt(decisionsJson)
+  );
+
+  let parsed: Array<{
+    title: string;
+    content: string;
+    relatedDecisionNumber: number | null;
+  }>;
+  try {
+    parsed = JSON.parse(response);
+  } catch {
+    return { error: "Failed to parse AI response" };
+  }
+
+  // Remove old pattern insights for this space
+  const oldInsights = await db
+    .select({ id: insights.id })
+    .from(insights)
+    .where(and(eq(insights.spaceId, space.id), eq(insights.type, "pattern")));
+
+  for (const old of oldInsights) {
+    await db.delete(insights).where(eq(insights.id, old.id));
+  }
+
+  // Look up decision IDs from numbers
+  for (const insight of parsed) {
+    let relatedDecisionId: string | null = null;
+    if (insight.relatedDecisionNumber) {
+      const dec = await getDecisionByNumber(space.id, insight.relatedDecisionNumber);
+      if (dec) relatedDecisionId = dec.id;
+    }
+
+    await db.insert(insights).values({
+      spaceId: space.id,
+      type: "pattern",
+      title: insight.title,
+      content: insight.content,
+      relatedDecisionId,
+      status: "active",
+    });
+  }
+
+  revalidatePath("/dashboard");
+  return { success: true };
+}
+
+export async function generateReviewQuestions(decisionId: string) {
+  const { error, space } = await checkAiEnabled();
+  if (error || !space) return { error: error || "No space" };
+
+  // Check for cached review insight
+  const [existing] = await db
+    .select({ id: insights.id, content: insights.content })
+    .from(insights)
+    .where(
+      and(
+        eq(insights.spaceId, space.id),
+        eq(insights.type, "review"),
+        eq(insights.relatedDecisionId, decisionId),
+        eq(insights.status, "active")
+      )
+    )
+    .limit(1);
+
+  if (existing) return { content: existing.content };
+
+  const [decision] = await db
+    .select()
+    .from(decisions)
+    .where(and(eq(decisions.id, decisionId), eq(decisions.spaceId, space.id)))
+    .limit(1);
+
+  if (!decision) return { error: "Decision not found" };
+
+  const decisionJson = JSON.stringify({
+    number: decision.number,
+    title: decision.title,
+    description: decision.description,
+    rationale: decision.rationale,
+    outcome: decision.outcome,
+    method: decision.method,
+    status: decision.status,
+    date: decision.date.toISOString().split("T")[0],
+    conditions: decision.conditions,
+  });
+
+  const response = await generateText(
+    SYSTEM_PROMPT,
+    reviewQuestionsPrompt(decisionJson)
+  );
+
+  await db.insert(insights).values({
+    spaceId: space.id,
+    type: "review",
+    title: `Review questions for #${decision.number}`,
+    content: response,
+    relatedDecisionId: decisionId,
+    status: "active",
+  });
+
+  revalidatePath(`/decisions/${decision.number}`);
+  return { content: response };
+}
+
+export async function suggestDocumentUpdates(decisionId: string) {
+  const { error, space } = await checkAiEnabled();
+  if (error || !space) return { error: error || "No space" };
+
+  const [decision] = await db
+    .select()
+    .from(decisions)
+    .where(and(eq(decisions.id, decisionId), eq(decisions.spaceId, space.id)))
+    .limit(1);
+
+  if (!decision) return { error: "Decision not found" };
+
+  const allDocs = await getDocuments(space.id);
+
+  const decisionJson = JSON.stringify({
+    number: decision.number,
+    title: decision.title,
+    description: decision.description,
+    rationale: decision.rationale,
+    outcome: decision.outcome,
+  });
+
+  const docsJson = JSON.stringify(
+    allDocs.map((d) => ({
+      title: d.title,
+      type: d.type,
+      status: d.status,
+    }))
+  );
+
+  const response = await generateText(
+    SYSTEM_PROMPT,
+    documentImpactPrompt(decisionJson, docsJson)
+  );
+
+  let suggestions: Array<{ documentTitle: string; reason: string }>;
+  try {
+    suggestions = JSON.parse(response);
+  } catch {
+    return { error: "Failed to parse AI response" };
+  }
+
+  // Store as insight
+  await db.insert(insights).values({
+    spaceId: space.id,
+    type: "suggestion",
+    title: `Document impact for #${decision.number}`,
+    content: JSON.stringify(suggestions),
+    relatedDecisionId: decisionId,
+    status: "active",
+  });
+
+  revalidatePath(`/decisions/${decision.number}`);
+  return { suggestions };
+}
+
+export async function generateMemberBriefing() {
+  const { error, space } = await checkAiEnabled();
+  if (error || !space) return { error: error || "No space" };
+
+  const [allDecisions, allDocs] = await Promise.all([
+    getDecisions(space.id),
+    getDocuments(space.id),
+  ]);
+
+  const decisionsJson = JSON.stringify(
+    allDecisions.slice(0, 20).map((d) => ({
+      number: d.number,
+      title: d.title,
+      description: d.description,
+      method: d.method,
+      status: d.status,
+      date: d.date.toISOString().split("T")[0],
+    }))
+  );
+
+  const docsJson = JSON.stringify(
+    allDocs.map((d) => ({
+      title: d.title,
+      type: d.type,
+      status: d.status,
+    }))
+  );
+
+  const response = await generateText(
+    SYSTEM_PROMPT,
+    memberBriefingPrompt(decisionsJson, docsJson),
+    { maxTokens: 3000 }
+  );
+
+  // Remove old briefing
+  const old = await db
+    .select({ id: insights.id })
+    .from(insights)
+    .where(and(eq(insights.spaceId, space.id), eq(insights.type, "briefing")));
+
+  for (const o of old) {
+    await db.delete(insights).where(eq(insights.id, o.id));
+  }
+
+  await db.insert(insights).values({
+    spaceId: space.id,
+    type: "briefing",
+    title: "New member briefing",
+    content: response,
+    status: "active",
+  });
+
+  revalidatePath("/dashboard");
+  return { content: response };
+}

@@ -1,11 +1,12 @@
 import { getCurrentSpace } from "@/lib/space";
-import { getDocumentById } from "@/lib/queries";
+import { getDocumentById, getDecisionsList } from "@/lib/queries";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Clock, Edit, FileText, History } from "lucide-react";
 import { formatDate } from "@/lib/utils";
-import { TiptapViewer } from "./tiptap-viewer";
 import { DocumentStatusActions } from "./document-status-actions";
+import { DocumentWithTrail } from "./document-with-trail";
+import { SectionLinkManager } from "./section-link-manager";
 
 const TYPE_LABELS: Record<string, string> = {
   constitution: "Constitution",
@@ -25,7 +26,10 @@ export default async function DocumentDetailPage({
   const space = await getCurrentSpace();
   if (!space) return null;
 
-  const doc = await getDocumentById(space.id, id);
+  const [doc, allDecisions] = await Promise.all([
+    getDocumentById(space.id, id),
+    getDecisionsList(space.id),
+  ]);
   if (!doc) notFound();
 
   return (
@@ -99,39 +103,26 @@ export default async function DocumentDetailPage({
         </div>
       </header>
 
-      {/* Document content */}
-      <div className="bg-paper-warm rounded-xl border border-border p-8">
-        {doc.content ? (
-          <TiptapViewer content={doc.content as Record<string, unknown>} />
-        ) : (
+      {/* Document content with trail */}
+      {doc.content != null ? (
+        <DocumentWithTrail
+          content={doc.content as Record<string, unknown>}
+          sectionLinks={doc.sectionLinks}
+        />
+      ) : (
+        <div className="bg-paper-warm rounded-xl border border-border p-8">
           <p className="text-bark-muted italic">No content yet.</p>
-        )}
-      </div>
-
-      {/* Linked decisions */}
-      {doc.sectionLinks.length > 0 && (
-        <div className="mt-8">
-          <h2
-            className="text-lg font-medium tracking-tight mb-3"
-            style={{ fontFamily: "var(--font-display)" }}
-          >
-            Linked decisions
-          </h2>
-          <div className="space-y-1">
-            {doc.sectionLinks.map((link) => (
-              <Link
-                key={link.id}
-                href={`/decisions/${link.decisionNumber}`}
-                className="flex items-center gap-3 px-4 py-2.5 rounded-lg hover:bg-paper-warm transition-colors text-sm"
-              >
-                <span className="font-mono text-xs text-bark-muted">
-                  #{link.decisionNumber}
-                </span>
-                <span className="text-bark">{link.decisionTitle}</span>
-              </Link>
-            ))}
-          </div>
         </div>
+      )}
+
+      {/* Section link manager */}
+      {doc.content != null && (
+        <SectionLinkManager
+          documentId={doc.id}
+          content={doc.content as Record<string, unknown>}
+          sectionLinks={doc.sectionLinks}
+          decisions={allDecisions}
+        />
       )}
     </div>
   );

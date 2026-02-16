@@ -1,12 +1,15 @@
 import { getCurrentSpace } from "@/lib/space";
-import { getSpaceMembers } from "@/lib/queries";
+import { getSpaceMembers, getAvailableTopics } from "@/lib/queries";
 import { MeetingForm } from "../meeting-form";
 
 export default async function NewMeetingPage() {
   const space = await getCurrentSpace();
   if (!space) return null;
 
-  const members = await getSpaceMembers(space.id);
+  const [members, topics] = await Promise.all([
+    getSpaceMembers(space.id),
+    getAvailableTopics(space.id),
+  ]);
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-8 py-6 sm:py-10">
@@ -24,6 +27,7 @@ export default async function NewMeetingPage() {
 
       <MeetingForm
         members={members.map((m) => ({ id: m.userId, name: m.name || m.email }))}
+        topics={topics}
       />
     </div>
   );

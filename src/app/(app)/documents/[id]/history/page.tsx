@@ -4,6 +4,8 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, GitCommit } from "lucide-react";
 import { formatDate } from "@/lib/utils";
+import { VersionDiff } from "./version-diff";
+import { HistoricalView } from "./historical-view";
 
 export default async function DocumentHistoryPage({
   params,
@@ -91,6 +93,18 @@ export default async function DocumentHistoryPage({
           ))}
         </div>
       </div>
+
+      {/* Version diff */}
+      <VersionDiff
+        versions={versions.map((v) => ({
+          id: v.id,
+          versionNumber: v.versionNumber,
+          content: v.content,
+        }))}
+      />
+
+      {/* Historical view */}
+      <HistoricalView documentId={doc.id} />
     </div>
   );
 }

@@ -6,6 +6,7 @@ import { ArrowLeft, Edit, Clock } from "lucide-react";
 import { formatDate, formatDateRelative } from "@/lib/utils";
 import { ProposalStatusAdvance } from "./proposal-status-advance";
 import { ProposalDiscussion } from "./proposal-discussion";
+import { ProposalReferences } from "./proposal-references";
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   draft: { label: "Draft", color: "bg-paper-deep text-bark-muted" },
@@ -137,6 +138,43 @@ export default async function ProposalDetailPage({
           </div>
         )}
       </div>
+
+      {/* References */}
+      <div className="mb-10">
+        <ProposalReferences
+          proposalId={proposal.id}
+          references={proposal.references}
+        />
+      </div>
+
+      {/* Decision link */}
+      {proposal.status === "decided" && !proposal.linkedDecisionNumber && (
+        <div className="mb-10 p-4 bg-canopy-pale/40 rounded-xl border border-canopy/20">
+          <p className="text-sm text-bark mb-2">
+            This proposal has been decided. Create a formal decision record?
+          </p>
+          <Link
+            href={`/proposals/${proposal.id}/create-decision`}
+            className="inline-flex items-center gap-1.5 px-4 py-2 bg-canopy text-paper rounded-lg text-sm font-medium hover:bg-canopy-light transition-colors"
+          >
+            Create decision
+          </Link>
+        </div>
+      )}
+
+      {proposal.linkedDecisionNumber && (
+        <div className="mb-10 p-4 bg-paper-warm rounded-xl border border-border">
+          <p className="text-sm text-bark">
+            Recorded as{" "}
+            <Link
+              href={`/decisions/${proposal.linkedDecisionNumber}`}
+              className="text-canopy font-medium hover:underline"
+            >
+              Decision #{proposal.linkedDecisionNumber}
+            </Link>
+          </p>
+        </div>
+      )}
 
       {/* Discussion */}
       <ProposalDiscussion

@@ -1,5 +1,6 @@
 import { getCurrentSpace } from "@/lib/space";
-import { getDecisions, getActions, getMeetings, getSpaceStats } from "@/lib/queries";
+import { getDecisions, getActions, getMeetings, getSpaceStats, getActiveInsights } from "@/lib/queries";
+import { isAiEnabled } from "@/lib/ai";
 import { formatDate, formatDateRelative } from "@/lib/utils";
 import {
   ArrowRight,
@@ -12,6 +13,8 @@ import {
   TriangleAlert,
 } from "lucide-react";
 import Link from "next/link";
+import { InsightsPanel } from "./insights-panel";
+import { MemberBriefing } from "./member-briefing";
 
 const METHOD_LABELS: Record<string, string> = {
   consent: "Consent",
@@ -77,11 +80,14 @@ export default async function DashboardPage() {
   const space = await getCurrentSpace();
   if (!space) return null;
 
-  const [allDecisions, allActions, allMeetings, stats] = await Promise.all([
+  const aiEnabled = isAiEnabled(space.settings);
+
+  const [allDecisions, allActions, allMeetings, stats, activeInsights] = await Promise.all([
     getDecisions(space.id),
     getActions(space.id),
     getMeetings(space.id),
     getSpaceStats(space.id),
+    aiEnabled ? getActiveInsights(space.id) : Promise.resolve([]),
   ]);
 
   const recentDecisions = allDecisions.slice(0, 4);
@@ -93,6 +99,22 @@ export default async function DashboardPage() {
     })
     .slice(0, 4);
   const nextReviews = allDecisions.filter((d) => d.reviewDate).slice(0, 3);
+
+  // Build decision lookup for insights
+  const relatedDecisions: Record<string, { number: number; title: string }> = {};
+  for (const insight of activeInsights) {
+    if (insight.relatedDecisionId) {
+      const dec = allDecisions.find((d) => d.id === insight.relatedDecisionId);
+      if (dec) {
+        relatedDecisions[insight.relatedDecisionId] = {
+          number: dec.number,
+          title: dec.title,
+        };
+      }
+    }
+  }
+
+  const briefingInsight = activeInsights.find((i) => i.type === "briefing");
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-8 py-6 sm:py-10">
@@ -181,6 +203,17 @@ export default async function DashboardPage() {
 
         {/* Right column */}
         <div className="space-y-10">
+          {/* AI Insights */}
+          {aiEnabled && (
+            <InsightsPanel
+              insights={activeInsights.map((i) => ({
+                ...i,
+                createdAt: i.createdAt.toISOString(),
+              }))}
+              relatedDecisions={relatedDecisions}
+            />
+          )}
+
           {/* Open actions */}
           <section>
             <div className="flex items-center justify-between mb-4">
@@ -286,6 +319,16 @@ export default async function DashboardPage() {
               ))}
             </div>
           </section>
+
+          {/* Member briefing */}
+          {aiEnabled && (
+            <MemberBriefing
+              existing={briefingInsight ? {
+                id: briefingInsight.id,
+                content: briefingInsight.content,
+              } : null}
+            />
+          )}
         </div>
       </div>
     </div>
