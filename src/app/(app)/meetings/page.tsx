@@ -3,11 +3,33 @@ import { BookOpen, Calendar, Plus, Users } from "lucide-react";
 import Link from "next/link";
 import { getCurrentSpace } from "@/lib/space";
 import { getMeetings } from "@/lib/queries";
+import { EmptyState } from "@/components/empty-state";
 
 export default async function MeetingsPage() {
   const space = await getCurrentSpace();
   if (!space) return null;
   const meetings = await getMeetings(space.id);
+  if (meetings.length === 0) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 sm:px-8 py-6 sm:py-10">
+        <header className="mb-10">
+          <h1
+            className="text-3xl font-light tracking-tight mb-1.5"
+            style={{ fontFamily: "var(--font-display)" }}
+          >
+            Meetings
+          </h1>
+        </header>
+        <EmptyState
+          icon={Calendar}
+          title="No meetings recorded"
+          description="Record your board meetings and committee sessions to link decisions to their context."
+          action={{ label: "New meeting", href: "/meetings/new" }}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-8 py-6 sm:py-10">
       <header className="mb-10 flex items-end justify-between">

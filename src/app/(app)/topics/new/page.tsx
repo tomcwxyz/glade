@@ -1,4 +1,5 @@
 import { getCurrentSpace } from "@/lib/space";
+import { Breadcrumbs } from "@/components/breadcrumbs";
 import { TopicForm } from "../topic-form";
 
 export default async function NewTopicPage() {
@@ -7,6 +8,10 @@ export default async function NewTopicPage() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-8 py-6 sm:py-10">
+      <Breadcrumbs items={[
+        { label: "Topics", href: "/topics" },
+        { label: "New topic" },
+      ]} />
       <header className="mb-10">
         <h1
           className="text-2xl font-medium tracking-tight mb-2"

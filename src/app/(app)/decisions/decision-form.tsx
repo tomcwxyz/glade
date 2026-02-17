@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createDecision, updateDecision } from "@/lib/decision-actions";
 import {
-  ArrowLeft,
   Loader2,
   Plus,
   X,
@@ -178,14 +177,6 @@ export function DecisionForm({
 
   return (
     <>
-      <Link
-        href={isEditing ? `/decisions/${decision?.id}` : "/decisions"}
-        className="inline-flex items-center gap-1.5 text-sm text-bark-muted hover:text-canopy transition-colors mb-8"
-      >
-        <ArrowLeft size={14} />
-        {isEditing ? "Back to decision" : "Decision Log"}
-      </Link>
-
       {error && (
         <div className="mb-6 px-4 py-3 rounded-lg bg-earth/8 border border-earth/20 text-sm text-earth">
           {error}

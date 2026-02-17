@@ -1,5 +1,7 @@
 import { getCurrentSpace } from "@/lib/space";
 import { getDecisions } from "@/lib/queries";
+import { TreePine } from "lucide-react";
+import { EmptyState } from "@/components/empty-state";
 import { GladeCanvas } from "./glade-canvas";
 
 export default async function GladePage() {
@@ -29,8 +31,22 @@ export default async function GladePage() {
       number: l.number,
       title: l.title,
       relation: l.relation,
+      direction: l.direction as "forward" | "reverse",
     })),
   }));
+
+  if (decisions.length === 0) {
+    return (
+      <div className="h-full flex flex-col items-center justify-center">
+        <EmptyState
+          icon={TreePine}
+          title="Your glade awaits"
+          description="Once you log decisions they'll appear here as an interactive visual map of your governance landscape."
+          action={{ label: "Log a decision", href: "/decisions/new" }}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="h-full flex flex-col overflow-hidden">

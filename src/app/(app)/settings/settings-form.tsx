@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, TriangleAlert, Sparkles } from "lucide-react";
-import { updateSpace, deleteSpace, updateSpaceSettings } from "@/lib/space-actions";
+import { updateSpace, deleteSpace, updateSpaceSettings, clearSpaceData } from "@/lib/space-actions";
 
 const inputClass =
   "w-full px-4 py-2.5 text-sm bg-paper-warm border border-border rounded-lg placeholder:text-bark-muted/50 focus:outline-none focus:border-canopy focus:ring-1 focus:ring-canopy/20 transition-colors";
@@ -28,6 +28,8 @@ export function SpaceSettingsForm({
   const [error, setError] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [clearConfirmText, setClearConfirmText] = useState("");
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -44,6 +46,15 @@ export function SpaceSettingsForm({
   function handleDelete() {
     startTransition(async () => {
       const result = await deleteSpace();
+      if (result?.error) {
+        setError(result.error);
+      }
+    });
+  }
+
+  function handleClearData() {
+    startTransition(async () => {
+      const result = await clearSpaceData();
       if (result?.error) {
         setError(result.error);
       }
@@ -171,6 +182,57 @@ export function SpaceSettingsForm({
               Danger zone
             </h2>
           </div>
+          <div className="mb-6 pb-6 border-b border-earth/10">
+            <h3 className="text-sm font-medium text-bark mb-1">Clear all data</h3>
+            <p className="text-sm text-bark-muted mb-3">
+              Remove all decisions, meetings, actions, documents, proposals, topics, and insights. Members and space settings are preserved.
+            </p>
+
+            {!showClearConfirm ? (
+              <button
+                type="button"
+                onClick={() => setShowClearConfirm(true)}
+                className="px-4 py-2 text-sm font-medium text-earth border border-earth/30 rounded-lg hover:bg-earth/5 transition-colors"
+              >
+                Clear all data
+              </button>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-sm text-bark">
+                  Type <strong>CLEAR</strong> to confirm:
+                </p>
+                <input
+                  type="text"
+                  value={clearConfirmText}
+                  onChange={(e) => setClearConfirmText(e.target.value)}
+                  placeholder="CLEAR"
+                  className={inputClass}
+                />
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={handleClearData}
+                    disabled={clearConfirmText !== "CLEAR" || isPending}
+                    className="px-4 py-2 text-sm font-medium text-paper bg-earth rounded-lg hover:bg-earth/90 transition-colors disabled:opacity-50"
+                  >
+                    {isPending ? "Clearing..." : "Clear all data"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowClearConfirm(false);
+                      setClearConfirmText("");
+                    }}
+                    className="px-4 py-2 text-sm text-bark-muted hover:text-bark transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <h3 className="text-sm font-medium text-bark mb-1">Delete space</h3>
           <p className="text-sm text-bark-muted mb-4">
             Deleting this space will permanently remove all decisions, meetings, actions, and members. This cannot be undone.
           </p>

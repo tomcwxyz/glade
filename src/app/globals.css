@@ -119,3 +119,13 @@ h1, h2, h3, h4 {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-bark-muted);
 }
+
+/* Root pulse animation for connected nodes */
+@keyframes root-pulse {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.6; }
+}
+
+.root-pulse {
+  animation: root-pulse 2s ease-in-out infinite;
+}

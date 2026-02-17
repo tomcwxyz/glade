@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { formatDate } from "@/lib/utils";
 import { ListChecks, X } from "lucide-react";
@@ -14,6 +14,7 @@ interface LinkedDecision {
   number: number;
   title: string;
   relation: string;
+  direction: "forward" | "reverse";
 }
 
 interface Decision {
@@ -63,6 +64,8 @@ interface TreeNode {
   colorMid: string;
   actions: { angle: number; complete: boolean }[];
   cluster: string;
+  canopyPath: string;
+  seed: number;
 }
 
 // Seeded pseudo-random for deterministic layout
@@ -101,18 +104,101 @@ const STATUS_COLORS: Record<
   },
 };
 
-// Cluster positions (tag → rough position on canvas)
-const CLUSTER_CENTERS: Record<string, { x: number; y: number }> = {
-  "service delivery": { x: 0.3, y: 0.3 },
-  strategy: { x: 0.25, y: 0.45 },
-  partnerships: { x: 0.55, y: 0.25 },
-  finance: { x: 0.7, y: 0.55 },
-  HR: { x: 0.35, y: 0.7 },
-  governance: { x: 0.6, y: 0.75 },
-  compliance: { x: 0.75, y: 0.8 },
-  operations: { x: 0.8, y: 0.4 },
-  communications: { x: 0.45, y: 0.55 },
+// Per-status tree form parameters
+const TREE_PARAMS: Record<
+  DecisionStatus,
+  {
+    wobble: number;
+    trunkScale: number;
+    trunkWidth: number;
+    branches: number;
+    rootFlares: number;
+  }
+> = {
+  decided: { wobble: 0.06, trunkScale: 0.3, trunkWidth: 0.12, branches: 0, rootFlares: 0 },
+  implemented: { wobble: 0.10, trunkScale: 0.45, trunkWidth: 0.16, branches: 2, rootFlares: 0 },
+  reviewed: { wobble: 0.14, trunkScale: 0.55, trunkWidth: 0.20, branches: 3, rootFlares: 1 },
+  learned: { wobble: 0.18, trunkScale: 0.65, trunkWidth: 0.24, branches: 4, rootFlares: 2 },
 };
+
+// Cluster positions (tag → rough position on canvas)
+// Arranged in a loose ring to use the full canvas area
+const CLUSTER_CENTERS: Record<string, { x: number; y: number }> = {
+  "service delivery": { x: 0.25, y: 0.25 },
+  strategy: { x: 0.5, y: 0.2 },
+  partnerships: { x: 0.75, y: 0.3 },
+  finance: { x: 0.78, y: 0.55 },
+  HR: { x: 0.2, y: 0.55 },
+  governance: { x: 0.5, y: 0.5 },
+  compliance: { x: 0.7, y: 0.75 },
+  operations: { x: 0.3, y: 0.75 },
+  communications: { x: 0.5, y: 0.38 },
+  community: { x: 0.35, y: 0.4 },
+};
+
+// Deterministic fallback position for unknown tags
+function clusterForTag(tag: string): { x: number; y: number } {
+  if (CLUSTER_CENTERS[tag]) return CLUSTER_CENTERS[tag];
+  let hash = 0;
+  for (let i = 0; i < tag.length; i++) {
+    hash = ((hash << 5) - hash + tag.charCodeAt(i)) | 0;
+  }
+  const h = Math.abs(hash);
+  return { x: 0.2 + (h % 600) / 1000, y: 0.2 + ((h >> 10) % 600) / 1000 };
+}
+
+// Deterministic seed from a single ID string
+function hashId(id: string): number {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) {
+    hash = ((hash << 5) - hash + id.charCodeAt(i)) | 0;
+  }
+  return Math.abs(hash);
+}
+
+// Generate points on a wobbly circle for organic canopy shapes
+function canopyPoints(
+  r: number,
+  seed: number,
+  wobble: number,
+  count: number = 10
+): { x: number; y: number }[] {
+  const rand = seededRandom(seed);
+  const points: { x: number; y: number }[] = [];
+  for (let i = 0; i < count; i++) {
+    const angle = (i / count) * Math.PI * 2;
+    const offset = 1 + (rand() - 0.5) * 2 * wobble;
+    points.push({
+      x: Math.cos(angle) * r * offset,
+      y: Math.sin(angle) * r * offset,
+    });
+  }
+  return points;
+}
+
+// Convert closed point loop to smooth cubic Bezier path via Catmull-Rom
+function smoothClosedPath(points: { x: number; y: number }[]): string {
+  const n = points.length;
+  if (n < 3) return "";
+  const parts: string[] = [`M ${points[0].x.toFixed(1)} ${points[0].y.toFixed(1)}`];
+  for (let i = 0; i < n; i++) {
+    const p0 = points[(i - 1 + n) % n];
+    const p1 = points[i];
+    const p2 = points[(i + 1) % n];
+    const p3 = points[(i + 2) % n];
+
+    const cp1x = p1.x + (p2.x - p0.x) / 6;
+    const cp1y = p1.y + (p2.y - p0.y) / 6;
+    const cp2x = p2.x - (p3.x - p1.x) / 6;
+    const cp2y = p2.y - (p3.y - p1.y) / 6;
+
+    parts.push(
+      `C ${cp1x.toFixed(1)} ${cp1y.toFixed(1)} ${cp2x.toFixed(1)} ${cp2y.toFixed(1)} ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`
+    );
+  }
+  parts.push("Z");
+  return parts.join(" ");
+}
 
 function layoutNodes(
   decisions: Decision[],
@@ -145,10 +231,9 @@ function layoutNodes(
 
     // Position: cluster by primary tag
     const primaryTag = d.tags[0] || "governance";
-    const cluster =
-      CLUSTER_CENTERS[primaryTag] || CLUSTER_CENTERS["governance"];
-    const jitterX = (rand() - 0.5) * usableW * 0.18;
-    const jitterY = (rand() - 0.5) * usableH * 0.18;
+    const cluster = clusterForTag(primaryTag);
+    const jitterX = (rand() - 0.5) * usableW * 0.22;
+    const jitterY = (rand() - 0.5) * usableH * 0.22;
     const x = padding + cluster.x * usableW + jitterX;
     const y = padding + cluster.y * usableH + jitterY;
 
@@ -166,6 +251,12 @@ function layoutNodes(
       });
     }
 
+    // Organic canopy shape
+    const seed = hashId(d.id);
+    const params = TREE_PARAMS[d.status];
+    const pts = canopyPoints(radius, seed, params.wobble);
+    const canopyPath = smoothClosedPath(pts);
+
     return {
       decision: d,
       x,
@@ -177,6 +268,8 @@ function layoutNodes(
       colorMid: colors.mid,
       actions,
       cluster: primaryTag,
+      canopyPath,
+      seed,
     };
   });
 
@@ -213,42 +306,201 @@ function layoutNodes(
   return nodes;
 }
 
-// Find connections between decisions
-function getConnections(
-  nodes: TreeNode[]
-): { from: TreeNode; to: TreeNode }[] {
-  const connections: { from: TreeNode; to: TreeNode }[] = [];
+// --- Root Connection System ---
+
+type RelationType = "supersedes" | "relates_to" | "amends";
+
+interface RootConnection {
+  from: TreeNode;
+  to: TreeNode;
+  relation: RelationType;
+  seed: number;
+  ageFactor: number;
+}
+
+const ROOT_STYLES: Record<
+  RelationType,
+  {
+    color: string;
+    colorHighlight: string;
+    strokeWidth: number;
+    opacity: number;
+    opacityHighlight: number;
+    segments: number;
+    dasharray: string;
+    label: string;
+  }
+> = {
+  supersedes: {
+    color: "oklch(0.45 0.06 45)",
+    colorHighlight: "oklch(0.55 0.08 45)",
+    strokeWidth: 3.5,
+    opacity: 0.25,
+    opacityHighlight: 0.7,
+    segments: 4,
+    dasharray: "none",
+    label: "Supersedes",
+  },
+  relates_to: {
+    color: "oklch(0.50 0.05 155)",
+    colorHighlight: "oklch(0.52 0.09 155)",
+    strokeWidth: 1.8,
+    opacity: 0.18,
+    opacityHighlight: 0.6,
+    segments: 4,
+    dasharray: "none",
+    label: "Relates to",
+  },
+  amends: {
+    color: "oklch(0.55 0.04 70)",
+    colorHighlight: "oklch(0.58 0.08 70)",
+    strokeWidth: 1.2,
+    opacity: 0.15,
+    opacityHighlight: 0.55,
+    segments: 3,
+    dasharray: "3 5",
+    label: "Amends",
+  },
+};
+
+// Deterministic seed from two IDs
+function hashPair(idA: string, idB: string): number {
+  const str = [idA, idB].sort().join("|");
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash + str.charCodeAt(i)) | 0;
+  }
+  return Math.abs(hash);
+}
+
+// Core organic path generator: waypoints with perpendicular jitter + downward sag
+function organicRootPath(
+  sx: number,
+  sy: number,
+  ex: number,
+  ey: number,
+  rand: () => number,
+  segments: number
+): string {
+  const dx = ex - sx;
+  const dy = ey - sy;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+  if (dist < 1) return `M ${sx} ${sy} L ${ex} ${ey}`;
+
+  // Unit vectors: along line and perpendicular
+  const ux = dx / dist;
+  const uy = dy / dist;
+  const px = -uy;
+  const py = ux;
+
+  // Generate waypoints along the line
+  const points: { x: number; y: number }[] = [{ x: sx, y: sy }];
+  for (let i = 1; i < segments; i++) {
+    const t = i / segments;
+    const baseX = sx + dx * t;
+    const baseY = sy + dy * t;
+    // Perpendicular jitter (±12% of distance)
+    const perpJitter = (rand() - 0.5) * dist * 0.24;
+    // Downward sag: parabolic, strongest at midpoint (~8% of distance)
+    const sag = Math.sin(t * Math.PI) * dist * 0.08;
+    points.push({
+      x: baseX + px * perpJitter,
+      y: baseY + py * perpJitter + sag,
+    });
+  }
+  points.push({ x: ex, y: ey });
+
+  // Convert waypoints to smooth cubic beziers via Catmull-Rom
+  const parts: string[] = [`M ${points[0].x.toFixed(1)} ${points[0].y.toFixed(1)}`];
+  for (let i = 0; i < points.length - 1; i++) {
+    const p0 = points[Math.max(0, i - 1)];
+    const p1 = points[i];
+    const p2 = points[i + 1];
+    const p3 = points[Math.min(points.length - 1, i + 2)];
+
+    // Catmull-Rom to Bezier control points (alpha = 0.5)
+    const cp1x = p1.x + (p2.x - p0.x) / 6;
+    const cp1y = p1.y + (p2.y - p0.y) / 6;
+    const cp2x = p2.x - (p3.x - p1.x) / 6;
+    const cp2y = p2.y - (p3.y - p1.y) / 6;
+
+    parts.push(
+      `C ${cp1x.toFixed(1)} ${cp1y.toFixed(1)} ${cp2x.toFixed(1)} ${cp2y.toFixed(1)} ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`
+    );
+  }
+
+  return parts.join(" ");
+}
+
+// Generate root paths per connection type, anchored at center of nodes
+function generateRootPaths(conn: RootConnection): string[] {
+  const rand = seededRandom(conn.seed);
+  const style = ROOT_STYLES[conn.relation];
+
+  const sx = conn.from.x;
+  const sy = conn.from.y;
+  const ex = conn.to.x;
+  const ey = conn.to.y;
+
+  if (conn.relation === "relates_to") {
+    // Two intertwined paths with mirrored jitter
+    const rand1 = seededRandom(conn.seed);
+    const rand2 = seededRandom(conn.seed + 7919);
+    return [
+      organicRootPath(sx, sy, ex, ey, rand1, style.segments),
+      organicRootPath(sx, sy, ex, ey, rand2, style.segments),
+    ];
+  }
+
+  return [organicRootPath(sx, sy, ex, ey, rand, style.segments)];
+}
+
+// Build rich connection objects from node data
+function getRootConnections(nodes: TreeNode[]): RootConnection[] {
+  const connections: RootConnection[] = [];
+  const seen = new Set<string>();
+
   for (const node of nodes) {
     const linked = node.decision.linkedDecisions || [];
     for (const link of linked) {
       const target = nodes.find((n) => n.decision.id === link.id);
-      if (target) {
-        // Avoid duplicates
-        const exists = connections.some(
-          (c) =>
-            (c.from === node && c.to === target) ||
-            (c.from === target && c.to === node)
-        );
-        if (!exists) {
-          connections.push({ from: node, to: target });
-        }
+      if (!target) continue;
+
+      const pairKey = [node.decision.id, target.decision.id].sort().join("|");
+      if (seen.has(pairKey)) continue;
+      seen.add(pairKey);
+
+      const relation = (link.relation as RelationType) || "relates_to";
+
+      // For supersedes with reverse direction, swap so old→new
+      let from = node;
+      let to = target;
+      if (relation === "supersedes" && link.direction === "reverse") {
+        from = target;
+        to = node;
       }
+
+      // Age factor: 0 = brand new, 1 = 12+ months old
+      const olderDate = new Date(
+        Math.min(
+          new Date(from.decision.date).getTime(),
+          new Date(to.decision.date).getTime()
+        )
+      );
+      const monthsOld =
+        (Date.now() - olderDate.getTime()) / (1000 * 60 * 60 * 24 * 30);
+      const ageFactor = Math.min(1, monthsOld / 12);
+
+      connections.push({
+        from,
+        to,
+        relation,
+        seed: hashPair(node.decision.id, target.decision.id),
+        ageFactor,
+      });
     }
   }
   return connections;
-}
-
-// Curved path between two nodes
-function connectionPath(from: TreeNode, to: TreeNode): string {
-  const mx = (from.x + to.x) / 2;
-  const my = (from.y + to.y) / 2;
-  // Perpendicular offset for curve
-  const dx = to.x - from.x;
-  const dy = to.y - from.y;
-  const offset = Math.sqrt(dx * dx + dy * dy) * 0.15;
-  const cx = mx - (dy / Math.sqrt(dx * dx + dy * dy)) * offset;
-  const cy = my + (dx / Math.sqrt(dx * dx + dy * dy)) * offset;
-  return `M ${from.x} ${from.y} Q ${cx} ${cy} ${to.x} ${to.y}`;
 }
 
 // --- Legend ---
@@ -281,29 +533,42 @@ function Legend() {
       ))}
       <span className="text-border-strong">|</span>
       <span className="font-medium text-bark" style={{ fontFamily: "var(--font-display)" }}>
+        Roots
+      </span>
+      {(
+        [
+          ["supersedes", ROOT_STYLES.supersedes],
+          ["relates_to", ROOT_STYLES.relates_to],
+          ["amends", ROOT_STYLES.amends],
+        ] as const
+      ).map(([key, style]) => (
+        <div key={key} className="flex items-center gap-1.5">
+          <svg width="24" height="10">
+            {key === "relates_to" ? (
+              <>
+                <path d="M 2 3 C 8 1 16 5 22 3" stroke={style.color} strokeWidth={style.strokeWidth * 0.7} fill="none" strokeLinecap="round" opacity={0.6} />
+                <path d="M 2 7 C 8 9 16 5 22 7" stroke={style.color} strokeWidth={style.strokeWidth * 0.7} fill="none" strokeLinecap="round" opacity={0.6} />
+              </>
+            ) : (
+              <path
+                d="M 2 5 C 8 3 16 7 22 5"
+                stroke={style.color}
+                strokeWidth={style.strokeWidth * 0.8}
+                fill="none"
+                strokeLinecap="round"
+                strokeDasharray={style.dasharray === "none" ? undefined : style.dasharray}
+                opacity={0.6}
+              />
+            )}
+          </svg>
+          <span>{style.label}</span>
+        </div>
+      ))}
+      <span className="text-border-strong">|</span>
+      <span className="font-medium text-bark" style={{ fontFamily: "var(--font-display)" }}>
         Size
       </span>
       <span>= engagement</span>
-      <span className="text-border-strong">|</span>
-      <div className="flex items-center gap-1.5">
-        <svg width="10" height="10">
-          <circle cx="5" cy="5" r="3.5" fill="oklch(0.52 0.07 155)" />
-        </svg>
-        <span>action done</span>
-      </div>
-      <div className="flex items-center gap-1.5">
-        <svg width="10" height="10">
-          <circle
-            cx="5"
-            cy="5"
-            r="3"
-            fill="none"
-            stroke="oklch(0.52 0.07 155)"
-            strokeWidth="1"
-          />
-        </svg>
-        <span>action open</span>
-      </div>
     </div>
   );
 }
@@ -357,21 +622,42 @@ function ClusterLabels({ nodes, width, height }: { nodes: TreeNode[]; width: num
 
 function Tooltip({
   node,
+  pixelX,
+  pixelY,
+  pixelRadius,
+  containerWidth,
+  containerHeight,
   onClose,
   onNavigate,
 }: {
   node: TreeNode;
+  pixelX: number;
+  pixelY: number;
+  pixelRadius: number;
+  containerWidth: number;
+  containerHeight: number;
   onClose: () => void;
   onNavigate: () => void;
 }) {
   const d = node.decision;
+  const tooltipW = 320;
+  const tooltipH = 280; // approximate
+  const gap = 12;
+
+  // Flip to left if not enough room on the right
+  const spaceRight = containerWidth - (pixelX + pixelRadius + gap + tooltipW);
+  const flipLeft = spaceRight < 16;
+  const left = flipLeft
+    ? Math.max(8, pixelX - pixelRadius - gap - tooltipW)
+    : pixelX + pixelRadius + gap;
+
+  // Clamp vertical to stay within container
+  const top = Math.max(8, Math.min(pixelY - 60, containerHeight - tooltipH - 8));
+
   return (
     <div
       className="absolute z-20 bg-paper border border-border rounded-xl shadow-lg w-[320px] overflow-hidden"
-      style={{
-        left: Math.min(node.x + node.radius + 16, window.innerWidth - 400),
-        top: Math.max(node.y - 60, 16),
-      }}
+      style={{ left, top }}
     >
       <div className="px-5 py-4">
         <div className="flex items-start justify-between gap-3">
@@ -411,7 +697,7 @@ function Tooltip({
           {d.outcome}
         </p>
 
-        <div className="flex items-center gap-4 mt-3 text-xs text-bark-muted">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mt-3 text-xs text-bark-muted">
           <span>{d.participants.length} participants</span>
           {d.actionsCount > 0 && (
             <span className="flex items-center gap-1">
@@ -442,6 +728,10 @@ function Tooltip({
 export function GladeCanvas({ decisions }: { decisions: Decision[] }) {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [hoveredRootIndex, setHoveredRootIndex] = useState<number | null>(null);
+  const [rootTooltip, setRootTooltip] = useState<{ x: number; y: number; label: string } | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
   const router = useRouter();
 
   // Canvas dimensions (fixed for now, could be responsive)
@@ -449,11 +739,81 @@ export function GladeCanvas({ decisions }: { decisions: Decision[] }) {
   const H = 750;
 
   const nodes = useMemo(() => layoutNodes(decisions, W, H), [decisions]);
-  const connections = useMemo(() => getConnections(nodes), [nodes]);
+  const connections = useMemo(() => getRootConnections(nodes), [nodes]);
+
+  // Pre-generate all root paths
+  const rootPaths = useMemo(
+    () =>
+      connections.map((conn) => generateRootPaths(conn)),
+    [connections]
+  );
+
+  const activeId = hoveredId || selectedId;
+
+  // IDs of decisions connected to the active one
+  const connectedIds = useMemo(() => {
+    if (!activeId) return new Set<string>();
+    const ids = new Set<string>();
+    for (const conn of connections) {
+      if (
+        conn.from.decision.id === activeId ||
+        conn.to.decision.id === activeId
+      ) {
+        ids.add(conn.from.decision.id);
+        ids.add(conn.to.decision.id);
+      }
+    }
+    return ids;
+  }, [activeId, connections]);
+
+  // Indices of connections touching active decision
+  const highlightedConnections = useMemo(() => {
+    if (!activeId) return new Set<number>();
+    const set = new Set<number>();
+    connections.forEach((conn, i) => {
+      if (
+        conn.from.decision.id === activeId ||
+        conn.to.decision.id === activeId
+      ) {
+        set.add(i);
+      }
+    });
+    return set;
+  }, [activeId, connections]);
+
+  const hasActiveHighlight = activeId !== null || hoveredRootIndex !== null;
 
   const selectedNode = selectedId
     ? nodes.find((n) => n.decision.id === selectedId)
     : null;
+
+  // Convert SVG viewBox coordinates to container-relative pixel coordinates
+  const svgToPixel = useCallback(
+    (svgX: number, svgY: number) => {
+      const svg = svgRef.current;
+      const container = containerRef.current;
+      if (!svg || !container) return { x: svgX, y: svgY };
+
+      const pt = svg.createSVGPoint();
+      pt.x = svgX;
+      pt.y = svgY;
+      const ctm = svg.getScreenCTM();
+      if (!ctm) return { x: svgX, y: svgY };
+      const screenPt = pt.matrixTransform(ctm);
+      const rect = container.getBoundingClientRect();
+      return { x: screenPt.x - rect.left, y: screenPt.y - rect.top };
+    },
+    []
+  );
+
+  // Compute pixel-scale radius for tooltip offset
+  const svgPixelScale = useCallback(() => {
+    const svg = svgRef.current;
+    if (!svg) return 1;
+    const ctm = svg.getScreenCTM();
+    if (!ctm) return 1;
+    return ctm.a; // horizontal scale factor
+  }, []);
 
   const handleNodeClick = useCallback(
     (id: string) => {
@@ -462,8 +822,46 @@ export function GladeCanvas({ decisions }: { decisions: Decision[] }) {
     [selectedId]
   );
 
+  // Ground cover: scattered nature elements avoiding tree positions
+  type GroundItem = {
+    kind: "grass" | "flower" | "fern" | "stone" | "leaf";
+    x: number;
+    y: number;
+    scale: number;
+    rotation: number;
+    opacity: number;
+    variant: number; // 0–1, used for colour/shape variation
+  };
+
+  const groundCover = useMemo(() => {
+    const rand = seededRandom(1337);
+    const items: GroundItem[] = [];
+    const kinds: GroundItem["kind"][] = ["grass", "grass", "grass", "flower", "flower", "fern", "fern", "stone", "leaf", "leaf"];
+
+    for (let i = 0; i < 50; i++) {
+      const gx = 50 + rand() * (W - 100);
+      const gy = 50 + rand() * (H - 100);
+      const tooClose = nodes.some((n) => {
+        const dx = n.x - gx;
+        const dy = n.y - gy;
+        return Math.sqrt(dx * dx + dy * dy) < n.radius + 25;
+      });
+      if (tooClose) continue;
+      items.push({
+        kind: kinds[i % kinds.length],
+        x: gx,
+        y: gy,
+        scale: 0.5 + rand() * 0.7,
+        rotation: (rand() - 0.5) * 40,
+        opacity: 0.15 + rand() * 0.2,
+        variant: rand(),
+      });
+    }
+    return items;
+  }, [nodes]);
+
   return (
-    <div className="relative flex-1 bg-paper overflow-hidden">
+    <div ref={containerRef} className="relative flex-1 bg-paper overflow-hidden">
       {/* Header */}
       <div className="absolute top-6 left-6 z-10">
         <h1
@@ -480,6 +878,7 @@ export function GladeCanvas({ decisions }: { decisions: Decision[] }) {
 
       {/* SVG Canvas */}
       <svg
+        ref={svgRef}
         viewBox={`0 0 ${W} ${H}`}
         className="w-full h-full"
         style={{ minHeight: "600px" }}
@@ -500,6 +899,15 @@ export function GladeCanvas({ decisions }: { decisions: Decision[] }) {
             </feMerge>
           </filter>
 
+          {/* Root glow filter — applied to highlighted roots */}
+          <filter id="root-glow" x="-20%" y="-20%" width="140%" height="140%">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+
           {/* Dappled light spots */}
           <radialGradient id="light-spot-1" cx="0.3" cy="0.25">
             <stop offset="0%" stopColor="oklch(0.68 0.14 70)" stopOpacity="0.04" />
@@ -513,6 +921,24 @@ export function GladeCanvas({ decisions }: { decisions: Decision[] }) {
             <stop offset="0%" stopColor="oklch(0.97 0.008 80)" stopOpacity="0.06" />
             <stop offset="100%" stopColor="oklch(0.97 0.008 80)" stopOpacity="0" />
           </radialGradient>
+
+          {/* Per-supersedes taper gradient */}
+          {connections.map((conn, i) =>
+            conn.relation === "supersedes" ? (
+              <linearGradient
+                key={`root-grad-${i}`}
+                id={`root-grad-${i}`}
+                gradientUnits="userSpaceOnUse"
+                x1={conn.from.x}
+                y1={conn.from.y}
+                x2={conn.to.x}
+                y2={conn.to.y}
+              >
+                <stop offset="0%" stopColor={ROOT_STYLES.supersedes.color} stopOpacity="1" />
+                <stop offset="100%" stopColor={ROOT_STYLES.supersedes.color} stopOpacity="0.5" />
+              </linearGradient>
+            ) : null
+          )}
 
           {/* Per-node gradients */}
           {nodes.map((node) => (
@@ -537,16 +963,196 @@ export function GladeCanvas({ decisions }: { decisions: Decision[] }) {
         {/* Cluster labels */}
         <ClusterLabels nodes={nodes} width={W} height={H} />
 
-        {/* Connection lines */}
-        {connections.map(({ from, to }, i) => (
-          <path
-            key={`conn-${i}`}
-            d={connectionPath(from, to)}
-            stroke="oklch(0.38 0.08 155 / 0.1)"
-            strokeWidth="1.5"
-            strokeDasharray="4 6"
-            fill="none"
-          />
+        {/* Root paths — non-highlighted (below nodes) */}
+        {connections.map((conn, ci) => {
+          const style = ROOT_STYLES[conn.relation];
+          const isHighlighted =
+            highlightedConnections.has(ci) || hoveredRootIndex === ci;
+          if (isHighlighted) return null;
+
+          const scaledWidth =
+            style.strokeWidth * (0.8 + conn.ageFactor * 0.4);
+          const opacity = hasActiveHighlight ? 0.04 : style.opacity;
+
+          return rootPaths[ci].map((d, pi) => (
+            <path
+              key={`root-${ci}-${pi}`}
+              d={d}
+              stroke={
+                conn.relation === "supersedes"
+                  ? `url(#root-grad-${ci})`
+                  : style.color
+              }
+              strokeWidth={scaledWidth}
+              strokeLinecap="round"
+              strokeDasharray={
+                style.dasharray === "none" ? undefined : style.dasharray
+              }
+              fill="none"
+              opacity={opacity}
+              style={{ transition: "opacity 0.3s ease, stroke-width 0.3s ease" }}
+            />
+          ));
+        })}
+
+        {/* Root paths — highlighted (above non-highlighted, below nodes) */}
+        {connections.map((conn, ci) => {
+          const style = ROOT_STYLES[conn.relation];
+          const isHighlighted =
+            highlightedConnections.has(ci) || hoveredRootIndex === ci;
+          if (!isHighlighted) return null;
+
+          const scaledWidth =
+            style.strokeWidth * (0.8 + conn.ageFactor * 0.4) * 1.3;
+
+          return rootPaths[ci].map((d, pi) => (
+            <path
+              key={`root-hl-${ci}-${pi}`}
+              d={d}
+              stroke={
+                conn.relation === "supersedes"
+                  ? `url(#root-grad-${ci})`
+                  : style.colorHighlight
+              }
+              strokeWidth={scaledWidth}
+              strokeLinecap="round"
+              strokeDasharray={
+                style.dasharray === "none" ? undefined : style.dasharray
+              }
+              fill="none"
+              opacity={style.opacityHighlight}
+              filter="url(#root-glow)"
+              style={{ transition: "opacity 0.3s ease, stroke-width 0.3s ease" }}
+            />
+          ));
+        })}
+
+        {/* Invisible fat hit-area paths for root hover */}
+        {connections.map((conn, ci) => {
+          const style = ROOT_STYLES[conn.relation];
+          return rootPaths[ci].map((d, pi) => (
+            <path
+              key={`root-hit-${ci}-${pi}`}
+              d={d}
+              stroke="transparent"
+              strokeWidth={12}
+              fill="none"
+              style={{ cursor: "pointer" }}
+              onMouseEnter={(e) => {
+                setHoveredRootIndex(ci);
+                const svg = e.currentTarget.ownerSVGElement;
+                if (svg) {
+                  const pt = svg.createSVGPoint();
+                  pt.x = e.clientX;
+                  pt.y = e.clientY;
+                  const svgPt = pt.matrixTransform(
+                    svg.getScreenCTM()?.inverse()
+                  );
+                  setRootTooltip({ x: svgPt.x, y: svgPt.y - 12, label: style.label });
+                }
+              }}
+              onMouseLeave={() => {
+                setHoveredRootIndex(null);
+                setRootTooltip(null);
+              }}
+            />
+          ));
+        })}
+
+        {/* Connected-node pulse rings */}
+        {activeId &&
+          nodes
+            .filter(
+              (n) =>
+                connectedIds.has(n.decision.id) &&
+                n.decision.id !== activeId
+            )
+            .map((node) => (
+              <circle
+                key={`pulse-${node.decision.id}`}
+                cx={node.x}
+                cy={node.y}
+                r={node.radius + 6}
+                fill="none"
+                stroke={node.color}
+                strokeWidth={1.5}
+                className="root-pulse"
+              />
+            ))}
+
+        {/* Ground cover — varied nature elements */}
+        {groundCover.map((item, i) => (
+          <g
+            key={`ground-${i}`}
+            transform={`translate(${item.x}, ${item.y}) rotate(${item.rotation}) scale(${item.scale})`}
+            opacity={item.opacity}
+          >
+            {item.kind === "grass" && (
+              <>
+                <path d="M 0 0 Q -2 -8 -1 -14" stroke="oklch(0.52 0.08 145)" strokeWidth="1.2" fill="none" strokeLinecap="round" />
+                <path d="M 3 0 Q 4 -7 2 -12" stroke="oklch(0.50 0.07 150)" strokeWidth="1" fill="none" strokeLinecap="round" />
+                <path d="M -3 0 Q -5 -6 -4 -10" stroke="oklch(0.48 0.06 140)" strokeWidth="0.8" fill="none" strokeLinecap="round" />
+              </>
+            )}
+            {item.kind === "flower" && (
+              <>
+                {/* Stem */}
+                <path d="M 0 0 Q -1 -6 0 -11" stroke="oklch(0.50 0.07 145)" strokeWidth="0.8" fill="none" strokeLinecap="round" />
+                {/* Tiny leaf on stem */}
+                <path d="M -0.5 -5 Q -3 -6 -2 -4" fill="oklch(0.52 0.08 145)" opacity="0.6" />
+                {/* Flower head — 4-5 petals */}
+                {[0, 1, 2, 3, 4].map((p) => {
+                  const a = (p / 5) * Math.PI * 2;
+                  const px = Math.cos(a) * 2.5;
+                  const py = -11 + Math.sin(a) * 2.5;
+                  const petalColor = item.variant < 0.33
+                    ? "oklch(0.78 0.12 60)"   // buttercup yellow
+                    : item.variant < 0.66
+                    ? "oklch(0.75 0.08 320)"   // soft pink
+                    : "oklch(0.82 0.06 280)";  // pale violet
+                  return <circle key={p} cx={px} cy={py} r="1.4" fill={petalColor} opacity="0.8" />;
+                })}
+                {/* Centre */}
+                <circle cx="0" cy="-11" r="1" fill="oklch(0.65 0.12 70)" />
+              </>
+            )}
+            {item.kind === "fern" && (
+              <>
+                {/* Central spine */}
+                <path d="M 0 0 Q -1 -10 0 -18" stroke="oklch(0.46 0.07 148)" strokeWidth="0.9" fill="none" strokeLinecap="round" />
+                {/* Frond pairs — alternating leaflets */}
+                {[3, 6, 9, 12, 15].map((y, fi) => {
+                  const leafLen = 4 - fi * 0.5;
+                  return (
+                    <g key={fi}>
+                      <path d={`M 0 ${-y} Q ${leafLen} ${-y - 1.5} ${leafLen + 1} ${-y + 0.5}`} stroke="oklch(0.48 0.06 150)" strokeWidth="0.6" fill="none" strokeLinecap="round" />
+                      <path d={`M 0 ${-y} Q ${-leafLen} ${-y - 1.5} ${-leafLen - 1} ${-y + 0.5}`} stroke="oklch(0.48 0.06 150)" strokeWidth="0.6" fill="none" strokeLinecap="round" />
+                    </g>
+                  );
+                })}
+              </>
+            )}
+            {item.kind === "stone" && (
+              <ellipse
+                cx="0"
+                cy="0"
+                rx={2.5 + item.variant * 2}
+                ry={1.5 + item.variant}
+                fill={item.variant < 0.5 ? "oklch(0.72 0.01 80)" : "oklch(0.65 0.015 60)"}
+                opacity="0.35"
+              />
+            )}
+            {item.kind === "leaf" && (
+              <>
+                {/* Fallen leaf — rotated oval with midrib */}
+                <ellipse cx="0" cy="0" rx="4" ry="2.2"
+                  fill={item.variant < 0.5 ? "oklch(0.62 0.10 65)" : "oklch(0.55 0.08 45)"}
+                  opacity="0.5"
+                />
+                <path d="M -3.5 0 L 3.5 0" stroke="oklch(0.45 0.05 50)" strokeWidth="0.4" opacity="0.4" />
+              </>
+            )}
+          </g>
         ))}
 
         {/* Tree nodes */}
@@ -554,16 +1160,30 @@ export function GladeCanvas({ decisions }: { decisions: Decision[] }) {
           const isHovered = hoveredId === node.decision.id;
           const isSelected = selectedId === node.decision.id;
           const isActive = isHovered || isSelected;
+          const isConnected = connectedIds.has(node.decision.id);
           const scale = isActive ? 1.08 : 1;
+
+          // Dim non-connected nodes when there's an active highlight
+          const nodeOpacity =
+            hasActiveHighlight && !isActive && !isConnected ? 0.4 : 1;
+
+          const params = TREE_PARAMS[node.decision.status];
+          const trunkH = node.radius * params.trunkScale;
+          const trunkW = node.radius * params.trunkWidth;
+          const trunkTop = node.radius * 0.4;
+          const trunkBottom = trunkTop + trunkH;
+          const rand = seededRandom(node.seed + 99);
 
           return (
             <g
               key={node.decision.id}
               transform={`translate(${node.x}, ${node.y}) scale(${scale})`}
               style={{
-                transition: "transform 0.25s cubic-bezier(0.33, 1, 0.68, 1)",
+                transition:
+                  "transform 0.25s cubic-bezier(0.33, 1, 0.68, 1), opacity 0.3s ease",
                 transformOrigin: "0 0",
                 cursor: "pointer",
+                opacity: nodeOpacity,
               }}
               onMouseEnter={() => setHoveredId(node.decision.id)}
               onMouseLeave={() => setHoveredId(null)}
@@ -572,15 +1192,76 @@ export function GladeCanvas({ decisions }: { decisions: Decision[] }) {
                 handleNodeClick(node.decision.id);
               }}
             >
-              {/* Outer canopy */}
-              <circle
-                r={node.radius}
+              {/* Trunk — tapered trapezoid */}
+              <path
+                d={`M ${-trunkW * 0.4} ${trunkTop} L ${-trunkW * 0.6} ${trunkBottom} L ${trunkW * 0.6} ${trunkBottom} L ${trunkW * 0.4} ${trunkTop} Z`}
+                fill="oklch(0.42 0.04 55)"
+                opacity={0.7}
+              />
+
+              {/* Root flares at trunk base */}
+              {Array.from({ length: params.rootFlares }).map((_, fi) => {
+                const side = fi % 2 === 0 ? -1 : 1;
+                const flareW = trunkW * (0.8 + rand() * 0.4);
+                return (
+                  <path
+                    key={`flare-${fi}`}
+                    d={`M ${side * trunkW * 0.3} ${trunkBottom} Q ${side * flareW * 1.5} ${trunkBottom + 4} ${side * flareW * 1.8} ${trunkBottom + 2}`}
+                    stroke="oklch(0.42 0.04 55)"
+                    strokeWidth={1.5}
+                    fill="none"
+                    strokeLinecap="round"
+                    opacity={0.5}
+                  />
+                );
+              })}
+
+              {/* Grass at base — 3 small blades */}
+              {[
+                { dx: -trunkW * 0.8, s: 0.7 },
+                { dx: 0, s: 0.5 },
+                { dx: trunkW * 0.8, s: 0.65 },
+              ].map((blade, bi) => (
+                <path
+                  key={`grass-${bi}`}
+                  d={`M ${blade.dx} ${trunkBottom} Q ${blade.dx + (bi - 1) * 3} ${trunkBottom - 6 * blade.s} ${blade.dx + (bi - 1) * 5} ${trunkBottom - 10 * blade.s}`}
+                  stroke="oklch(0.52 0.08 145)"
+                  strokeWidth="0.9"
+                  fill="none"
+                  strokeLinecap="round"
+                  opacity={0.35}
+                />
+              ))}
+
+              {/* Organic canopy */}
+              <path
+                d={node.canopyPath}
                 fill={`url(#tree-grad-${node.decision.id})`}
                 filter="url(#tree-shadow)"
                 stroke={isActive ? node.color : "transparent"}
                 strokeWidth={isActive ? 1.5 : 0}
                 style={{ transition: "stroke 0.2s" }}
               />
+
+              {/* Branch lines — subtle curves from trunk top into canopy */}
+              {Array.from({ length: params.branches }).map((_, bi) => {
+                const angle = ((bi + 0.5) / params.branches) * Math.PI * 2;
+                const bx = Math.cos(angle) * node.radius * 0.5;
+                const by = Math.sin(angle) * node.radius * 0.5;
+                const cx = Math.cos(angle) * node.radius * 0.25 + (rand() - 0.5) * 4;
+                const cy = Math.sin(angle) * node.radius * 0.25 + (rand() - 0.5) * 4;
+                return (
+                  <path
+                    key={`branch-${bi}`}
+                    d={`M 0 ${trunkTop} Q ${cx} ${cy} ${bx} ${by}`}
+                    stroke="oklch(0.42 0.04 55)"
+                    strokeWidth={0.8}
+                    fill="none"
+                    strokeLinecap="round"
+                    opacity={0.12}
+                  />
+                );
+              })}
 
               {/* Growth rings */}
               {node.ringRadii.map((r, i) => (
@@ -616,9 +1297,9 @@ export function GladeCanvas({ decisions }: { decisions: Decision[] }) {
                 );
               })}
 
-              {/* Decision number label */}
+              {/* Decision number label — below trunk bottom */}
               <text
-                y={node.radius + 24}
+                y={trunkBottom + 18}
                 textAnchor="middle"
                 className="text-[0.6875rem] fill-bark-muted select-none pointer-events-none"
                 style={{ fontFamily: "var(--font-display)" }}
@@ -629,18 +1310,52 @@ export function GladeCanvas({ decisions }: { decisions: Decision[] }) {
             </g>
           );
         })}
+
+        {/* Root tooltip */}
+        {rootTooltip && (
+          <g transform={`translate(${rootTooltip.x}, ${rootTooltip.y})`}>
+            <rect
+              x={-30}
+              y={-20}
+              width={60}
+              height={18}
+              rx={4}
+              fill="oklch(0.25 0.02 55)"
+              opacity={0.9}
+            />
+            <text
+              textAnchor="middle"
+              y={-8}
+              className="text-[0.5625rem] fill-paper select-none pointer-events-none"
+              style={{ fontFamily: "var(--font-body)" }}
+            >
+              {rootTooltip.label}
+            </text>
+          </g>
+        )}
       </svg>
 
       {/* Tooltip for selected node */}
-      {selectedNode && (
-        <Tooltip
-          node={selectedNode}
-          onClose={() => setSelectedId(null)}
-          onNavigate={() =>
-            router.push(`/decisions/${selectedNode.decision.number}`)
-          }
-        />
-      )}
+      {selectedNode && (() => {
+        const pos = svgToPixel(selectedNode.x, selectedNode.y);
+        const scale = svgPixelScale();
+        const cw = containerRef.current?.clientWidth || W;
+        const ch = containerRef.current?.clientHeight || H;
+        return (
+          <Tooltip
+            node={selectedNode}
+            pixelX={pos.x}
+            pixelY={pos.y}
+            pixelRadius={selectedNode.radius * scale}
+            containerWidth={cw}
+            containerHeight={ch}
+            onClose={() => setSelectedId(null)}
+            onNavigate={() =>
+              router.push(`/decisions/${selectedNode.decision.number}`)
+            }
+          />
+        );
+      })()}
 
       {/* Legend */}
       <Legend />

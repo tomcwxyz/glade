@@ -2,7 +2,8 @@ import { getCurrentSpace } from "@/lib/space";
 import { getDocumentById, getDocumentVersions } from "@/lib/queries";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, GitCommit } from "lucide-react";
+import { Breadcrumbs } from "@/components/breadcrumbs";
+import { GitCommit } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { VersionDiff } from "./version-diff";
 import { HistoricalView } from "./historical-view";
@@ -23,13 +24,11 @@ export default async function DocumentHistoryPage({
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-8 py-6 sm:py-10">
-      <Link
-        href={`/documents/${doc.id}`}
-        className="inline-flex items-center gap-1.5 text-sm text-bark-muted hover:text-canopy transition-colors mb-8"
-      >
-        <ArrowLeft size={14} />
-        {doc.title}
-      </Link>
+      <Breadcrumbs items={[
+        { label: "Documents", href: "/documents" },
+        { label: doc.title, href: `/documents/${doc.id}` },
+        { label: "History" },
+      ]} />
 
       <header className="mb-10">
         <h1

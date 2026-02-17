@@ -1,8 +1,9 @@
 import { getCurrentSpace } from "@/lib/space";
 import { getActions } from "@/lib/queries";
 import { formatDate } from "@/lib/utils";
-import { CheckCircle2, Circle, Clock, TriangleAlert } from "lucide-react";
+import { CheckCircle2, Circle, Clock, ListChecks, TriangleAlert } from "lucide-react";
 import Link from "next/link";
+import { EmptyState } from "@/components/empty-state";
 import { ActionToggle } from "./action-toggle";
 
 const STATUS_CONFIG = {
@@ -17,6 +18,27 @@ export default async function ActionsPage() {
   if (!space) return null;
 
   const actions = await getActions(space.id);
+
+  if (actions.length === 0) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 sm:px-8 py-6 sm:py-10">
+        <header className="mb-10">
+          <h1
+            className="text-3xl font-light tracking-tight mb-1.5"
+            style={{ fontFamily: "var(--font-display)" }}
+          >
+            Actions
+          </h1>
+        </header>
+        <EmptyState
+          icon={ListChecks}
+          title="No actions yet"
+          description="Actions are created when you log decisions. Each decision can have follow-up tasks assigned to team members."
+          action={{ label: "Log a decision", href: "/decisions/new" }}
+        />
+      </div>
+    );
+  }
 
   const sorted = [...actions].sort((a, b) => {
     const order = { overdue: 0, in_progress: 1, open: 2, complete: 3 };

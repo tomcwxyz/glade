@@ -99,6 +99,20 @@ export const insightStatusEnum = pgEnum("insight_status", [
   "dismissed",
 ]);
 
+export const meetingStatusEnum = pgEnum("meeting_status", [
+  "draft",
+  "scheduled",
+  "in_progress",
+  "completed",
+]);
+
+export const agendaItemStatusEnum = pgEnum("agenda_item_status", [
+  "pending",
+  "active",
+  "completed",
+  "skipped",
+]);
+
 // ============================================================
 // NextAuth tables
 // ============================================================
@@ -280,6 +294,7 @@ export const meetings = pgTable(
     title: varchar("title", { length: 500 }).notNull(),
     date: timestamp("date", { mode: "date" }).notNull(),
     type: varchar("type", { length: 100 }),
+    status: meetingStatusEnum("status").default("draft").notNull(),
     notes: text("notes"),
     createdBy: uuid("created_by").references(() => users.id),
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
@@ -312,6 +327,10 @@ export const meetingAgendaItems = pgTable(
     description: text("description"),
     type: agendaItemTypeEnum("type").default("for_discussion").notNull(),
     sortOrder: integer("sort_order").default(0).notNull(),
+    durationMinutes: integer("duration_minutes"),
+    status: agendaItemStatusEnum("status").default("pending").notNull(),
+    proposalId: uuid("proposal_id").references(() => proposals.id),
+    topicId: uuid("topic_id").references(() => topics.id),
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
   },
   (ai) => [index("agenda_items_meeting_idx").on(ai.meetingId)]
@@ -592,6 +611,8 @@ export const meetingAttendeesRelations = relations(meetingAttendees, ({ one }) =
 
 export const meetingAgendaItemsRelations = relations(meetingAgendaItems, ({ one }) => ({
   meeting: one(meetings, { fields: [meetingAgendaItems.meetingId], references: [meetings.id] }),
+  proposal: one(proposals, { fields: [meetingAgendaItems.proposalId], references: [proposals.id] }),
+  topic: one(topics, { fields: [meetingAgendaItems.topicId], references: [topics.id] }),
 }));
 
 export const meetingDecisionsRelations = relations(meetingDecisions, ({ one }) => ({

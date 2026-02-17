@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { eq, and } from "drizzle-orm";
 import { db } from "@/db";
-import { spaces, spaceMembers } from "@/db/schema";
+import { spaces, spaceMembers, users } from "@/db/schema";
 import { auth } from "@/lib/auth";
 
 /**
@@ -159,6 +159,18 @@ export async function createSpace(formData: FormData) {
 
   // Set as current space
   await setCurrentSpace(space.slug);
+
+  // Seed example data if requested
+  const wantExampleData = formData.get("exampleData") === "on";
+  if (wantExampleData) {
+    const [dbUser] = await db
+      .select({ name: users.name })
+      .from(users)
+      .where(eq(users.id, user.id))
+      .limit(1);
+    const { seedExampleData } = await import("@/lib/example-data");
+    await seedExampleData(space.id, user.id, dbUser?.name || "You");
+  }
 
   redirect("/dashboard");
 }

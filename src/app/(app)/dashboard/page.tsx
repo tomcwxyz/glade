@@ -10,6 +10,7 @@ import {
   Circle,
   Clock,
   ListChecks,
+  TreePine,
   TriangleAlert,
 } from "lucide-react";
 import Link from "next/link";
@@ -115,6 +116,54 @@ export default async function DashboardPage() {
   }
 
   const briefingInsight = activeInsights.find((i) => i.type === "briefing");
+
+  if (stats.totalDecisions === 0) {
+    return (
+      <div className="max-w-5xl mx-auto px-4 sm:px-8 py-6 sm:py-10">
+        <header className="mb-12">
+          <h1
+            className="text-3xl font-light tracking-tight mb-2"
+            style={{ fontFamily: "var(--font-display)" }}
+          >
+            {getGreeting()}
+          </h1>
+          <p className="text-bark-muted text-base">
+            Welcome to {space.name}. Let&apos;s get started.
+          </p>
+        </header>
+
+        <div className="flex flex-col items-center text-center py-16 border border-border rounded-2xl bg-paper-warm">
+          <div className="flex items-center justify-center w-14 h-14 rounded-2xl bg-canopy-pale mb-5">
+            <TreePine size={28} className="text-canopy" />
+          </div>
+          <h2
+            className="text-xl font-medium tracking-tight mb-2"
+            style={{ fontFamily: "var(--font-display)" }}
+          >
+            Your glade is ready
+          </h2>
+          <p className="text-[0.8125rem] text-bark-muted max-w-sm leading-relaxed mb-8">
+            Start by logging a decision or recording a meeting. Everything you
+            add builds your organisation&apos;s governance memory.
+          </p>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/decisions/new"
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-canopy text-paper rounded-lg text-sm font-medium hover:bg-canopy-light transition-colors"
+            >
+              Log a decision
+            </Link>
+            <Link
+              href="/meetings/new"
+              className="inline-flex items-center gap-2 px-4 py-2.5 border border-border text-bark rounded-lg text-sm font-medium hover:bg-paper-deep transition-colors"
+            >
+              Record a meeting
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-8 py-6 sm:py-10">
@@ -231,25 +280,31 @@ export default async function DashboardPage() {
               </Link>
             </div>
 
-            <div className="space-y-2.5">
-              {urgentActions.map((action) => (
-                <div key={action.id} className="flex items-start gap-2.5 py-2">
-                  <ActionStatusIcon status={action.status} />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[0.8125rem] text-bark leading-snug">
-                      {action.description}
-                    </p>
-                    <div className="flex items-center gap-2 mt-1 text-xs text-bark-muted">
-                      <span>{action.ownerName?.split(" ")[0] || "Unassigned"}</span>
-                      <span className="text-border-strong">·</span>
-                      <span className={action.status === "overdue" ? "text-earth font-medium" : ""}>
-                        {action.dueDate ? formatDate(action.dueDate.toISOString()) : "No due date"}
-                      </span>
+            {urgentActions.length === 0 ? (
+              <p className="text-[0.8125rem] text-bark-muted py-2">
+                No open actions — they&apos;re created when you log decisions.
+              </p>
+            ) : (
+              <div className="space-y-2.5">
+                {urgentActions.map((action) => (
+                  <div key={action.id} className="flex items-start gap-2.5 py-2">
+                    <ActionStatusIcon status={action.status} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[0.8125rem] text-bark leading-snug">
+                        {action.description}
+                      </p>
+                      <div className="flex items-center gap-2 mt-1 text-xs text-bark-muted">
+                        <span>{action.ownerName?.split(" ")[0] || "Unassigned"}</span>
+                        <span className="text-border-strong">·</span>
+                        <span className={action.status === "overdue" ? "text-earth font-medium" : ""}>
+                          {action.dueDate ? formatDate(action.dueDate.toISOString()) : "No due date"}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </section>
 
           {/* Upcoming reviews */}
@@ -261,25 +316,31 @@ export default async function DashboardPage() {
               Reviews coming up
             </h2>
 
-            <div className="space-y-2.5">
-              {nextReviews.map((decision) => (
-                <Link
-                  key={decision.id}
-                  href={`/decisions/${decision.number}`}
-                  className="flex items-start gap-2.5 py-2 group"
-                >
-                  <CalendarClock size={14} className="text-amber mt-0.5 shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[0.8125rem] text-bark leading-snug group-hover:text-canopy transition-colors">
-                      #{decision.number} {decision.title}
-                    </p>
-                    <p className="text-xs text-bark-muted mt-0.5">
-                      Review by {formatDate(decision.reviewDate!.toISOString())}
-                    </p>
-                  </div>
-                </Link>
-              ))}
-            </div>
+            {nextReviews.length === 0 ? (
+              <p className="text-[0.8125rem] text-bark-muted py-2">
+                No reviews scheduled yet.
+              </p>
+            ) : (
+              <div className="space-y-2.5">
+                {nextReviews.map((decision) => (
+                  <Link
+                    key={decision.id}
+                    href={`/decisions/${decision.number}`}
+                    className="flex items-start gap-2.5 py-2 group"
+                  >
+                    <CalendarClock size={14} className="text-amber mt-0.5 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[0.8125rem] text-bark leading-snug group-hover:text-canopy transition-colors">
+                        #{decision.number} {decision.title}
+                      </p>
+                      <p className="text-xs text-bark-muted mt-0.5">
+                        Review by {formatDate(decision.reviewDate!.toISOString())}
+                      </p>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
           </section>
 
           {/* Recent meetings */}
@@ -299,25 +360,31 @@ export default async function DashboardPage() {
               </Link>
             </div>
 
-            <div className="space-y-2.5">
-              {allMeetings.slice(0, 3).map((meeting) => (
-                <div key={meeting.id} className="flex items-start gap-2.5 py-2">
-                  <BookOpen size={14} className="text-bark-muted mt-0.5 shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[0.8125rem] text-bark leading-snug">
-                      {meeting.title}
-                    </p>
-                    <div className="flex items-center gap-2 mt-0.5 text-xs text-bark-muted">
-                      <span>{formatDate(meeting.date.toISOString())}</span>
-                      <span className="text-border-strong">·</span>
-                      <span>{meeting.decisionsCount} decisions</span>
-                      <span className="text-border-strong">·</span>
-                      <span>{meeting.attendees.length} present</span>
+            {allMeetings.length === 0 ? (
+              <p className="text-[0.8125rem] text-bark-muted py-2">
+                No meetings recorded yet.
+              </p>
+            ) : (
+              <div className="space-y-2.5">
+                {allMeetings.slice(0, 3).map((meeting) => (
+                  <div key={meeting.id} className="flex items-start gap-2.5 py-2">
+                    <BookOpen size={14} className="text-bark-muted mt-0.5 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[0.8125rem] text-bark leading-snug">
+                        {meeting.title}
+                      </p>
+                      <div className="flex items-center gap-2 mt-0.5 text-xs text-bark-muted">
+                        <span>{formatDate(meeting.date.toISOString())}</span>
+                        <span className="text-border-strong">·</span>
+                        <span>{meeting.decisionsCount} decisions</span>
+                        <span className="text-border-strong">·</span>
+                        <span>{meeting.attendees.length} present</span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </section>
 
           {/* Member briefing */}

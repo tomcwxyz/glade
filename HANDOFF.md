@@ -1,68 +1,85 @@
-# Handoff — 2026-02-15
+# Handoff — 2026-02-16
 
 ## What happened this session
 
-Completed the bulk of Phase 1 (Core Decision Log MVP). Fixed known issues, then built remaining CRUD, linking, management, and layout features.
+Implemented comprehensive demo seed data covering every feature in the app, plus a "Clear all data" mechanism in Settings for resetting to a clean slate.
 
 ### Completed
 
-1. **Fixed dashboard greeting** — time-aware (morning/afternoon/evening)
-2. **Verified lazy_consensus** — already consistent, no fix needed
-3. **Meeting detail page** — `/meetings/[id]` with notes, agenda items, linked decisions, attendees
-4. **Decision status advance** — "Mark as [next]" button on decision detail page
-5. **Decision linking UI** — add/remove links (supersedes, relates_to, amends) from detail page
-6. **Link decisions to meetings** — link/unlink from decision detail page
-7. **Space settings page** — `/settings` with name/description edit, slug display, danger zone (delete with confirmation)
-8. **Member management** — `/members` page with role changes (admin/member/observer), member removal, invite by email
-9. **Meeting agenda management** — ordered agenda items with type (for_decision/discussion/information) in meeting form
-10. **Loading states** — skeleton loading component for app routes
-11. **Responsive layout** — mobile nav hamburger menu, responsive padding, single-column layouts on small screens
-
-### Files created
-
-- `src/app/(app)/meetings/[id]/page.tsx` — meeting detail page
-- `src/app/(app)/decisions/[number]/status-advance.tsx` — status advance button
-- `src/app/(app)/decisions/[number]/decision-links-editor.tsx` — links + meetings editor
-- `src/app/(app)/settings/page.tsx` — space settings page
-- `src/app/(app)/settings/settings-form.tsx` — settings form with danger zone
-- `src/app/(app)/members/page.tsx` — members list page
-- `src/app/(app)/members/members-list.tsx` — members list with invite/role/remove
-- `src/app/(app)/loading.tsx` — skeleton loading component
-- `src/components/mobile-nav.tsx` — mobile hamburger navigation
-- `src/lib/space-actions.ts` — updateSpace, deleteSpace, updateMemberRole, removeMember, inviteMember
+1. **Expanded seed script** — `src/db/seed.ts` now populates every table in the schema with a coherent 3-month Riverside Community Trust narrative
+2. **Idempotency guard** — seed detects existing `demo@glade.app` and exits cleanly; `--force` flag deletes and re-seeds
+3. **Meeting agenda items** — 12 items (3 per meeting) with `for_decision`, `for_discussion`, `for_information` types
+4. **Meeting notes** — narrative notes on Feb board meeting and Jan finance committee
+5. **Completed actions** — 3 new actions with `status: "complete"` and `completedAt` dates (9 total actions now)
+6. **Documents with Tiptap JSON** — Constitution (published, 2 versions), Safeguarding Policy (published, 1 version), Board Member Role Description (draft)
+7. **Document versions** — 4 versions with change descriptions and decision links
+8. **Document section links** — 2 links (constitution sections to decisions #41 and #43)
+9. **Proposals** — 4 across lifecycle: open_for_discussion, ready_for_decision, decided (linked to decision #43), draft
+10. **Proposal comments** — 8 comments including 1 reply thread across 3 proposals
+11. **Proposal references** — 2 external URLs (NCVO, Charity Governance Code)
+12. **Topics** — 4 topics (question, tension, agenda_suggestion); 1 promoted to proposal
+13. **AI Insights** — 3 insights (pattern analysis, review questions, monthly briefing)
+14. **Decision fields** — `conditions` on 2 decisions, `createdBy` on all 7
+15. **Clear all data** — server action + Settings UI with "type CLEAR" confirmation dialog
 
 ### Files modified
 
-- `src/app/(app)/dashboard/page.tsx` — time-aware greeting, responsive layout
-- `src/app/(app)/meetings/page.tsx` — links to detail page, responsive padding
-- `src/app/(app)/meetings/meeting-form.tsx` — agenda items management
-- `src/app/(app)/decisions/[number]/page.tsx` — StatusAdvance, DecisionLinksEditor, responsive grid
-- `src/app/(app)/meetings/[id]/page.tsx` — responsive grid
-- `src/components/app-shell.tsx` — mobile nav, sidebar hidden on mobile
-- `src/lib/queries.ts` — getMeetingById, getDecisionsList, getMeetingsList, getDecisionLinksWithIds, getDecisionMeetings; getSpaceMembers now returns spaceMembers.id + userId
-- `src/lib/decision-actions.ts` — addDecisionLink, removeDecisionLink, linkDecisionToMeeting, unlinkDecisionFromMeeting
-- `src/lib/meeting-actions.ts` — agenda item creation in createMeeting/updateMeeting
-- All page containers updated to responsive padding (px-4 sm:px-8 py-6 sm:py-10)
+- `src/db/seed.ts` — expanded from ~440 lines to ~960 lines with full demo data + idempotency
+- `src/lib/space-actions.ts` — added `clearSpaceData()` server action (deletes all content in FK-safe order, preserves space + members)
+- `src/app/(app)/settings/settings-form.tsx` — added "Clear all data" section in danger zone above delete
+
+### Seed data summary
+
+| Table | Count | Notes |
+|-------|-------|-------|
+| Users | 9 | 8 named members + demo@glade.app |
+| Space | 1 | Riverside Community Trust |
+| Members | 9 | 2 admins (Amara, Demo), 7 members |
+| Tags | 9 | service delivery, strategy, partnerships, etc. |
+| Meetings | 4 | Dec–Feb, with notes on 2 |
+| Agenda items | 12 | 3 per meeting, mixed types |
+| Decisions | 7 | #41–#47, all statuses represented |
+| Decision links | 5 | supersedes, relates_to, amends |
+| Decision tags | 13 | |
+| Meeting-decision links | 6 | |
+| Actions | 9 | open, in_progress, complete, overdue |
+| Documents | 3 | constitution, policy, role description |
+| Document versions | 4 | Constitution has v1+v2, others v1 |
+| Document section links | 2 | |
+| Proposals | 4 | draft through decided |
+| Proposal comments | 8 | Including 1 reply thread |
+| Proposal references | 2 | |
+| Topics | 4 | 1 promoted to proposal |
+| Insights | 3 | pattern, review, briefing |
 
 ## What to do next
 
-### Remaining Phase 1 items
-1. **Vercel deployment** — connect repo, set env vars, deploy (needs user setup)
-2. **Resend email** — get API key, test magic link auth (needs `AUTH_RESEND_KEY`)
-3. **Filter by theme, method, date range, participant** — decision list currently has status filter + search only
-4. **Breadcrumb navigation** — nice-to-have
+1. **Vercel deployment** — connect repo, set env vars, deploy
+2. **Resend email** — get API key, test magic link auth
+3. **Fix credentials login** — getting `Configuration` error from NextAuth when POSTing to credentials callback (may be JWT + DrizzleAdapter conflict). Google OAuth works.
+4. **Test clear data flow** — log in via Google OAuth, go to Settings, test "Clear all data" button
+5. **Advanced filters** — decision list: filter by theme, method, date range, participant
+6. **Breadcrumb navigation** — nice-to-have
+7. **Phase 4 (Meeting Mode)** ready to begin
 
-### Phase 2 ready to start
-All Phase 1 core features are built. Phase 2 (Governance Documents & Proposals) can begin once Phase 1 deployment items are sorted.
+## How to seed
+
+```bash
+set -a && source .env.local && set +a && npx tsx src/db/seed.ts          # first time
+set -a && source .env.local && set +a && npx tsx src/db/seed.ts --force  # re-seed
+```
+
+Login: `demo@glade.app` / `password123` (requires credentials provider to work)
 
 ## Known issues
 
+- **Credentials auth broken** — NextAuth returns `error=Configuration` when trying to sign in with email/password. Google OAuth works. Likely a JWT strategy + DrizzleAdapter + Credentials provider interaction issue.
 - Auth split: `auth.config.ts` (Edge) doesn't include Credentials provider — by design for Edge compatibility
-- Neon connection string is in `.env.local` — needs to be set in Vercel env vars
-- Member invite requires the user to have an existing account (no email invitation link yet — needs Resend)
-- No git repo set up yet (initialized but no commits)
+- Two Next.js dev servers cannot run on the same project (shared `.next` directory causes ENOENT errors)
+- `npm run build` blocked by file lock when dev server is running (not a code issue)
 
 ## Build status
 
-`npm run build` — passing (17 routes, 0 errors)
-`npm run lint` — passing (0 warnings)
+`npm run lint` — passing (0 warnings, 0 errors)
+`npx tsc --noEmit` — passing (full project type-check)
+`npm run build` — passes when dev server is stopped

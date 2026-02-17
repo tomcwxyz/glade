@@ -2,16 +2,17 @@ import { getCurrentSpace } from "@/lib/space";
 import { getMeetingById } from "@/lib/queries";
 import { formatDate } from "@/lib/utils";
 import {
-  ArrowLeft,
   BookOpen,
   Calendar,
   CircleDot,
   FileText,
   MessageSquare,
+  Pencil,
   Users,
 } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Breadcrumbs } from "@/components/breadcrumbs";
 
 const TYPE_LABELS: Record<string, string> = {
   board: "Board Meeting",
@@ -27,6 +28,13 @@ const AGENDA_TYPE_LABELS: Record<string, { label: string; color: string }> = {
   for_decision: { label: "For decision", color: "text-canopy bg-canopy-pale" },
   for_discussion: { label: "For discussion", color: "text-amber bg-amber/10" },
   for_information: { label: "For information", color: "text-sky bg-sky/10" },
+};
+
+const MEETING_STATUS_CONFIG: Record<string, { label: string; color: string }> = {
+  draft: { label: "Draft", color: "bg-paper-deep text-bark-muted" },
+  scheduled: { label: "Scheduled", color: "bg-sky/10 text-sky" },
+  in_progress: { label: "In Progress", color: "bg-amber-pale text-amber" },
+  completed: { label: "Completed", color: "bg-canopy-pale text-canopy" },
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -49,33 +57,49 @@ export default async function MeetingDetailPage({
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-8 py-6 sm:py-10">
-      {/* Back link */}
-      <Link
-        href="/meetings"
-        className="inline-flex items-center gap-1.5 text-sm text-bark-muted hover:text-canopy transition-colors mb-8"
-      >
-        <ArrowLeft size={14} />
-        Meetings
-      </Link>
+      <Breadcrumbs items={[
+        { label: "Meetings", href: "/meetings" },
+        { label: meeting.title },
+      ]} />
 
       {/* Header */}
       <header className="mb-10">
-        <div className="flex items-center gap-3 mb-3">
-          <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-paper-deep text-bark-muted">
-            {TYPE_LABELS[meeting.type || "other"] || meeting.type}
-          </span>
-          <span className="text-sm text-bark-muted flex items-center gap-1.5">
-            <Calendar size={13} />
-            {formatDate(meeting.date.toISOString())}
-          </span>
-        </div>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-3 mb-3">
+              <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-paper-deep text-bark-muted">
+                {TYPE_LABELS[meeting.type || "other"] || meeting.type}
+              </span>
+              {(() => {
+                const sc = MEETING_STATUS_CONFIG[meeting.status] || MEETING_STATUS_CONFIG.draft;
+                return (
+                  <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${sc.color}`}>
+                    {sc.label}
+                  </span>
+                );
+              })()}
+              <span className="text-sm text-bark-muted flex items-center gap-1.5">
+                <Calendar size={13} />
+                {formatDate(meeting.date.toISOString())}
+              </span>
+            </div>
 
-        <h1
-          className="text-2xl font-medium tracking-tight leading-snug mb-2 max-w-2xl"
-          style={{ fontFamily: "var(--font-display)" }}
-        >
-          {meeting.title}
-        </h1>
+            <h1
+              className="text-2xl font-medium tracking-tight leading-snug mb-2 max-w-2xl"
+              style={{ fontFamily: "var(--font-display)" }}
+            >
+              {meeting.title}
+            </h1>
+          </div>
+
+          <Link
+            href={`/meetings/${meeting.id}/edit`}
+            className="flex items-center gap-1.5 px-3 py-2 text-sm bg-paper-deep border border-border rounded-lg text-bark-muted hover:text-bark hover:bg-paper-warm transition-colors shrink-0"
+          >
+            <Pencil size={14} />
+            Edit
+          </Link>
+        </div>
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-10 lg:gap-14">
@@ -122,6 +146,11 @@ export default async function MeetingDetailPage({
                           >
                             {typeConfig.label}
                           </span>
+                          {item.durationMinutes && (
+                            <span className="text-xs text-bark-muted">
+                              {item.durationMinutes} min
+                            </span>
+                          )}
                         </div>
                         {item.description && (
                           <p className="text-sm text-bark-muted leading-relaxed">

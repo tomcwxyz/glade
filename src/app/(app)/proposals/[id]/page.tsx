@@ -2,7 +2,8 @@ import { getCurrentSpace } from "@/lib/space";
 import { getProposalById } from "@/lib/queries";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Edit, Clock } from "lucide-react";
+import { Breadcrumbs } from "@/components/breadcrumbs";
+import { Edit, Clock } from "lucide-react";
 import { formatDate, formatDateRelative } from "@/lib/utils";
 import { ProposalStatusAdvance } from "./proposal-status-advance";
 import { ProposalDiscussion } from "./proposal-discussion";
@@ -56,13 +57,10 @@ export default async function ProposalDetailPage({
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-8 py-6 sm:py-10">
-      <Link
-        href="/proposals"
-        className="inline-flex items-center gap-1.5 text-sm text-bark-muted hover:text-canopy transition-colors mb-8"
-      >
-        <ArrowLeft size={14} />
-        Proposals
-      </Link>
+      <Breadcrumbs items={[
+        { label: "Proposals", href: "/proposals" },
+        { label: proposal.title },
+      ]} />
 
       <header className="mb-8">
         <div className="flex items-start justify-between gap-4">

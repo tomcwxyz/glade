@@ -82,6 +82,24 @@ export default function NewSpacePage() {
           />
         </div>
 
+        <label className="flex items-start gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            name="exampleData"
+            defaultChecked
+            className="mt-0.5 w-4 h-4 rounded border-border text-canopy accent-canopy"
+          />
+          <span>
+            <span className="text-sm font-medium text-bark">
+              Start with example data
+            </span>
+            <span className="block text-xs text-bark-muted mt-0.5 leading-relaxed">
+              Adds sample decisions, meetings, actions, and a document so you
+              can see how everything works.
+            </span>
+          </span>
+        </label>
+
         <button
           type="submit"
           disabled={loading}

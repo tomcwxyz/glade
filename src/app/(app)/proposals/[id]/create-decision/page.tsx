@@ -1,8 +1,7 @@
 import { getCurrentSpace } from "@/lib/space";
 import { getProposalById } from "@/lib/queries";
 import { notFound, redirect } from "next/navigation";
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { Breadcrumbs } from "@/components/breadcrumbs";
 import { CreateDecisionFromProposal } from "./create-decision-form";
 
 export default async function CreateDecisionFromProposalPage({
@@ -24,13 +23,11 @@ export default async function CreateDecisionFromProposalPage({
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-8 py-6 sm:py-10">
-      <Link
-        href={`/proposals/${id}`}
-        className="inline-flex items-center gap-1.5 text-sm text-bark-muted hover:text-canopy transition-colors mb-8"
-      >
-        <ArrowLeft size={14} />
-        Back to proposal
-      </Link>
+      <Breadcrumbs items={[
+        { label: "Proposals", href: "/proposals" },
+        { label: proposal.title, href: `/proposals/${id}` },
+        { label: "Create decision" },
+      ]} />
 
       <header className="mb-10">
         <h1

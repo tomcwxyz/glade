@@ -1,5 +1,6 @@
 import { getCurrentSpace } from "@/lib/space";
 import { getSpaceTags, getSpaceMembers } from "@/lib/queries";
+import { Breadcrumbs } from "@/components/breadcrumbs";
 import { DecisionForm } from "../decision-form";
 
 export default async function NewDecisionPage() {
@@ -13,6 +14,10 @@ export default async function NewDecisionPage() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-8 py-6 sm:py-10">
+      <Breadcrumbs items={[
+        { label: "Decision Log", href: "/decisions" },
+        { label: "New decision" },
+      ]} />
       <header className="mb-10">
         <h1
           className="text-2xl font-medium tracking-tight mb-2"

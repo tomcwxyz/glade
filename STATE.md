@@ -1,6 +1,6 @@
 # State
 
-> Last updated: 2026-02-16
+> Last updated: 2026-02-17
 
 ## System State Diagram
 
@@ -28,7 +28,7 @@ stateDiagram-v2
 | Design system (globals.css) | ✅ Done | Forest palette (oklch), fluid type scale, status colours |
 | NextAuth (Auth.js v5) | ✅ Done | Credentials + magic link + Google + Microsoft OAuth. Edge-compatible middleware. |
 | Neon PostgreSQL + Drizzle ORM | ✅ Done | Connected, schema pushed, migrations generated |
-| Database schema (21 tables) | ✅ Done | Auth tables + spaces, decisions, meetings, actions, tags, links, documents, proposals, topics |
+| Database schema (24 tables) | ✅ Done | Auth tables + spaces, decisions, meetings, actions, tags, links, documents, proposals, topics, insights |
 | Sign-in / sign-up pages | ✅ Done | Styled in Glade design system, all auth methods |
 | Route protection (middleware) | ✅ Done | Public: `/`, `/sign-in`, `/sign-up`. All app routes require auth. |
 | Update CLAUDE.md | ✅ Done | Full project conventions documented |
@@ -54,23 +54,24 @@ stateDiagram-v2
 | Component | Status | Notes |
 |-----------|--------|-------|
 | Space management (create, switch, cookie) | ✅ Done | Server actions, new-space page, space switcher in sidebar |
-| Seed script | ✅ Done | Riverside Trust data: 8 users, 7 decisions, 5 actions, 4 meetings, 9 tags |
+| Seed script | ✅ Done | Full demo: 9 users, 7 decisions, 9 actions (3 complete), 4 meetings (12 agenda items, 2 with notes), 9 tags, 3 documents (4 versions), 4 proposals (8 comments, 2 refs), 4 topics, 3 AI insights. Idempotent with `--force` flag. |
 | Replace mock data with DB queries | ✅ Done | All 6 app pages wired to Drizzle queries via `src/lib/queries.ts` |
 | Decision CRUD (create, edit) | ✅ Done | `/decisions/new`, `/decisions/[number]/edit`, server actions |
 | Meeting CRUD (create) | ✅ Done | `/meetings/new`, server actions |
 | Action status toggle | ✅ Done | Click-to-cycle status on actions page |
-| Decision search + status filters | ✅ Done | Client-side search + filter on `/decisions` |
+| Decision search + advanced filters | ✅ Done | Search, status, method, tags, participant, date range filters |
 | Mock data removed | ✅ Done | `mock-data.ts` deleted, all pages use DB |
 | Meeting detail page | ✅ Done | `/meetings/[id]` with notes, agenda, attendees, linked decisions |
 | Decision linking UI | ✅ Done | Add/remove links (supersedes, relates_to, amends) from detail page |
 | Decision status advance | ✅ Done | "Mark as [next]" button on detail page |
 | Link decisions to meetings | ✅ Done | Link/unlink meetings from decision detail page |
 | Dashboard time-aware greeting | ✅ Done | Morning/afternoon/evening based on server time |
-| Space settings page | ✅ Done | `/settings` with name/description edit, danger zone delete |
+| Space settings page | ✅ Done | `/settings` with name/description edit, "Clear all data" (type CLEAR), danger zone delete |
 | Member management + invite | ✅ Done | `/members` with roles, invite by email, remove |
 | Meeting agenda items | ✅ Done | Ordered agenda with type (for_decision/discussion/information) |
 | Loading skeleton | ✅ Done | Generic skeleton loading component |
 | Responsive layout | ✅ Done | Mobile hamburger nav, responsive padding, single-column on mobile |
+| Breadcrumb navigation | ✅ Done | All detail/sub-pages have breadcrumb trails replacing ArrowLeft back links |
 
 ### Phase 2 — Governance Documents & Proposals
 
@@ -124,7 +125,18 @@ flowchart LR
 | Document intelligence | ✅ Done | "Check document impact" on decision detail, suggests documents to update |
 | Member briefing | ✅ Done | On-demand governance briefing on dashboard |
 
-Next milestone: Vercel deployment, Resend email. Phase 4 (Meeting Mode) ready to begin.
+### Phase 4 — Meeting Mode (started)
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| Meeting status lifecycle | ✅ Done | `meeting_status` enum: draft, scheduled, in_progress, completed |
+| Agenda item enhancements | ✅ Done | `agenda_item_status` enum, `durationMinutes`, `proposalId`, `topicId` columns |
+| Meeting form (enhanced) | ✅ Done | Status select, time estimates per item, proposal linking |
+| Meeting edit page | ✅ Done | `/meetings/[id]/edit` route wired to form |
+| Meeting detail (enhanced) | ✅ Done | Status badge, edit link, duration display on agenda items |
+| Schema migration | ✅ Generated | Migration file ready, needs `db:push` with connection string |
+
+Next milestone: Vercel deployment, Resend email. Phase 4 real-time meeting mode (Socket.io/PartyKit) ready to begin.
 
 ## Dependencies
 

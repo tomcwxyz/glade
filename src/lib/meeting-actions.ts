@@ -3,8 +3,10 @@
 import { redirect } from "next/navigation";
 import { eq, and } from "drizzle-orm";
 import { db } from "@/db";
-import { meetings, meetingAgendaItems, meetingAttendees, meetingDecisions } from "@/db/schema";
+import { meetings, meetingAgendaItems, meetingAttendees } from "@/db/schema";
 import { getCurrentSpace, requireUser } from "@/lib/space";
+
+type MeetingStatus = "draft" | "scheduled" | "in_progress" | "completed";
 
 export async function createMeeting(formData: FormData) {
   const user = await requireUser();
@@ -18,6 +20,7 @@ export async function createMeeting(formData: FormData) {
   if (!dateStr) return { error: "Date is required" };
 
   const type = (formData.get("type") as string)?.trim() || null;
+  const status = ((formData.get("status") as string)?.trim() || "draft") as MeetingStatus;
   const notes = (formData.get("notes") as string)?.trim() || null;
   const attendeeIdsRaw = formData.get("attendeeIds") as string;
 
@@ -32,6 +35,7 @@ export async function createMeeting(formData: FormData) {
       title,
       date: new Date(dateStr),
       type,
+      status,
       notes,
       createdBy: user.id,
     })
@@ -51,6 +55,9 @@ export async function createMeeting(formData: FormData) {
   const agendaTitles = formData.getAll("agendaTitle") as string[];
   const agendaDescriptions = formData.getAll("agendaDescription") as string[];
   const agendaTypes = formData.getAll("agendaType") as string[];
+  const agendaDurations = formData.getAll("agendaDuration") as string[];
+  const agendaProposalIds = formData.getAll("agendaProposalId") as string[];
+  const agendaTopicIds = formData.getAll("agendaTopicId") as string[];
 
   const agendaValues = agendaTitles
     .map((title, i) => ({
@@ -58,6 +65,9 @@ export async function createMeeting(formData: FormData) {
       description: agendaDescriptions[i]?.trim() || null,
       type: (agendaTypes[i] || "for_discussion") as "for_decision" | "for_discussion" | "for_information",
       sortOrder: i,
+      durationMinutes: agendaDurations[i] ? parseInt(agendaDurations[i], 10) || null : null,
+      proposalId: agendaProposalIds[i] || null,
+      topicId: agendaTopicIds[i] || null,
     }))
     .filter((a) => a.title.length > 0);
 
@@ -69,6 +79,9 @@ export async function createMeeting(formData: FormData) {
         description: a.description,
         type: a.type,
         sortOrder: a.sortOrder,
+        durationMinutes: a.durationMinutes,
+        proposalId: a.proposalId,
+        topicId: a.topicId,
       }))
     );
   }
@@ -96,6 +109,7 @@ export async function updateMeeting(meetingId: string, formData: FormData) {
   if (!dateStr) return { error: "Date is required" };
 
   const type = (formData.get("type") as string)?.trim() || null;
+  const status = ((formData.get("status") as string)?.trim() || "draft") as MeetingStatus;
   const notes = (formData.get("notes") as string)?.trim() || null;
   const attendeeIdsRaw = formData.get("attendeeIds") as string;
 
@@ -109,6 +123,7 @@ export async function updateMeeting(meetingId: string, formData: FormData) {
       title,
       date: new Date(dateStr),
       type,
+      status,
       notes,
       updatedAt: new Date(),
     })
@@ -130,6 +145,9 @@ export async function updateMeeting(meetingId: string, formData: FormData) {
   const agendaTitles = formData.getAll("agendaTitle") as string[];
   const agendaDescriptions = formData.getAll("agendaDescription") as string[];
   const agendaTypes = formData.getAll("agendaType") as string[];
+  const agendaDurations = formData.getAll("agendaDuration") as string[];
+  const agendaProposalIds = formData.getAll("agendaProposalId") as string[];
+  const agendaTopicIds = formData.getAll("agendaTopicId") as string[];
 
   const agendaValues = agendaTitles
     .map((title, i) => ({
@@ -137,6 +155,9 @@ export async function updateMeeting(meetingId: string, formData: FormData) {
       description: agendaDescriptions[i]?.trim() || null,
       type: (agendaTypes[i] || "for_discussion") as "for_decision" | "for_discussion" | "for_information",
       sortOrder: i,
+      durationMinutes: agendaDurations[i] ? parseInt(agendaDurations[i], 10) || null : null,
+      proposalId: agendaProposalIds[i] || null,
+      topicId: agendaTopicIds[i] || null,
     }))
     .filter((a) => a.title.length > 0);
 
@@ -148,6 +169,9 @@ export async function updateMeeting(meetingId: string, formData: FormData) {
         description: a.description,
         type: a.type,
         sortOrder: a.sortOrder,
+        durationMinutes: a.durationMinutes,
+        proposalId: a.proposalId,
+        topicId: a.topicId,
       }))
     );
   }

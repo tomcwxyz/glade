@@ -53,6 +53,7 @@ export async function getDecisions(spaceId: string) {
           number: decisions.number,
           title: decisions.title,
           relation: decisionLinks.linkType,
+          direction: sql<string>`'forward'`,
         })
         .from(decisionLinks)
         .innerJoin(decisions, eq(decisions.id, decisionLinks.toDecisionId))
@@ -65,6 +66,7 @@ export async function getDecisions(spaceId: string) {
           number: decisions.number,
           title: decisions.title,
           relation: decisionLinks.linkType,
+          direction: sql<string>`'reverse'`,
         })
         .from(decisionLinks)
         .innerJoin(decisions, eq(decisions.id, decisionLinks.fromDecisionId))

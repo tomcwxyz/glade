@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { createTopic } from "@/lib/topic-actions";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import Link from "next/link";
 
 const TYPES = [
@@ -38,14 +38,6 @@ export function TopicForm() {
 
   return (
     <>
-      <Link
-        href="/topics"
-        className="inline-flex items-center gap-1.5 text-sm text-bark-muted hover:text-canopy transition-colors mb-8"
-      >
-        <ArrowLeft size={14} />
-        Topics
-      </Link>
-
       {error && (
         <div className="mb-6 px-4 py-3 rounded-lg bg-earth/8 border border-earth/20 text-sm text-earth">
           {error}

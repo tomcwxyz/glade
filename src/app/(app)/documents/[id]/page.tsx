@@ -2,7 +2,8 @@ import { getCurrentSpace } from "@/lib/space";
 import { getDocumentById, getDecisionsList } from "@/lib/queries";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Clock, Edit, FileText, History } from "lucide-react";
+import { Breadcrumbs } from "@/components/breadcrumbs";
+import { Clock, Edit, FileText, History } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { DocumentStatusActions } from "./document-status-actions";
 import { DocumentWithTrail } from "./document-with-trail";
@@ -34,13 +35,10 @@ export default async function DocumentDetailPage({
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-8 py-6 sm:py-10">
-      <Link
-        href="/documents"
-        className="inline-flex items-center gap-1.5 text-sm text-bark-muted hover:text-canopy transition-colors mb-8"
-      >
-        <ArrowLeft size={14} />
-        Documents
-      </Link>
+      <Breadcrumbs items={[
+        { label: "Documents", href: "/documents" },
+        { label: doc.title },
+      ]} />
 
       <header className="mb-8">
         <div className="flex items-start justify-between gap-4">

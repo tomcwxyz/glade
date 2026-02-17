@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { createDocument, updateDocument, autoSaveDocument } from "@/lib/document-actions";
 import { TiptapEditor } from "@/components/tiptap-editor";
-import { ArrowLeft, Check, Cloud, CloudOff, Loader2 } from "lucide-react";
+import { Check, Cloud, CloudOff, Loader2 } from "lucide-react";
 import Link from "next/link";
 import type { JSONContent } from "@tiptap/react";
 
@@ -112,14 +112,6 @@ export function DocumentForm({ document }: { document?: DocumentData }) {
 
   return (
     <>
-      <Link
-        href={isEditing ? `/documents/${document?.id}` : "/documents"}
-        className="inline-flex items-center gap-1.5 text-sm text-bark-muted hover:text-canopy transition-colors mb-8"
-      >
-        <ArrowLeft size={14} />
-        {isEditing ? "Back to document" : "Documents"}
-      </Link>
-
       {error && (
         <div className="mb-6 px-4 py-3 rounded-lg bg-earth/8 border border-earth/20 text-sm text-earth">
           {error}

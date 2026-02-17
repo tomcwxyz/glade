@@ -1,5 +1,6 @@
 import { getCurrentSpace } from "@/lib/space";
 import { getDecisionByNumber, getSpaceTags, getSpaceMembers } from "@/lib/queries";
+import { Breadcrumbs } from "@/components/breadcrumbs";
 import { DecisionForm } from "../../decision-form";
 import { notFound } from "next/navigation";
 
@@ -27,6 +28,11 @@ export default async function EditDecisionPage({
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-8 py-6 sm:py-10">
+      <Breadcrumbs items={[
+        { label: "Decision Log", href: "/decisions" },
+        { label: `#${decision.number} ${decision.title}`, href: `/decisions/${decision.number}` },
+        { label: "Edit" },
+      ]} />
       <header className="mb-10">
         <h1
           className="text-2xl font-medium tracking-tight mb-2"

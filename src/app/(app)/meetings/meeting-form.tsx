@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { createMeeting, updateMeeting } from "@/lib/meeting-actions";
-import { ArrowLeft, Check, Loader2, Plus, X, MessageSquarePlus } from "lucide-react";
+import { Check, Clock, FileText, Loader2, Plus, X, MessageSquarePlus } from "lucide-react";
 import Link from "next/link";
 
 interface Member {
@@ -17,14 +17,30 @@ interface Topic {
   type: string;
 }
 
+interface Proposal {
+  id: string;
+  title: string;
+  status: string;
+}
+
+interface AgendaItem {
+  title: string;
+  description: string;
+  type: string;
+  durationMinutes: string;
+  proposalId: string;
+  topicId: string;
+}
+
 interface MeetingData {
   id: string;
   title: string;
   date: string;
   type: string | null;
+  status: string;
   notes: string | null;
   attendeeIds: string[];
-  agendaItems: { title: string; description: string; type: string }[];
+  agendaItems: AgendaItem[];
 }
 
 const MEETING_TYPES = [
@@ -36,6 +52,13 @@ const MEETING_TYPES = [
   "Other",
 ];
 
+const MEETING_STATUSES = [
+  { value: "draft", label: "Draft" },
+  { value: "scheduled", label: "Scheduled" },
+  { value: "in_progress", label: "In Progress" },
+  { value: "completed", label: "Completed" },
+];
+
 const TOPIC_TYPE_TO_AGENDA: Record<string, string> = {
   question: "for_discussion",
   tension: "for_discussion",
@@ -45,14 +68,25 @@ const TOPIC_TYPE_TO_AGENDA: Record<string, string> = {
 const inputClass =
   "w-full px-4 py-2.5 text-sm bg-paper-warm border border-border rounded-lg placeholder:text-bark-muted/50 focus:outline-none focus:border-canopy focus:ring-1 focus:ring-canopy/20 transition-colors";
 
+const emptyAgendaItem: AgendaItem = {
+  title: "",
+  description: "",
+  type: "for_discussion",
+  durationMinutes: "",
+  proposalId: "",
+  topicId: "",
+};
+
 export function MeetingForm({
   members,
   meeting,
   topics,
+  proposals,
 }: {
   members: Member[];
   meeting?: MeetingData;
   topics?: Topic[];
+  proposals?: Proposal[];
 }) {
   const isEditing = !!meeting;
   const [loading, setLoading] = useState(false);
@@ -60,13 +94,17 @@ export function MeetingForm({
   const [selectedAttendees, setSelectedAttendees] = useState<string[]>(
     meeting?.attendeeIds || []
   );
-  const [agendaItems, setAgendaItems] = useState<
-    { title: string; description: string; type: string }[]
-  >(meeting?.agendaItems || []);
+  const [agendaItems, setAgendaItems] = useState<AgendaItem[]>(
+    meeting?.agendaItems || []
+  );
   const [addedTopicIds, setAddedTopicIds] = useState<Set<string>>(new Set());
   const [showTopicPicker, setShowTopicPicker] = useState(false);
+  const [showProposalPicker, setShowProposalPicker] = useState(false);
 
   const availableTopics = (topics || []).filter((t) => !addedTopicIds.has(t.id));
+  const availableProposals = (proposals || []).filter(
+    (p) => p.status === "open_for_discussion" || p.status === "ready_for_decision"
+  );
 
   function toggleAttendee(id: string) {
     setSelectedAttendees((prev) =>
@@ -78,12 +116,32 @@ export function MeetingForm({
     setAgendaItems((prev) => [
       ...prev,
       {
+        ...emptyAgendaItem,
         title: topic.title,
         description: topic.description || "",
         type: TOPIC_TYPE_TO_AGENDA[topic.type] || "for_discussion",
+        topicId: topic.id,
       },
     ]);
     setAddedTopicIds((prev) => new Set([...prev, topic.id]));
+  }
+
+  function addProposalAsAgendaItem(proposal: Proposal) {
+    setAgendaItems((prev) => [
+      ...prev,
+      {
+        ...emptyAgendaItem,
+        title: proposal.title,
+        type: "for_decision",
+        proposalId: proposal.id,
+      },
+    ]);
+  }
+
+  function updateAgenda(index: number, field: keyof AgendaItem, value: string) {
+    const updated = [...agendaItems];
+    updated[index] = { ...updated[index], [field]: value };
+    setAgendaItems(updated);
   }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -98,11 +156,17 @@ export function MeetingForm({
     formData.delete("agendaTitle");
     formData.delete("agendaDescription");
     formData.delete("agendaType");
+    formData.delete("agendaDuration");
+    formData.delete("agendaProposalId");
+    formData.delete("agendaTopicId");
     for (const item of agendaItems) {
       if (item.title.trim()) {
         formData.append("agendaTitle", item.title);
         formData.append("agendaDescription", item.description);
         formData.append("agendaType", item.type);
+        formData.append("agendaDuration", item.durationMinutes);
+        formData.append("agendaProposalId", item.proposalId);
+        formData.append("agendaTopicId", item.topicId);
       }
     }
 
@@ -121,16 +185,14 @@ export function MeetingForm({
     return isoString.split("T")[0];
   }
 
+  // Total estimated time
+  const totalMinutes = agendaItems.reduce(
+    (sum, item) => sum + (parseInt(item.durationMinutes, 10) || 0),
+    0
+  );
+
   return (
     <>
-      <Link
-        href="/meetings"
-        className="inline-flex items-center gap-1.5 text-sm text-bark-muted hover:text-canopy transition-colors mb-8"
-      >
-        <ArrowLeft size={14} />
-        Meetings
-      </Link>
-
       {error && (
         <div className="mb-6 px-4 py-3 rounded-lg bg-earth/8 border border-earth/20 text-sm text-earth">
           {error}
@@ -154,8 +216,8 @@ export function MeetingForm({
           />
         </div>
 
-        {/* Date & Type */}
-        <div className="grid grid-cols-2 gap-6">
+        {/* Date, Type & Status */}
+        <div className="grid grid-cols-3 gap-6">
           <div>
             <label htmlFor="date" className="block text-sm font-medium text-bark mb-1.5">
               Date
@@ -187,6 +249,24 @@ export function MeetingForm({
               {MEETING_TYPES.map((t) => (
                 <option key={t} value={t}>
                   {t}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="status" className="block text-sm font-medium text-bark mb-1.5">
+              Status
+            </label>
+            <select
+              id="status"
+              name="status"
+              defaultValue={meeting?.status || "draft"}
+              className={inputClass}
+            >
+              {MEETING_STATUSES.map((s) => (
+                <option key={s.value} value={s.value}>
+                  {s.label}
                 </option>
               ))}
             </select>
@@ -254,15 +334,65 @@ export function MeetingForm({
         {/* Agenda items */}
         <div>
           <div className="flex items-center justify-between mb-3">
-            <label className="block text-sm font-medium text-bark">
-              Agenda <span className="font-normal text-bark-muted">(optional)</span>
-            </label>
+            <div className="flex items-center gap-3">
+              <label className="block text-sm font-medium text-bark">
+                Agenda <span className="font-normal text-bark-muted">(optional)</span>
+              </label>
+              {totalMinutes > 0 && (
+                <span className="flex items-center gap-1 text-xs text-bark-muted">
+                  <Clock size={12} />
+                  {totalMinutes} min total
+                </span>
+              )}
+            </div>
             <div className="flex items-center gap-2">
+              {availableProposals.length > 0 && (
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowProposalPicker(!showProposalPicker);
+                      setShowTopicPicker(false);
+                    }}
+                    className="flex items-center gap-1 text-xs text-canopy hover:text-canopy-light transition-colors"
+                  >
+                    <FileText size={14} />
+                    Add proposal
+                  </button>
+                  {showProposalPicker && (
+                    <div className="absolute right-0 top-full mt-1 w-72 bg-paper border border-border rounded-lg shadow-lg z-10 py-1 max-h-60 overflow-y-auto">
+                      {availableProposals.map((proposal) => (
+                        <button
+                          key={proposal.id}
+                          type="button"
+                          onClick={() => {
+                            addProposalAsAgendaItem(proposal);
+                            setShowProposalPicker(false);
+                          }}
+                          className="w-full text-left px-3 py-2 hover:bg-paper-warm transition-colors"
+                        >
+                          <span className="text-sm text-bark block truncate">
+                            {proposal.title}
+                          </span>
+                          <span className="text-xs text-bark-muted">
+                            {proposal.status === "ready_for_decision"
+                              ? "Ready for decision"
+                              : "Open for discussion"}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
               {availableTopics.length > 0 && (
                 <div className="relative">
                   <button
                     type="button"
-                    onClick={() => setShowTopicPicker(!showTopicPicker)}
+                    onClick={() => {
+                      setShowTopicPicker(!showTopicPicker);
+                      setShowProposalPicker(false);
+                    }}
                     className="flex items-center gap-1 text-xs text-canopy hover:text-canopy-light transition-colors"
                   >
                     <MessageSquarePlus size={14} />
@@ -297,10 +427,7 @@ export function MeetingForm({
               <button
                 type="button"
                 onClick={() =>
-                  setAgendaItems([
-                    ...agendaItems,
-                    { title: "", description: "", type: "for_discussion" },
-                  ])
+                  setAgendaItems([...agendaItems, { ...emptyAgendaItem }])
                 }
                 className="flex items-center gap-1 text-xs text-canopy hover:text-canopy-light transition-colors"
               >
@@ -329,40 +456,43 @@ export function MeetingForm({
                   <input
                     type="text"
                     value={item.title}
-                    onChange={(e) => {
-                      const updated = [...agendaItems];
-                      updated[i] = { ...updated[i], title: e.target.value };
-                      setAgendaItems(updated);
-                    }}
+                    onChange={(e) => updateAgenda(i, "title", e.target.value)}
                     placeholder="Agenda item title"
                     className={inputClass}
                   />
-                  <div className="grid grid-cols-[1fr_auto] gap-2">
+                  <div className="grid grid-cols-[1fr_auto_auto] gap-2">
                     <input
                       type="text"
                       value={item.description}
-                      onChange={(e) => {
-                        const updated = [...agendaItems];
-                        updated[i] = { ...updated[i], description: e.target.value };
-                        setAgendaItems(updated);
-                      }}
+                      onChange={(e) => updateAgenda(i, "description", e.target.value)}
                       placeholder="Brief description (optional)"
                       className={inputClass}
                     />
                     <select
                       value={item.type}
-                      onChange={(e) => {
-                        const updated = [...agendaItems];
-                        updated[i] = { ...updated[i], type: e.target.value };
-                        setAgendaItems(updated);
-                      }}
+                      onChange={(e) => updateAgenda(i, "type", e.target.value)}
                       className={`${inputClass} w-auto`}
                     >
                       <option value="for_discussion">For discussion</option>
                       <option value="for_decision">For decision</option>
                       <option value="for_information">For information</option>
                     </select>
+                    <input
+                      type="number"
+                      value={item.durationMinutes}
+                      onChange={(e) => updateAgenda(i, "durationMinutes", e.target.value)}
+                      placeholder="min"
+                      min="1"
+                      className={`${inputClass} w-20 text-center`}
+                      title="Estimated minutes"
+                    />
                   </div>
+                  {item.proposalId && (
+                    <span className="inline-flex items-center gap-1 text-xs text-canopy">
+                      <FileText size={11} />
+                      Linked to proposal
+                    </span>
+                  )}
                 </div>
                 <button
                   type="button"

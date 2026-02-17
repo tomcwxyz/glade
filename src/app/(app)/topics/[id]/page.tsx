@@ -2,7 +2,8 @@ import { getCurrentSpace } from "@/lib/space";
 import { getTopicById } from "@/lib/queries";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Clock, HelpCircle, Zap, CalendarPlus } from "lucide-react";
+import { Breadcrumbs } from "@/components/breadcrumbs";
+import { Clock, HelpCircle, Zap, CalendarPlus } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { PromoteTopicButton } from "./promote-topic-button";
 
@@ -30,13 +31,10 @@ export default async function TopicDetailPage({
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-8 py-6 sm:py-10">
-      <Link
-        href="/topics"
-        className="inline-flex items-center gap-1.5 text-sm text-bark-muted hover:text-canopy transition-colors mb-8"
-      >
-        <ArrowLeft size={14} />
-        Topics
-      </Link>
+      <Breadcrumbs items={[
+        { label: "Topics", href: "/topics" },
+        { label: topic.title },
+      ]} />
 
       <header className="mb-8">
         <div className="flex items-start justify-between gap-4">

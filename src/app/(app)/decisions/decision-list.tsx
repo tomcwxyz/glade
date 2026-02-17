@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { formatDate, formatDateMonth } from "@/lib/utils";
-import { ListChecks, Search } from "lucide-react";
+import { ChevronDown, ChevronUp, ListChecks, Search, X } from "lucide-react";
 import Link from "next/link";
 
 interface SerializedDecision {
@@ -28,6 +28,8 @@ const METHOD_LABELS: Record<string, string> = {
   consensus: "Consensus",
   lazy_consensus: "Lazy Consensus",
 };
+
+const METHODS = ["all", "consent", "majority_vote", "advice_process", "delegation", "consensus", "lazy_consensus"] as const;
 
 const STATUS_LABELS: Record<string, string> = {
   decided: "Decided",
@@ -62,9 +64,38 @@ function MethodTag({ method }: { method: string }) {
   );
 }
 
-export function DecisionList({ decisions }: { decisions: SerializedDecision[] }) {
+interface DecisionListProps {
+  decisions: SerializedDecision[];
+  tags: string[];
+  participants: string[];
+}
+
+export function DecisionList({ decisions, tags, participants }: DecisionListProps) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [showMoreFilters, setShowMoreFilters] = useState(false);
+  const [methodFilter, setMethodFilter] = useState<string>("all");
+  const [tagFilters, setTagFilters] = useState<string[]>([]);
+  const [participantFilter, setParticipantFilter] = useState<string>("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+
+  // Count active advanced filters
+  const advancedFilterCount = [
+    methodFilter !== "all",
+    tagFilters.length > 0,
+    participantFilter !== "all",
+    dateFrom !== "",
+    dateTo !== "",
+  ].filter(Boolean).length;
+
+  const clearAllFilters = () => {
+    setMethodFilter("all");
+    setTagFilters([]);
+    setParticipantFilter("all");
+    setDateFrom("");
+    setDateTo("");
+  };
 
   const filtered = useMemo(() => {
     let result = decisions;
@@ -72,6 +103,34 @@ export function DecisionList({ decisions }: { decisions: SerializedDecision[] })
     // Status filter
     if (statusFilter !== "all") {
       result = result.filter((d) => d.status === statusFilter);
+    }
+
+    // Method filter
+    if (methodFilter !== "all") {
+      result = result.filter((d) => d.method === methodFilter);
+    }
+
+    // Tag filters (intersection — must have ALL selected tags)
+    if (tagFilters.length > 0) {
+      result = result.filter((d) =>
+        tagFilters.every((tag) => d.tags.includes(tag))
+      );
+    }
+
+    // Participant filter
+    if (participantFilter !== "all") {
+      result = result.filter((d) =>
+        d.participants.includes(participantFilter)
+      );
+    }
+
+    // Date range
+    if (dateFrom) {
+      result = result.filter((d) => d.date >= dateFrom);
+    }
+    if (dateTo) {
+      // Include the full day by comparing with end of day
+      result = result.filter((d) => d.date <= dateTo + "T23:59:59.999Z");
     }
 
     // Search filter
@@ -88,7 +147,7 @@ export function DecisionList({ decisions }: { decisions: SerializedDecision[] })
     }
 
     return result;
-  }, [decisions, search, statusFilter]);
+  }, [decisions, search, statusFilter, methodFilter, tagFilters, participantFilter, dateFrom, dateTo]);
 
   // Group filtered decisions by month
   const grouped: Record<string, SerializedDecision[]> = {};
@@ -98,42 +157,174 @@ export function DecisionList({ decisions }: { decisions: SerializedDecision[] })
     grouped[month].push(d);
   }
 
+  const hasAnyFilter = search || statusFilter !== "all" || advancedFilterCount > 0;
+
   return (
     <>
       {/* Search and filters */}
-      <div className="flex items-center gap-3 mb-10 pb-6 border-b border-border">
-        <div className="relative flex-1 max-w-sm">
-          <Search
-            size={15}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-bark-muted"
-          />
-          <input
-            type="text"
-            placeholder="Search decisions..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 text-sm bg-paper-warm border border-border rounded-lg placeholder:text-bark-muted/60 focus:outline-none focus:border-canopy focus:ring-1 focus:ring-canopy/20 transition-colors"
-          />
+      <div className="mb-10 pb-6 border-b border-border">
+        <div className="flex items-center gap-3">
+          <div className="relative flex-1 max-w-sm">
+            <Search
+              size={15}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-bark-muted"
+            />
+            <input
+              type="text"
+              placeholder="Search decisions..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-9 pr-4 py-2 text-sm bg-paper-warm border border-border rounded-lg placeholder:text-bark-muted/60 focus:outline-none focus:border-canopy focus:ring-1 focus:ring-canopy/20 transition-colors"
+            />
+          </div>
+          <div className="flex gap-2">
+            {FILTERS.map((filter) => (
+              <button
+                key={filter}
+                onClick={() => setStatusFilter(filter)}
+                className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${
+                  statusFilter === filter
+                    ? "bg-canopy-pale text-canopy font-medium"
+                    : "text-bark-muted hover:text-bark hover:bg-paper-deep"
+                }`}
+              >
+                {filter === "all" ? "All" : STATUS_LABELS[filter]}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={() => setShowMoreFilters(!showMoreFilters)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg transition-colors ${
+              showMoreFilters || advancedFilterCount > 0
+                ? "bg-canopy-pale text-canopy font-medium"
+                : "text-bark-muted hover:text-bark hover:bg-paper-deep"
+            }`}
+          >
+            More filters
+            {advancedFilterCount > 0 && (
+              <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-canopy text-paper text-[0.625rem] font-bold">
+                {advancedFilterCount}
+              </span>
+            )}
+            {showMoreFilters ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+          </button>
         </div>
-        <div className="flex gap-2">
-          {FILTERS.map((filter) => (
-            <button
-              key={filter}
-              onClick={() => setStatusFilter(filter)}
-              className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${
-                statusFilter === filter
-                  ? "bg-canopy-pale text-canopy font-medium"
-                  : "text-bark-muted hover:text-bark hover:bg-paper-deep"
-              }`}
-            >
-              {filter === "all" ? "All" : STATUS_LABELS[filter]}
-            </button>
-          ))}
-        </div>
+
+        {/* Advanced filters row */}
+        {showMoreFilters && (
+          <div className="mt-4 pt-4 border-t border-border/50 flex flex-wrap items-end gap-5">
+            {/* Method pills */}
+            <div>
+              <label className="block text-[0.6875rem] uppercase tracking-wider text-bark-muted font-medium mb-1.5">
+                Method
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {METHODS.map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => setMethodFilter(m)}
+                    className={`px-2.5 py-1 text-xs rounded-lg transition-colors ${
+                      methodFilter === m
+                        ? "bg-canopy-pale text-canopy font-medium"
+                        : "text-bark-muted hover:text-bark hover:bg-paper-deep"
+                    }`}
+                  >
+                    {m === "all" ? "All" : METHOD_LABELS[m]}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Tag toggle chips */}
+            {tags.length > 0 && (
+              <div>
+                <label className="block text-[0.6875rem] uppercase tracking-wider text-bark-muted font-medium mb-1.5">
+                  Tags
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {tags.map((tag) => {
+                    const active = tagFilters.includes(tag);
+                    return (
+                      <button
+                        key={tag}
+                        onClick={() =>
+                          setTagFilters((prev) =>
+                            active ? prev.filter((t) => t !== tag) : [...prev, tag]
+                          )
+                        }
+                        className={`px-2.5 py-1 text-xs rounded-lg transition-colors ${
+                          active
+                            ? "bg-canopy-pale text-canopy font-medium"
+                            : "text-bark-muted hover:text-bark hover:bg-paper-deep"
+                        }`}
+                      >
+                        {tag}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Participant select */}
+            {participants.length > 0 && (
+              <div>
+                <label className="block text-[0.6875rem] uppercase tracking-wider text-bark-muted font-medium mb-1.5">
+                  Participant
+                </label>
+                <select
+                  value={participantFilter}
+                  onChange={(e) => setParticipantFilter(e.target.value)}
+                  className="px-3 py-1.5 text-xs bg-paper-warm border border-border rounded-lg text-bark focus:outline-none focus:border-canopy focus:ring-1 focus:ring-canopy/20"
+                >
+                  <option value="all">All participants</option>
+                  {participants.map((p) => (
+                    <option key={p} value={p}>
+                      {p}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Date range */}
+            <div>
+              <label className="block text-[0.6875rem] uppercase tracking-wider text-bark-muted font-medium mb-1.5">
+                Date range
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                  className="px-2.5 py-1.5 text-xs bg-paper-warm border border-border rounded-lg text-bark focus:outline-none focus:border-canopy focus:ring-1 focus:ring-canopy/20"
+                />
+                <span className="text-xs text-bark-muted">to</span>
+                <input
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => setDateTo(e.target.value)}
+                  className="px-2.5 py-1.5 text-xs bg-paper-warm border border-border rounded-lg text-bark focus:outline-none focus:border-canopy focus:ring-1 focus:ring-canopy/20"
+                />
+              </div>
+            </div>
+
+            {/* Clear all */}
+            {advancedFilterCount > 0 && (
+              <button
+                onClick={clearAllFilters}
+                className="flex items-center gap-1 text-xs text-bark-muted hover:text-earth transition-colors pb-0.5"
+              >
+                <X size={12} />
+                Clear all
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Results count */}
-      {(search || statusFilter !== "all") && (
+      {hasAnyFilter && (
         <p className="text-sm text-bark-muted mb-6">
           {filtered.length} decision{filtered.length !== 1 ? "s" : ""} found
           {search && ` matching "${search}"`}

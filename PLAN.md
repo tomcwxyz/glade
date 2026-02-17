@@ -1,7 +1,7 @@
 # Plan — Glade
 
-> Last updated: 2026-02-16
-> Status: Phase 2 + Phase 3 complete. Remaining: Vercel deploy, Resend email, advanced filters, breadcrumbs
+> Last updated: 2026-02-17
+> Status: Phase 1–3 complete. Advanced filters + breadcrumbs done. Phase 4 schema + meeting setup started. Remaining: real-time meeting mode, Vercel deploy, Resend email
 
 ## Objective
 
@@ -85,7 +85,7 @@ Build **Glade**, a decision-centric governance platform for social purpose organ
 ### 1.6 Views, Search & Analytics
 
 - [x] Timeline view — all decisions in chronological order (default view)
-- [ ] Filter by: theme, status, method, date range, participant
+- [x] Filter by: theme, status, method, date range, participant
 - [x] Full-text search across decisions and meeting records
 - [x] Simple analytics dashboard: decision count, review rate, action completion rate
 - [x] Space home/dashboard page
@@ -94,7 +94,7 @@ Build **Glade**, a decision-centric governance platform for social purpose organ
 
 - [x] App shell: sidebar navigation, top bar with space switcher + user menu
 - [x] Responsive layout (desktop-first, mobile-usable)
-- [ ] Breadcrumb navigation
+- [x] Breadcrumb navigation
 - [x] Loading states and error boundaries
 
 ---
@@ -182,9 +182,11 @@ Build **Glade**, a decision-centric governance platform for social purpose organ
 
 ### 4.1 Meeting Setup
 
-- [ ] Create meeting from proposals and topics: drag-and-drop agenda builder
-- [ ] Assign time estimates and decision methods per agenda item
-- [ ] Mark items as: for decision, for discussion, for information
+- [x] Create meeting from proposals and topics: agenda builder
+- [x] Assign time estimates and decision methods per agenda item
+- [x] Mark items as: for decision, for discussion, for information
+- [x] Meeting status lifecycle: draft → scheduled → in_progress → completed
+- [x] Edit meeting page
 - [ ] Shareable agenda link
 
 ### 4.2 Real-time Infrastructure
@@ -255,6 +257,14 @@ Build **Glade**, a decision-centric governance platform for social purpose organ
 - [ ] Calendar integration for meeting scheduling and review reminders
 
 ---
+
+## Seed Data & Demo Experience
+
+- [x] Comprehensive demo seed (`npx tsx src/db/seed.ts`) with full Riverside Trust narrative
+- [x] Idempotency guard: skips if demo@glade.app exists, `--force` deletes and re-seeds
+- [x] Seed covers all tables: decisions, meetings (with agenda items + notes), actions (including completed), documents (with Tiptap JSON versions + section links), proposals (with comments + references), topics (with promotion), AI insights
+- [x] "Clear all data" admin action in Settings — deletes all content, preserves space + members
+- [x] Decision `conditions` and `createdBy` fields populated
 
 ## Decisions Made
 

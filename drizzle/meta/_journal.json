@@ -15,6 +15,13 @@
       "when": 1771175875957,
       "tag": "0001_productive_spyke",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1771335432605,
+      "tag": "0002_demonic_thunderbolt_ross",
+      "breakpoints": true
     }
   ]
 }

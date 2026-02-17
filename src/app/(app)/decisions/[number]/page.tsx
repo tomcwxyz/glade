@@ -10,7 +10,6 @@ import {
 import { isAiEnabled } from "@/lib/ai";
 import { formatDate } from "@/lib/utils";
 import {
-  ArrowLeft,
   CalendarClock,
   CheckCircle2,
   Circle,
@@ -22,6 +21,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Breadcrumbs } from "@/components/breadcrumbs";
 import { StatusAdvance } from "./status-advance";
 import { DecisionLinksEditor } from "./decision-links-editor";
 import { ReviewQuestions } from "./review-questions";
@@ -164,14 +164,10 @@ export default async function DecisionDetailPage({
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-8 py-6 sm:py-10">
-      {/* Back link */}
-      <Link
-        href="/decisions"
-        className="inline-flex items-center gap-1.5 text-sm text-bark-muted hover:text-canopy transition-colors mb-8"
-      >
-        <ArrowLeft size={14} />
-        Decision Log
-      </Link>
+      <Breadcrumbs items={[
+        { label: "Decision Log", href: "/decisions" },
+        { label: `#${decision.number} ${decision.title}` },
+      ]} />
 
       {/* Header section */}
       <header className="mb-10">
