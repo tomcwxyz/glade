@@ -8,11 +8,13 @@ import {
   FileText,
   MessageSquare,
   Pencil,
+  Play,
   Users,
 } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/breadcrumbs";
+import { ShareAgendaButton } from "./share-agenda-button";
 
 const TYPE_LABELS: Record<string, string> = {
   board: "Board Meeting",
@@ -92,13 +94,45 @@ export default async function MeetingDetailPage({
             </h1>
           </div>
 
-          <Link
-            href={`/meetings/${meeting.id}/edit`}
-            className="flex items-center gap-1.5 px-3 py-2 text-sm bg-paper-deep border border-border rounded-lg text-bark-muted hover:text-bark hover:bg-paper-warm transition-colors shrink-0"
-          >
-            <Pencil size={14} />
-            Edit
-          </Link>
+          <div className="flex items-center gap-2 shrink-0">
+            <ShareAgendaButton
+              meetingId={meeting.id}
+              existingToken={meeting.shareToken || null}
+            />
+            {(meeting.status === "draft" || meeting.status === "scheduled") && (
+              <Link
+                href={`/meetings/${meeting.id}/live`}
+                className="flex items-center gap-1.5 px-3 py-2 text-sm bg-canopy text-paper rounded-lg font-medium hover:bg-canopy-light transition-colors"
+              >
+                <Play size={14} />
+                Start meeting
+              </Link>
+            )}
+            {meeting.status === "in_progress" && (
+              <Link
+                href={`/meetings/${meeting.id}/live`}
+                className="flex items-center gap-1.5 px-3 py-2 text-sm bg-amber text-paper rounded-lg font-medium hover:bg-amber/90 transition-colors"
+              >
+                <Play size={14} />
+                Resume meeting
+              </Link>
+            )}
+            {meeting.status === "completed" && !!meeting.sessionState && (
+              <Link
+                href={`/meetings/${meeting.id}/summary`}
+                className="flex items-center gap-1.5 px-3 py-2 text-sm bg-paper-deep border border-border rounded-lg text-bark-muted hover:text-bark hover:bg-paper-warm transition-colors"
+              >
+                View summary
+              </Link>
+            )}
+            <Link
+              href={`/meetings/${meeting.id}/edit`}
+              className="flex items-center gap-1.5 px-3 py-2 text-sm bg-paper-deep border border-border rounded-lg text-bark-muted hover:text-bark hover:bg-paper-warm transition-colors"
+            >
+              <Pencil size={14} />
+              Edit
+            </Link>
+          </div>
         </div>
       </header>
 

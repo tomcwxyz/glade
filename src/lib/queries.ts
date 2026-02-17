@@ -245,6 +245,65 @@ export async function getMeetingById(spaceId: string, meetingId: string) {
   };
 }
 
+export async function getMeetingByShareToken(token: string) {
+  const [m] = await db
+    .select()
+    .from(meetings)
+    .where(eq(meetings.shareToken, token))
+    .limit(1);
+
+  if (!m) return null;
+
+  const attendeeRows = await db
+    .select({ id: users.id, name: users.name })
+    .from(meetingAttendees)
+    .innerJoin(users, eq(users.id, meetingAttendees.userId))
+    .where(eq(meetingAttendees.meetingId, m.id));
+
+  const agendaRows = await db
+    .select()
+    .from(meetingAgendaItems)
+    .where(eq(meetingAgendaItems.meetingId, m.id))
+    .orderBy(meetingAgendaItems.sortOrder);
+
+  return {
+    ...m,
+    attendees: attendeeRows,
+    agendaItems: agendaRows,
+  };
+}
+
+export async function getMeetingSessionState(meetingId: string) {
+  const [m] = await db
+    .select({ sessionState: meetings.sessionState, status: meetings.status })
+    .from(meetings)
+    .where(eq(meetings.id, meetingId))
+    .limit(1);
+
+  return m || null;
+}
+
+export async function updateMeetingSessionState(
+  meetingId: string,
+  sessionState: unknown,
+  expectedVersion: number
+) {
+  // Optimistic locking: only update if version matches
+  const result = await db
+    .update(meetings)
+    .set({ sessionState, updatedAt: new Date() })
+    .where(
+      and(
+        eq(meetings.id, meetingId),
+        sql`(${meetings.sessionState}->>'version')::int = ${expectedVersion}
+          OR ${meetings.sessionState} IS NULL`
+      )
+    )
+    .returning({ id: meetings.id });
+
+  return result.length > 0;
+}
+
 // ============================================================
 // Stats
 // ============================================================
@@ -654,6 +713,7 @@ export async function getActiveInsights(spaceId: string) {
       content: insights.content,
       relatedDecisionId: insights.relatedDecisionId,
       relatedDocumentId: insights.relatedDocumentId,
+      metadata: insights.metadata,
       createdAt: insights.createdAt,
     })
     .from(insights)

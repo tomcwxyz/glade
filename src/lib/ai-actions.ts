@@ -1,13 +1,23 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { insights, decisions, documents } from "@/db/schema";
 import { getCurrentSpace } from "@/lib/space";
 import { isAiEnabled, generateText } from "@/lib/ai";
-import { SYSTEM_PROMPT, patternAnalysisPrompt, reviewQuestionsPrompt, documentImpactPrompt, memberBriefingPrompt } from "@/lib/ai-prompts";
-import { getDecisions, getDocuments, getDecisionByNumber } from "@/lib/queries";
+import {
+  SYSTEM_PROMPT,
+  patternAnalysisPrompt,
+  reviewQuestionsPrompt,
+  documentImpactPrompt,
+  memberBriefingPrompt,
+  staleDocumentPrompt,
+  draftDocumentUpdatePrompt,
+  governanceDigestPrompt,
+} from "@/lib/ai-prompts";
+import { getDecisions, getDocuments, getDecisionByNumber, getActions, getDocumentById } from "@/lib/queries";
+import { tiptapToText } from "@/lib/tiptap-utils";
 
 async function checkAiEnabled() {
   const space = await getCurrentSpace();
@@ -258,6 +268,222 @@ export async function generateMemberBriefing() {
     title: "New member briefing",
     content: response,
     status: "active",
+  });
+
+  revalidatePath("/dashboard");
+  return { content: response };
+}
+
+export async function flagStaleDocuments() {
+  const { error, space } = await checkAiEnabled();
+  if (error || !space) return { error: error || "No space" };
+
+  const [allDocs, allDecisions] = await Promise.all([
+    getDocuments(space.id),
+    getDecisions(space.id),
+  ]);
+
+  if (allDocs.length === 0) return { error: "No documents to check" };
+  if (allDecisions.length === 0) return { error: "No decisions to compare against" };
+
+  const docsJson = JSON.stringify(
+    allDocs.map((d) => ({
+      id: d.id,
+      title: d.title,
+      type: d.type,
+      status: d.status,
+      updatedAt: d.updatedAt.toISOString().split("T")[0],
+    }))
+  );
+
+  const decisionsJson = JSON.stringify(
+    allDecisions.slice(0, 30).map((d) => ({
+      number: d.number,
+      title: d.title,
+      description: d.description,
+      status: d.status,
+      date: d.date.toISOString().split("T")[0],
+    }))
+  );
+
+  const response = await generateText(
+    SYSTEM_PROMPT,
+    staleDocumentPrompt(docsJson, decisionsJson)
+  );
+
+  let parsed: Array<{
+    documentTitle: string;
+    documentId: string;
+    reason: string;
+    relatedDecisionNumbers: number[];
+  }>;
+  try {
+    parsed = JSON.parse(response);
+  } catch {
+    return { error: "Failed to parse AI response" };
+  }
+
+  // Remove old stale-document insights
+  const oldInsights = await db
+    .select({ id: insights.id })
+    .from(insights)
+    .where(
+      and(
+        eq(insights.spaceId, space.id),
+        eq(insights.type, "suggestion"),
+        sql`${insights.metadata}->>'subtype' = 'stale_document'`
+      )
+    );
+
+  for (const old of oldInsights) {
+    await db.delete(insights).where(eq(insights.id, old.id));
+  }
+
+  // Store results
+  for (const item of parsed) {
+    // Verify the document exists
+    const doc = allDocs.find((d) => d.id === item.documentId);
+    if (!doc) continue;
+
+    await db.insert(insights).values({
+      spaceId: space.id,
+      type: "suggestion",
+      title: `${item.documentTitle} may need review`,
+      content: item.reason,
+      relatedDocumentId: item.documentId,
+      status: "active",
+      metadata: {
+        subtype: "stale_document",
+        relatedDecisionNumbers: item.relatedDecisionNumbers,
+      },
+    });
+  }
+
+  revalidatePath("/documents");
+  return { results: parsed };
+}
+
+export async function draftDocumentUpdate(decisionId: string, documentId: string) {
+  const { error, space } = await checkAiEnabled();
+  if (error || !space) return { error: error || "No space" };
+
+  const [decision] = await db
+    .select()
+    .from(decisions)
+    .where(and(eq(decisions.id, decisionId), eq(decisions.spaceId, space.id)))
+    .limit(1);
+
+  if (!decision) return { error: "Decision not found" };
+
+  const doc = await getDocumentById(space.id, documentId);
+  if (!doc) return { error: "Document not found" };
+
+  const documentText = doc.content
+    ? tiptapToText(doc.content as Parameters<typeof tiptapToText>[0])
+    : "(empty document)";
+
+  const decisionJson = JSON.stringify({
+    number: decision.number,
+    title: decision.title,
+    description: decision.description,
+    rationale: decision.rationale,
+    outcome: decision.outcome,
+    method: decision.method,
+    date: decision.date.toISOString().split("T")[0],
+  });
+
+  const response = await generateText(
+    SYSTEM_PROMPT,
+    draftDocumentUpdatePrompt(decisionJson, documentText),
+    { maxTokens: 3000 }
+  );
+
+  return { content: response };
+}
+
+export async function generateGovernanceDigest() {
+  const { error, space } = await checkAiEnabled();
+  if (error || !space) return { error: error || "No space" };
+
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+  const [allDecisions, allActions, allDocs] = await Promise.all([
+    getDecisions(space.id),
+    getActions(space.id),
+    getDocuments(space.id),
+  ]);
+
+  const recentDecisions = allDecisions.filter(
+    (d) => d.date >= thirtyDaysAgo
+  );
+
+  if (recentDecisions.length === 0 && allActions.length === 0) {
+    return { error: "No recent activity to summarise" };
+  }
+
+  const decisionsJson = JSON.stringify(
+    recentDecisions.map((d) => ({
+      number: d.number,
+      title: d.title,
+      description: d.description,
+      method: d.method,
+      status: d.status,
+      date: d.date.toISOString().split("T")[0],
+      reviewDate: d.reviewDate?.toISOString().split("T")[0] || null,
+      actionsCount: d.actionsCount,
+      actionsComplete: d.actionsComplete,
+    }))
+  );
+
+  const actionsJson = JSON.stringify(
+    allActions.map((a) => ({
+      description: a.description,
+      ownerName: a.ownerName,
+      status: a.status,
+      dueDate: a.dueDate?.toISOString().split("T")[0] || null,
+      decisionTitle: a.decisionTitle,
+    }))
+  );
+
+  const docsJson = JSON.stringify(
+    allDocs.map((d) => ({
+      title: d.title,
+      type: d.type,
+      status: d.status,
+      updatedAt: d.updatedAt.toISOString().split("T")[0],
+    }))
+  );
+
+  const response = await generateText(
+    SYSTEM_PROMPT,
+    governanceDigestPrompt(decisionsJson, actionsJson, docsJson),
+    { maxTokens: 3000 }
+  );
+
+  // Remove old digest insights
+  const oldInsights = await db
+    .select({ id: insights.id })
+    .from(insights)
+    .where(
+      and(
+        eq(insights.spaceId, space.id),
+        eq(insights.type, "briefing"),
+        sql`${insights.metadata}->>'subtype' = 'digest'`
+      )
+    );
+
+  for (const old of oldInsights) {
+    await db.delete(insights).where(eq(insights.id, old.id));
+  }
+
+  await db.insert(insights).values({
+    spaceId: space.id,
+    type: "briefing",
+    title: "Monthly governance digest",
+    content: response,
+    status: "active",
+    metadata: { subtype: "digest" },
   });
 
   revalidatePath("/dashboard");

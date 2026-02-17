@@ -1,10 +1,13 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { eq, and } from "drizzle-orm";
+import { randomUUID } from "crypto";
 import { db } from "@/db";
 import { meetings, meetingAgendaItems, meetingAttendees } from "@/db/schema";
 import { getCurrentSpace, requireUser } from "@/lib/space";
+import { createInitialState } from "@/lib/meeting-state";
 
 type MeetingStatus = "draft" | "scheduled" | "in_progress" | "completed";
 
@@ -177,4 +180,77 @@ export async function updateMeeting(meetingId: string, formData: FormData) {
   }
 
   redirect("/meetings");
+}
+
+export async function generateShareLink(meetingId: string) {
+  await requireUser();
+  const space = await getCurrentSpace();
+  if (!space) return { error: "No space selected" };
+
+  const [existing] = await db
+    .select({ id: meetings.id, shareToken: meetings.shareToken })
+    .from(meetings)
+    .where(and(eq(meetings.id, meetingId), eq(meetings.spaceId, space.id)))
+    .limit(1);
+
+  if (!existing) return { error: "Meeting not found" };
+
+  if (existing.shareToken) {
+    return { token: existing.shareToken };
+  }
+
+  const token = randomUUID().replace(/-/g, "");
+
+  await db
+    .update(meetings)
+    .set({ shareToken: token })
+    .where(eq(meetings.id, meetingId));
+
+  revalidatePath(`/meetings/${meetingId}`);
+  return { token };
+}
+
+export async function revokeShareLink(meetingId: string) {
+  await requireUser();
+  const space = await getCurrentSpace();
+  if (!space) return { error: "No space selected" };
+
+  await db
+    .update(meetings)
+    .set({ shareToken: null })
+    .where(and(eq(meetings.id, meetingId), eq(meetings.spaceId, space.id)));
+
+  revalidatePath(`/meetings/${meetingId}`);
+  return { success: true };
+}
+
+export async function startMeeting(meetingId: string) {
+  const user = await requireUser();
+  const space = await getCurrentSpace();
+  if (!space) return { error: "No space selected" };
+
+  const [meeting] = await db
+    .select({ id: meetings.id, status: meetings.status, createdBy: meetings.createdBy })
+    .from(meetings)
+    .where(and(eq(meetings.id, meetingId), eq(meetings.spaceId, space.id)))
+    .limit(1);
+
+  if (!meeting) return { error: "Meeting not found" };
+
+  const initialState = createInitialState(
+    user.id,
+    user.name || "Facilitator"
+  );
+
+  await db
+    .update(meetings)
+    .set({
+      status: "in_progress",
+      sessionState: initialState,
+      updatedAt: new Date(),
+    })
+    .where(eq(meetings.id, meetingId));
+
+  revalidatePath(`/meetings/${meetingId}`);
+  return { success: true };
 }

@@ -1,7 +1,7 @@
 # Plan — Glade
 
 > Last updated: 2026-02-17
-> Status: Phase 1–3 complete. Advanced filters + breadcrumbs done. Phase 4 schema + meeting setup started. Remaining: real-time meeting mode, Vercel deploy, Resend email
+> Status: Phase 1–4 complete. Remaining: Vercel deploy, Resend email, Phase 5 (SaaS)
 
 ## Objective
 
@@ -167,13 +167,13 @@ Build **Glade**, a decision-centric governance platform for social purpose organ
 ### 3.4 Governance Document Intelligence
 
 - [x] On new decision: suggest which governance documents might be affected
-- [ ] Flag documents not reviewed relative to recent decisions
-- [ ] Help draft document updates from decision text
+- [x] Flag documents not reviewed relative to recent decisions
+- [x] Help draft document updates from decision text
 
 ### 3.5 Insights & Digest
 
 - [x] Insights panel: browsable list of AI observations, dismissable or actionable
-- [ ] Monthly governance digest (email via Resend): summary of decisions, patterns, suggested reviews
+- [x] Monthly governance digest (on-screen preview, email delivery deferred until Resend configured)
 - [x] New member briefing generator: "what you need to know about how we govern"
 
 ---
@@ -187,42 +187,46 @@ Build **Glade**, a decision-centric governance platform for social purpose organ
 - [x] Mark items as: for decision, for discussion, for information
 - [x] Meeting status lifecycle: draft → scheduled → in_progress → completed
 - [x] Edit meeting page
-- [ ] Shareable agenda link
+- [x] Shareable agenda link (public URL with share token)
 
 ### 4.2 Real-time Infrastructure
 
-- [ ] Socket.io or PartyKit integration for live state synchronisation
-- [ ] Room-based connection model (one room per meeting)
-- [ ] Facilitator actions broadcast to all participants
-- [ ] Connection management: join, leave, reconnect handling
+- [x] HTTP polling (2-second interval) for live state synchronisation — no new infrastructure needed, works on Vercel
+- [x] Session state stored as JSONB on meetings table with version-based optimistic locking
+- [x] `/api/meetings/[id]/state` — GET/PUT API route with auth + cache control
+- [x] `useMeetingPoll` hook for client-side polling
 
 ### 4.3 Facilitator View
 
-- [ ] Single-screen facilitator interface: current agenda item, timer, proposal text, decision controls
-- [ ] Sequential agenda item navigation
-- [ ] Trigger decision method flows (consent round, vote, etc.)
-- [ ] Capture decisions in real-time: outcome, conditions, actions
+- [x] Single-screen facilitator interface: agenda sidebar, current item, timer, decision controls
+- [x] Sequential agenda item navigation with skip/advance/go-to
+- [x] Trigger decision method flows (consent round, vote, etc.)
+- [x] Capture decisions in real-time: title, method, outcome → creates DB record
+- [x] Action recording during meetings
+- [x] End meeting control
 
 ### 4.4 Participant View
 
-- [ ] Join via QR code or short link (no account required for observers)
-- [ ] Current agenda item and proposal text display
-- [ ] Participate in: temperature checks, reactions, votes, objection rounds
-- [ ] Request to speak / stack management
+- [x] Join via share link (public observer view for unauthenticated users)
+- [x] Current agenda item and proposal text display
+- [x] Participate in: reactions, votes, objection rounds
+- [x] Request to speak / speaker stack management
+- [x] Read-only observer view for shared links
 
 ### 4.5 Consent-Based Decision Flow
 
-- [ ] Guided flow: present proposal → clarifying questions → quick reactions → objection round → integration → decision recorded
-- [ ] Other methods: majority vote, advice process, delegation, consensus, lazy consensus
-- [ ] Configurable thresholds per method
+- [x] Guided consent flow: present → clarify → react → object → integrate → decide
+- [x] Majority vote flow: present → vote → results → record
+- [x] Other methods: advice process, lazy consensus (simplified 2-stage flow)
+- [ ] Configurable thresholds per method (deferred)
 
 ### 4.6 Post-Meeting
 
-- [ ] Auto-generated meeting summary from structured data
-- [ ] Shareable meeting record (link)
-- [ ] Decisions automatically added to decision log
-- [ ] Actions automatically created and assigned
-- [ ] PDF export of meeting record
+- [x] Structured meeting summary page: decisions, agenda outcomes, attendance stats
+- [x] AI-generated meeting summary (when AI enabled)
+- [x] Decisions automatically added to decision log from live meeting
+- [x] Actions automatically created and assigned from live meeting
+- [ ] PDF export of meeting record (deferred)
 
 ---
 

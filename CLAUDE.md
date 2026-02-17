@@ -77,8 +77,8 @@ The theme is "A Clearing in the Forest" — warm, editorial, trustworthy.
 ## State & Progress
 
 > Updated: 2026-02-17
-> Current focus: Phase 4 (Meeting Mode) real-time features. Vercel deploy, Resend email still pending.
-> Status: Phase 1–3 complete. Phase 4 schema + meeting setup done. Advanced filters + breadcrumbs done.
+> Current focus: Vercel deploy, Resend email still pending. Phase 5 (SaaS) next.
+> Status: Phase 1–4 complete. Schema has shareToken + sessionState columns (needs db:push).
 
 See PLAN.md for task tracking, STATE.md for system state.
 
@@ -90,6 +90,8 @@ See PLAN.md for task tracking, STATE.md for system state.
 - AI features require `ANTHROPIC_API_KEY` in `.env.local` and per-space toggle enabled in Settings
 - `insights` table stores AI-generated content (patterns, review questions, suggestions, briefings)
 - Schema now has 24 tables (added `proposal_references`, `insights` + `decidedAsDecisionId` on proposals)
+- `meetings` table now has `shareToken` (varchar 64, unique) and `sessionState` (jsonb) — needs `db:push`
+- Live meeting uses HTTP polling (2s interval) via `/api/meetings/[id]/state` — no WebSocket infrastructure needed
 
 ## Lessons Learned
 

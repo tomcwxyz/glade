@@ -116,16 +116,19 @@ flowchart LR
 | Component | Status | Notes |
 |-----------|--------|-------|
 | Anthropic SDK integration | ✅ Done | `@anthropic-ai/sdk`, singleton client in `src/lib/ai.ts` |
-| AI prompts system | ✅ Done | `src/lib/ai-prompts.ts` — 4 prompt templates (pattern, review, document, briefing) |
+| AI prompts system | ✅ Done | `src/lib/ai-prompts.ts` — 8 prompt templates |
 | Per-space AI toggle | ✅ Done | Settings page toggle, `spaces.settings` JSONB |
 | Insights table | ✅ Done | `insights` table with type/status enums, relations to spaces/decisions/documents |
 | Pattern analysis | ✅ Done | Manual "Analyse patterns" button on dashboard, generates insights |
 | Insights panel | ✅ Done | Dashboard right column, dismissable insights with decision links |
 | Decision review prompter | ✅ Done | Generate review questions on decision detail (when review date set) |
 | Document intelligence | ✅ Done | "Check document impact" on decision detail, suggests documents to update |
+| Stale document checker | ✅ Done | Space-wide check on documents page, flags docs needing review |
+| Draft document updates | ✅ Done | AI-drafted text changes from decision on document edit page |
 | Member briefing | ✅ Done | On-demand governance briefing on dashboard |
+| Governance digest | ✅ Done | Monthly digest preview on dashboard (email delivery deferred) |
 
-### Phase 4 — Meeting Mode (started)
+### Phase 4 — Meeting Mode
 
 | Component | Status | Notes |
 |-----------|--------|-------|
@@ -134,9 +137,21 @@ flowchart LR
 | Meeting form (enhanced) | ✅ Done | Status select, time estimates per item, proposal linking |
 | Meeting edit page | ✅ Done | `/meetings/[id]/edit` route wired to form |
 | Meeting detail (enhanced) | ✅ Done | Status badge, edit link, duration display on agenda items |
-| Schema migration | ✅ Generated | Migration file ready, needs `db:push` with connection string |
+| Schema: shareToken + sessionState | ✅ Done | Added to meetings table (needs `db:push`) |
+| Shareable agenda link | ✅ Done | Generate/revoke share tokens, public `/shared/meeting/[token]` page |
+| Polling infrastructure | ✅ Done | HTTP polling via `/api/meetings/[id]/state`, version-based optimistic locking |
+| Meeting state types | ✅ Done | `MeetingSessionState` with timer, speakers, decision flow, participants |
+| Facilitator view | ✅ Done | 2-column layout: agenda sidebar + current item panel with timer, controls |
+| Participant view | ✅ Done | Read-only with speaker stack, hand-raise, decision flow interactions |
+| Consent decision flow | ✅ Done | 6-stage: present → clarify → react → object → integrate → decide |
+| Vote decision flow | ✅ Done | 3-stage: present → vote → results with live tally |
+| Advice/lazy consensus flows | ✅ Done | Simplified 2-stage: present → record |
+| Public observer view | ✅ Done | `/shared/meeting/[token]/live` read-only observer |
+| Meeting summary page | ✅ Done | Structured summary with decisions, outcomes, attendance stats |
+| AI meeting summary | ✅ Done | AI-generated summary with generate button |
+| End meeting flow | ✅ Done | Freezes state, sets status completed, redirects to summary |
 
-Next milestone: Vercel deployment, Resend email. Phase 4 real-time meeting mode (Socket.io/PartyKit) ready to begin.
+Next milestone: Vercel deployment, Resend email, Phase 5 (SaaS infrastructure).
 
 ## Dependencies
 

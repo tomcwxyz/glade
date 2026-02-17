@@ -1,8 +1,10 @@
 import { getCurrentSpace } from "@/lib/space";
-import { getDocumentById } from "@/lib/queries";
+import { getDocumentById, getDecisionsList } from "@/lib/queries";
+import { isAiEnabled } from "@/lib/ai";
 import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { DocumentForm } from "../../document-form";
+import { AiDraftPanel } from "./ai-draft-panel";
 
 export default async function EditDocumentPage({
   params,
@@ -13,8 +15,11 @@ export default async function EditDocumentPage({
   const space = await getCurrentSpace();
   if (!space) return null;
 
+  const aiEnabled = isAiEnabled(space.settings);
   const doc = await getDocumentById(space.id, id);
   if (!doc) notFound();
+
+  const decisionsList = aiEnabled ? await getDecisionsList(space.id) : [];
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-8 py-6 sm:py-10">
@@ -43,6 +48,17 @@ export default async function EditDocumentPage({
           content: doc.content as import("@tiptap/react").JSONContent | null,
         }}
       />
+
+      {aiEnabled && decisionsList.length > 0 && (
+        <AiDraftPanel
+          documentId={doc.id}
+          decisions={decisionsList.map((d) => ({
+            id: d.id,
+            number: d.number,
+            title: d.title,
+          }))}
+        />
+      )}
     </div>
   );
 }

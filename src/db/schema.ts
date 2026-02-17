@@ -297,6 +297,8 @@ export const meetings = pgTable(
     status: meetingStatusEnum("status").default("draft").notNull(),
     notes: text("notes"),
     createdBy: uuid("created_by").references(() => users.id),
+    shareToken: varchar("share_token", { length: 64 }).unique(),
+    sessionState: jsonb("session_state"),
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
   },

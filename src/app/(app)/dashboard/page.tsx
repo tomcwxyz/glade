@@ -16,6 +16,7 @@ import {
 import Link from "next/link";
 import { InsightsPanel } from "./insights-panel";
 import { MemberBriefing } from "./member-briefing";
+import { GovernanceDigest } from "./governance-digest";
 
 const METHOD_LABELS: Record<string, string> = {
   consent: "Consent",
@@ -115,7 +116,12 @@ export default async function DashboardPage() {
     }
   }
 
-  const briefingInsight = activeInsights.find((i) => i.type === "briefing");
+  const briefingInsight = activeInsights.find(
+    (i) => i.type === "briefing" && (i.metadata as Record<string, unknown> | null)?.subtype !== "digest"
+  );
+  const digestInsight = activeInsights.find(
+    (i) => i.type === "briefing" && (i.metadata as Record<string, unknown> | null)?.subtype === "digest"
+  );
 
   if (stats.totalDecisions === 0) {
     return (
@@ -386,6 +392,16 @@ export default async function DashboardPage() {
               </div>
             )}
           </section>
+
+          {/* Governance digest */}
+          {aiEnabled && (
+            <GovernanceDigest
+              existing={digestInsight ? {
+                id: digestInsight.id,
+                content: digestInsight.content,
+              } : null}
+            />
+          )}
 
           {/* Member briefing */}
           {aiEnabled && (

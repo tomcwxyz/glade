@@ -51,6 +51,87 @@ Existing governance documents:
 ${documentsJson}`;
 }
 
+export function staleDocumentPrompt(documentsJson: string, decisionsJson: string): string {
+  return `Review these governance documents and recent decisions. Identify documents that may be stale or need updating because recent decisions have changed the governance landscape.
+
+A document may be stale if:
+- A decision has been made that directly affects the document's subject matter
+- The document hasn't been updated since a relevant decision was made
+- The document references policies or structures that have since changed
+
+Return a JSON array of objects, each with:
+- "documentTitle": the title of the potentially stale document
+- "documentId": the document's ID
+- "reason": 1-2 sentences explaining why it may need review
+- "relatedDecisionNumbers": array of decision numbers that may affect this document
+
+Only flag documents where there's a genuine reason for review. If all documents are up to date, return an empty array.
+
+Respond ONLY with valid JSON array, no other text.
+
+Governance documents (with updatedAt dates):
+${documentsJson}
+
+Recent decisions:
+${decisionsJson}`;
+}
+
+export function draftDocumentUpdatePrompt(decisionJson: string, documentText: string): string {
+  return `A governance decision has been made that may require updates to a governance document. Draft suggested changes to the document.
+
+For each suggested change:
+1. Quote the existing text that should be changed (use > blockquote)
+2. Provide the suggested new text
+3. Explain briefly why this change is needed
+
+Use markdown formatting. Be specific about what text to change and what to replace it with. Only suggest changes that are directly warranted by the decision.
+
+If no changes are needed, say so clearly.
+
+Decision:
+${decisionJson}
+
+Current document text:
+${documentText}`;
+}
+
+export function governanceDigestPrompt(decisionsJson: string, actionsJson: string, documentsJson: string): string {
+  return `Create a monthly governance digest summarising recent governance activity. Cover:
+
+1. **Decisions made** — summarise key decisions, grouped by theme if possible
+2. **Action progress** — highlight completed actions and any overdue items
+3. **Document updates** — note any documents that were updated
+4. **Upcoming reviews** — list decisions with upcoming review dates
+5. **Recommendations** — 2-3 actionable suggestions for governance improvement
+
+Write in a clear, professional tone suitable for all members. Use markdown formatting with headings and bullet points. Keep it under 800 words.
+
+Recent decisions (last 30 days):
+${decisionsJson}
+
+Actions:
+${actionsJson}
+
+Documents:
+${documentsJson}`;
+}
+
+export function meetingSummaryPrompt(meetingJson: string): string {
+  return `Generate a structured summary of this governance meeting. Include:
+
+1. **Meeting overview** — date, type, duration, attendance
+2. **Decisions made** — list each decision with its method and outcome
+3. **Actions created** — list any actions assigned during the meeting
+4. **Key discussions** — brief summary of discussion items covered
+5. **Items skipped** — note any agenda items that were skipped
+6. **Recommendations** — 1-2 suggestions for follow-up
+
+Write in a clear, professional tone. Use markdown formatting. Keep it under 600 words.
+
+Meeting data:
+${meetingJson}`;
+}
+
 export function memberBriefingPrompt(decisionsJson: string, documentsJson: string): string {
   return `Create a comprehensive governance briefing for a new member joining this organisation. Cover:
 

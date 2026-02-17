@@ -1,8 +1,10 @@
 import { getCurrentSpace } from "@/lib/space";
-import { getDocuments } from "@/lib/queries";
+import { getDocuments, getActiveInsights } from "@/lib/queries";
+import { isAiEnabled } from "@/lib/ai";
 import { Plus, FileText } from "lucide-react";
 import Link from "next/link";
 import { formatDateRelative } from "@/lib/utils";
+import { StaleDocumentChecker } from "./stale-document-checker";
 
 const TYPE_LABELS: Record<string, string> = {
   constitution: "Constitution",
@@ -16,7 +18,15 @@ const TYPE_LABELS: Record<string, string> = {
 export default async function DocumentsPage() {
   const space = await getCurrentSpace();
   if (!space) return null;
+  const aiEnabled = isAiEnabled(space.settings);
   const allDocuments = await getDocuments(space.id);
+  const staleInsights = aiEnabled
+    ? (await getActiveInsights(space.id)).filter(
+        (i) =>
+          i.type === "suggestion" &&
+          (i.metadata as Record<string, unknown> | null)?.subtype === "stale_document"
+      )
+    : [];
 
   // Group by type
   const grouped = allDocuments.reduce<Record<string, typeof allDocuments>>(
@@ -60,6 +70,18 @@ export default async function DocumentsPage() {
           New document
         </Link>
       </header>
+
+      {aiEnabled && allDocuments.length > 0 && (
+        <StaleDocumentChecker
+          existingInsights={staleInsights.map((i) => ({
+            id: i.id,
+            title: i.title,
+            content: i.content,
+            relatedDocumentId: i.relatedDocumentId,
+            metadata: i.metadata as { subtype?: string; relatedDecisionNumbers?: number[] } | null,
+          }))}
+        />
+      )}
 
       {allDocuments.length === 0 ? (
         <div className="text-center py-16">
