@@ -116,6 +116,112 @@ export async function seedExampleData(
   );
   await db.insert(schema.decisionTags).values(decisionTagValues);
 
+  // --- Proposals ---
+  const proposalRows = await db
+    .insert(schema.proposals)
+    .values([
+      {
+        spaceId,
+        title: "Review safeguarding training frequency",
+        description:
+          "Should we increase safeguarding training from annual to bi-annual? The current refresher cycle may not be frequent enough given our expanding volunteer base.",
+        rationale:
+          "Charity Commission guidance recommends more frequent training for organisations with growing volunteer programmes.",
+        suggestedMethod: "advice_process" as const,
+        status: "open_for_discussion" as const,
+        createdBy: userId,
+        createdAt: daysAgo(10),
+        updatedAt: daysAgo(10),
+      },
+      {
+        spaceId,
+        title: "Community grants application process",
+        description:
+          "Define a clear, accessible application process for the £15,000 community grants budget. Includes eligibility criteria, assessment panel, and timeline.",
+        rationale:
+          "We need a transparent process before we can start distributing grants. Community partners have already been asking how to apply.",
+        suggestedMethod: "consent" as const,
+        status: "ready_for_decision" as const,
+        createdBy: userId,
+        createdAt: daysAgo(20),
+        updatedAt: daysAgo(5),
+      },
+      {
+        spaceId,
+        title: "Volunteer coordinator recruitment approach",
+        description:
+          "Agreed to recruit the volunteer coordinator through a combination of internal promotion and external advertisement, with preference given to candidates with lived experience in the community.",
+        rationale:
+          "A dual approach ensures we consider internal talent while also attracting diverse external candidates.",
+        suggestedMethod: "consent" as const,
+        status: "decided" as const,
+        decidedAsDecisionId: decisionId[3],
+        createdBy: userId,
+        createdAt: daysAgo(21),
+        updatedAt: daysAgo(14),
+      },
+    ])
+    .returning({ id: schema.proposals.id });
+
+  const proposalId = proposalRows.map((p) => p.id);
+
+  // --- Proposal comments ---
+  await db.insert(schema.proposalComments).values([
+    {
+      proposalId: proposalId[0],
+      authorId: userId,
+      content:
+        "Do we have the capacity to deliver bi-annual training with our current trainer pool? We may need to budget for an external provider.",
+      createdAt: daysAgo(8),
+      updatedAt: daysAgo(8),
+    },
+    {
+      proposalId: proposalId[1],
+      authorId: userId,
+      content:
+        "We should involve community partners in designing the criteria — they understand local needs better than we do.",
+      createdAt: daysAgo(15),
+      updatedAt: daysAgo(15),
+    },
+  ]);
+
+  // --- Topics ---
+  const topicRows = await db
+    .insert(schema.topics)
+    .values([
+      {
+        spaceId,
+        title: "Should we publish our decision log?",
+        description:
+          "Several members have asked whether our decision log should be publicly accessible to improve transparency with stakeholders.",
+        type: "question" as const,
+        createdBy: userId,
+        createdAt: daysAgo(7),
+      },
+      {
+        spaceId,
+        title: "Volunteer workload concerns",
+        description:
+          "Feedback from the volunteer survey suggests some long-standing volunteers feel overburdened. We may need to review expectations and support structures.",
+        type: "tension" as const,
+        createdBy: userId,
+        createdAt: daysAgo(12),
+      },
+      {
+        spaceId,
+        title: "Safeguarding training for next board",
+        description:
+          "Suggest adding safeguarding training frequency to the next board agenda, linked to the current proposal on review frequency.",
+        type: "agenda_suggestion" as const,
+        promotedToProposalId: proposalId[0],
+        createdBy: userId,
+        createdAt: daysAgo(9),
+      },
+    ])
+    .returning({ id: schema.topics.id });
+
+  const topicId = topicRows.map((t) => t.id);
+
   // --- Meetings ---
   const meetingData = [
     {
@@ -126,7 +232,7 @@ export async function seedExampleData(
       createdBy: userId,
       agendaItems: [
         { title: "Q4 financial report", type: "for_information" as const },
-        { title: "Volunteer coordinator appointment", type: "for_decision" as const },
+        { title: "Volunteer coordinator appointment", type: "for_decision" as const, proposalId: proposalId[2] },
         { title: "Community grants progress", type: "for_discussion" as const },
       ],
       decisionNumbers: [2, 3],
@@ -138,7 +244,7 @@ export async function seedExampleData(
       notes: "Reviewed safeguarding policy and consent-based decision-making trial.",
       createdBy: userId,
       agendaItems: [
-        { title: "Safeguarding policy review", type: "for_decision" as const },
+        { title: "Safeguarding policy review", type: "for_decision" as const, topicId: topicId[2] },
         { title: "Consent method evaluation", type: "for_discussion" as const },
       ],
       decisionNumbers: [4],
@@ -166,6 +272,8 @@ export async function seedExampleData(
           title: ai.title,
           type: ai.type,
           sortOrder: i,
+          proposalId: "proposalId" in ai ? ai.proposalId : undefined,
+          topicId: "topicId" in ai ? ai.topicId : undefined,
         })),
       );
     }
