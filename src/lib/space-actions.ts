@@ -214,22 +214,18 @@ export async function clearSpaceData() {
   if (membership?.role !== "admin") return { error: "Only admins can clear space data" };
 
   // Delete all content in FK-safe order (preserving space, members, users)
-  // 1. Insights (non-cascading FK to decisions + documents)
-  await db.delete(schema.insights).where(eq(schema.insights.spaceId, space.id));
-  // 2. Topics (non-cascading FK to proposals)
-  await db.delete(schema.topics).where(eq(schema.topics.spaceId, space.id));
-  // 3. Proposals (cascades to comments + references; non-cascading FK to decisions)
-  await db.delete(schema.proposals).where(eq(schema.proposals.spaceId, space.id));
-  // 4. Documents (cascades to versions + section links; versions have non-cascading FK to decisions)
-  await db.delete(schema.documents).where(eq(schema.documents.spaceId, space.id));
-  // 5. Actions (cascading FK from decisions, but also have spaceId)
-  await db.delete(schema.actions).where(eq(schema.actions.spaceId, space.id));
-  // 6. Meetings (cascades to attendees, agenda items, meeting-decisions)
-  await db.delete(schema.meetings).where(eq(schema.meetings.spaceId, space.id));
-  // 7. Decisions (now safe — all referencing rows are gone; cascades to decision links, tags)
-  await db.delete(schema.decisions).where(eq(schema.decisions.spaceId, space.id));
-  // 8. Tags
-  await db.delete(schema.tags).where(eq(schema.tags.spaceId, space.id));
+  try {
+    await db.delete(schema.insights).where(eq(schema.insights.spaceId, space.id));
+    await db.delete(schema.topics).where(eq(schema.topics.spaceId, space.id));
+    await db.delete(schema.proposals).where(eq(schema.proposals.spaceId, space.id));
+    await db.delete(schema.documents).where(eq(schema.documents.spaceId, space.id));
+    await db.delete(schema.actions).where(eq(schema.actions.spaceId, space.id));
+    await db.delete(schema.meetings).where(eq(schema.meetings.spaceId, space.id));
+    await db.delete(schema.decisions).where(eq(schema.decisions.spaceId, space.id));
+    await db.delete(schema.tags).where(eq(schema.tags.spaceId, space.id));
+  } catch {
+    return { error: "Failed to clear space data. Some data may remain." };
+  }
 
   revalidatePath("/", "layout");
   redirect("/dashboard");

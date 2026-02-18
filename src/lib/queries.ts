@@ -20,7 +20,7 @@ import {
   topics,
   insights,
 } from "@/db/schema";
-import { eq, and, desc, asc, count, sql } from "drizzle-orm";
+import { eq, and, desc, asc, count, sql, inArray } from "drizzle-orm";
 
 // ============================================================
 // Decisions
@@ -33,56 +33,43 @@ export async function getDecisions(spaceId: string) {
     .where(eq(decisions.spaceId, spaceId))
     .orderBy(desc(decisions.date), desc(decisions.number));
 
-  // Fetch tags and action counts for each decision
-  const enriched = await Promise.all(
-    rows.map(async (d) => {
-      const tagRows = await db
-        .select({ name: tags.name })
-        .from(decisionTags)
-        .innerJoin(tags, eq(tags.id, decisionTags.tagId))
-        .where(eq(decisionTags.decisionId, d.id));
+  const ids = rows.map((d) => d.id);
+  if (ids.length === 0) return [];
 
-      const actionRows = await db
-        .select({ status: actions.status })
-        .from(actions)
-        .where(eq(actions.decisionId, d.id));
+  const [allTags, allActions] = await Promise.all([
+    db
+      .select({ decisionId: decisionTags.decisionId, name: tags.name })
+      .from(decisionTags)
+      .innerJoin(tags, eq(tags.id, decisionTags.tagId))
+      .where(inArray(decisionTags.decisionId, ids)),
+    db
+      .select({ decisionId: actions.decisionId, status: actions.status })
+      .from(actions)
+      .where(inArray(actions.decisionId, ids)),
+  ]);
 
-      const linkedRows = await db
-        .select({
-          id: decisions.id,
-          number: decisions.number,
-          title: decisions.title,
-          relation: decisionLinks.linkType,
-          direction: sql<string>`'forward'`,
-        })
-        .from(decisionLinks)
-        .innerJoin(decisions, eq(decisions.id, decisionLinks.toDecisionId))
-        .where(eq(decisionLinks.fromDecisionId, d.id));
+  const tagMap = new Map<string, string[]>();
+  for (const t of allTags) {
+    const arr = tagMap.get(t.decisionId) || [];
+    arr.push(t.name);
+    tagMap.set(t.decisionId, arr);
+  }
 
-      // Also get reverse links
-      const reverseLinkedRows = await db
-        .select({
-          id: decisions.id,
-          number: decisions.number,
-          title: decisions.title,
-          relation: decisionLinks.linkType,
-          direction: sql<string>`'reverse'`,
-        })
-        .from(decisionLinks)
-        .innerJoin(decisions, eq(decisions.id, decisionLinks.fromDecisionId))
-        .where(eq(decisionLinks.toDecisionId, d.id));
+  const actionMap = new Map<string, { total: number; complete: number }>();
+  for (const a of allActions) {
+    const entry = actionMap.get(a.decisionId) || { total: 0, complete: 0 };
+    entry.total++;
+    if (a.status === "complete") entry.complete++;
+    actionMap.set(a.decisionId, entry);
+  }
 
-      return {
-        ...d,
-        tags: tagRows.map((t) => t.name),
-        actionsCount: actionRows.length,
-        actionsComplete: actionRows.filter((a) => a.status === "complete").length,
-        linkedDecisions: [...linkedRows, ...reverseLinkedRows],
-      };
-    })
-  );
-
-  return enriched;
+  return rows.map((d) => ({
+    ...d,
+    tags: tagMap.get(d.id) || [],
+    actionsCount: actionMap.get(d.id)?.total || 0,
+    actionsComplete: actionMap.get(d.id)?.complete || 0,
+    linkedDecisions: [] as { id: string; number: number; title: string; relation: string; direction: string }[],
+  }));
 }
 
 export async function getDecisionByNumber(spaceId: string, number: number) {
@@ -180,28 +167,39 @@ export async function getMeetings(spaceId: string) {
     .where(eq(meetings.spaceId, spaceId))
     .orderBy(desc(meetings.date));
 
-  const enriched = await Promise.all(
-    rows.map(async (m) => {
-      const attendeeRows = await db
-        .select({ name: users.name })
-        .from(meetingAttendees)
-        .innerJoin(users, eq(users.id, meetingAttendees.userId))
-        .where(eq(meetingAttendees.meetingId, m.id));
+  const ids = rows.map((m) => m.id);
+  if (ids.length === 0) return [];
 
-      const decisionCount = await db
-        .select({ count: count() })
-        .from(meetingDecisions)
-        .where(eq(meetingDecisions.meetingId, m.id));
+  const [allAttendees, allDecisionCounts] = await Promise.all([
+    db
+      .select({ meetingId: meetingAttendees.meetingId, name: users.name })
+      .from(meetingAttendees)
+      .innerJoin(users, eq(users.id, meetingAttendees.userId))
+      .where(inArray(meetingAttendees.meetingId, ids)),
+    db
+      .select({ meetingId: meetingDecisions.meetingId, count: count() })
+      .from(meetingDecisions)
+      .where(inArray(meetingDecisions.meetingId, ids))
+      .groupBy(meetingDecisions.meetingId),
+  ]);
 
-      return {
-        ...m,
-        attendees: attendeeRows.map((a) => a.name || "Unknown"),
-        decisionsCount: decisionCount[0]?.count || 0,
-      };
-    })
-  );
+  const attendeeMap = new Map<string, string[]>();
+  for (const a of allAttendees) {
+    const arr = attendeeMap.get(a.meetingId) || [];
+    arr.push(a.name || "Unknown");
+    attendeeMap.set(a.meetingId, arr);
+  }
 
-  return enriched;
+  const decisionCountMap = new Map<string, number>();
+  for (const d of allDecisionCounts) {
+    decisionCountMap.set(d.meetingId, d.count);
+  }
+
+  return rows.map((m) => ({
+    ...m,
+    attendees: attendeeMap.get(m.id) || [],
+    decisionsCount: decisionCountMap.get(m.id) || 0,
+  }));
 }
 
 export async function getMeetingById(spaceId: string, meetingId: string) {
@@ -602,21 +600,24 @@ export async function getProposals(spaceId: string) {
     .where(eq(proposals.spaceId, spaceId))
     .orderBy(desc(proposals.updatedAt));
 
-  const enriched = await Promise.all(
-    rows.map(async (p) => {
-      const commentCount = await db
-        .select({ count: count() })
-        .from(proposalComments)
-        .where(eq(proposalComments.proposalId, p.id));
+  const ids = rows.map((p) => p.id);
+  if (ids.length === 0) return [];
 
-      return {
-        ...p,
-        commentCount: commentCount[0]?.count || 0,
-      };
-    })
-  );
+  const commentCounts = await db
+    .select({ proposalId: proposalComments.proposalId, count: count() })
+    .from(proposalComments)
+    .where(inArray(proposalComments.proposalId, ids))
+    .groupBy(proposalComments.proposalId);
 
-  return enriched;
+  const commentMap = new Map<string, number>();
+  for (const c of commentCounts) {
+    commentMap.set(c.proposalId, c.count);
+  }
+
+  return rows.map((p) => ({
+    ...p,
+    commentCount: commentMap.get(p.id) || 0,
+  }));
 }
 
 export async function getProposalById(spaceId: string, proposalId: string) {

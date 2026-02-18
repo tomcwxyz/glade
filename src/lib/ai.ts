@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 
 let client: Anthropic | null = null;
 
-export function getAnthropicClient(): Anthropic {
+function getAnthropicClient(): Anthropic {
   if (!client) {
     client = new Anthropic();
   }
@@ -25,12 +25,18 @@ export async function generateText(
   options?: { maxTokens?: number }
 ): Promise<string> {
   const anthropic = getAnthropicClient();
-  const message = await anthropic.messages.create({
-    model: "claude-sonnet-4-5-20250929",
-    max_tokens: options?.maxTokens ?? 2048,
-    system,
-    messages: [{ role: "user", content: user }],
-  });
+  let message;
+  try {
+    message = await anthropic.messages.create({
+      model: "claude-sonnet-4-5-20250929",
+      max_tokens: options?.maxTokens ?? 2048,
+      system,
+      messages: [{ role: "user", content: user }],
+    });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Unknown error";
+    throw new Error(`AI request failed: ${msg}`);
+  }
 
   const block = message.content[0];
   if (block.type === "text") return block.text;

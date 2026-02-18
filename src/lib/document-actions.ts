@@ -20,7 +20,14 @@ export async function createDocument(formData: FormData) {
   if (!type) return { error: "Document type is required" };
 
   const contentRaw = formData.get("content") as string;
-  const content = contentRaw ? JSON.parse(contentRaw) : null;
+  let content = null;
+  if (contentRaw) {
+    try {
+      content = JSON.parse(contentRaw);
+    } catch {
+      return { error: "Invalid document content" };
+    }
+  }
 
   const [doc] = await db
     .insert(documents)
@@ -64,7 +71,14 @@ export async function updateDocument(documentId: string, formData: FormData) {
   if (!title) return { error: "Title is required" };
 
   const contentRaw = formData.get("content") as string;
-  const content = contentRaw ? JSON.parse(contentRaw) : null;
+  let content = null;
+  if (contentRaw) {
+    try {
+      content = JSON.parse(contentRaw);
+    } catch {
+      return { error: "Invalid document content" };
+    }
+  }
   const changeDescription = (formData.get("changeDescription") as string)?.trim() || null;
 
   const newVersion = existing.currentVersion + 1;
