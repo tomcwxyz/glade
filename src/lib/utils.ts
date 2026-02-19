@@ -33,6 +33,12 @@ export function formatDateRelative(dateString: string): string {
   return formatDate(dateString);
 }
 
+// Shared form field classes — used across all form components
+export const inputClass =
+  "w-full px-4 py-2.5 text-sm bg-paper-warm border border-border rounded-lg placeholder:text-bark-muted/50 focus:outline-none focus:border-canopy focus:ring-1 focus:ring-canopy/20 transition-colors";
+
+export const textareaClass = `${inputClass} resize-none`;
+
 export function formatDateMonth(dateString: string): string {
   const date = new Date(dateString);
   return date.toLocaleDateString("en-GB", {

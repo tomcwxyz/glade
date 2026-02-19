@@ -10,6 +10,7 @@ import {
   linkDecisionToMeeting,
   unlinkDecisionFromMeeting,
 } from "@/lib/decision-actions";
+import { formatDate } from "@/lib/utils";
 
 interface LinkedDecision {
   linkId: string;
@@ -50,13 +51,6 @@ const LINK_LABELS: Record<string, string> = {
   amends: "amends",
 };
 
-function formatDateShort(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-}
 
 export function DecisionLinksEditor({
   decisionId,
@@ -265,7 +259,7 @@ export function DecisionLinksEditor({
               <option value="">Select a meeting...</option>
               {availableMeetings.map((m) => (
                 <option key={m.id} value={m.id}>
-                  {m.title} ({formatDateShort(m.date)})
+                  {m.title} ({formatDate(m.date)})
                 </option>
               ))}
             </select>
@@ -307,7 +301,7 @@ export function DecisionLinksEditor({
                 {m.title}
               </Link>
               <span className="text-xs text-bark-muted shrink-0">
-                {formatDateShort(m.date)}
+                {formatDate(m.date)}
               </span>
               <button
                 type="button"

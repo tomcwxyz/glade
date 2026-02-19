@@ -4,9 +4,8 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, TriangleAlert, Sparkles } from "lucide-react";
 import { updateSpace, deleteSpace, updateSpaceSettings, clearSpaceData } from "@/lib/space-actions";
+import { inputClass } from "@/lib/utils";
 
-const inputClass =
-  "w-full px-4 py-2.5 text-sm bg-paper-warm border border-border rounded-lg placeholder:text-bark-muted/50 focus:outline-none focus:border-canopy focus:ring-1 focus:ring-canopy/20 transition-colors";
 
 export function SpaceSettingsForm({
   name,

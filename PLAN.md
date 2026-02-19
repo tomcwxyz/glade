@@ -282,7 +282,7 @@ Build **Glade**, a decision-centric governance platform for social purpose organ
 ## Open Questions
 
 - [x] ~~shadcn/ui vs other component library~~ — using custom design system
-- [ ] Socket.io vs PartyKit for real-time — decide before Phase 4
+- [x] ~~Socket.io vs PartyKit for real-time~~ — using HTTP polling (2s interval), no WebSocket infrastructure needed
 - [ ] Open source licence model (AGPL, MIT, BSL) — decide before public release
 - [ ] WCAG 2.1 AA from Phase 1 or progressive enhancement?
 - [ ] Which integration priorities (Google Workspace, Microsoft 365, Notion)?

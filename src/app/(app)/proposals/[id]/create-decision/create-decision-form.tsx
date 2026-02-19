@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createDecisionFromProposal } from "@/lib/proposal-actions";
+import { inputClass } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
 
 const METHODS = [
@@ -13,8 +14,6 @@ const METHODS = [
   { value: "lazy_consensus", label: "Lazy Consensus" },
 ];
 
-const inputClass =
-  "w-full px-4 py-2.5 text-sm bg-paper-warm border border-border rounded-lg placeholder:text-bark-muted/50 focus:outline-none focus:border-canopy focus:ring-1 focus:ring-canopy/20 transition-colors";
 
 export function CreateDecisionFromProposal({
   proposalId,

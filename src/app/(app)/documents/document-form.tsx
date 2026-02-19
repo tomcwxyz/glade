@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import { createDocument, updateDocument, autoSaveDocument } from "@/lib/document-actions";
+import { inputClass } from "@/lib/utils";
 import { TiptapEditor } from "@/components/tiptap-editor";
 import { Check, Cloud, CloudOff, Loader2 } from "lucide-react";
 import Link from "next/link";
@@ -23,8 +24,6 @@ interface DocumentData {
   content: JSONContent | null;
 }
 
-const inputClass =
-  "w-full px-4 py-2.5 text-sm bg-paper-warm border border-border rounded-lg placeholder:text-bark-muted/50 focus:outline-none focus:border-canopy focus:ring-1 focus:ring-canopy/20 transition-colors";
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 

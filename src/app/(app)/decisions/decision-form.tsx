@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createDecision, updateDecision } from "@/lib/decision-actions";
+import { inputClass, textareaClass } from "@/lib/utils";
 import {
   Loader2,
   Plus,
@@ -61,10 +62,6 @@ function InputLabel({ htmlFor, children, optional }: { htmlFor: string; children
   );
 }
 
-const inputClass =
-  "w-full px-4 py-2.5 text-sm bg-paper-warm border border-border rounded-lg placeholder:text-bark-muted/50 focus:outline-none focus:border-canopy focus:ring-1 focus:ring-canopy/20 transition-colors";
-
-const textareaClass = `${inputClass} resize-none`;
 
 export function DecisionForm({
   tags,

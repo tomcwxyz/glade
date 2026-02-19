@@ -36,7 +36,7 @@ export async function getDecisions(spaceId: string) {
   const ids = rows.map((d) => d.id);
   if (ids.length === 0) return [];
 
-  const [allTags, allActions] = await Promise.all([
+  const [allTags, allActions, forwardLinks, reverseLinks] = await Promise.all([
     db
       .select({ decisionId: decisionTags.decisionId, name: tags.name })
       .from(decisionTags)
@@ -46,6 +46,28 @@ export async function getDecisions(spaceId: string) {
       .select({ decisionId: actions.decisionId, status: actions.status })
       .from(actions)
       .where(inArray(actions.decisionId, ids)),
+    db
+      .select({
+        fromId: decisionLinks.fromDecisionId,
+        id: decisions.id,
+        number: decisions.number,
+        title: decisions.title,
+        relation: decisionLinks.linkType,
+      })
+      .from(decisionLinks)
+      .innerJoin(decisions, eq(decisions.id, decisionLinks.toDecisionId))
+      .where(inArray(decisionLinks.fromDecisionId, ids)),
+    db
+      .select({
+        toId: decisionLinks.toDecisionId,
+        id: decisions.id,
+        number: decisions.number,
+        title: decisions.title,
+        relation: decisionLinks.linkType,
+      })
+      .from(decisionLinks)
+      .innerJoin(decisions, eq(decisions.id, decisionLinks.fromDecisionId))
+      .where(inArray(decisionLinks.toDecisionId, ids)),
   ]);
 
   const tagMap = new Map<string, string[]>();
@@ -63,12 +85,25 @@ export async function getDecisions(spaceId: string) {
     actionMap.set(a.decisionId, entry);
   }
 
+  type LinkedDecision = { id: string; number: number; title: string; relation: string; direction: string };
+  const linkMap = new Map<string, LinkedDecision[]>();
+  for (const l of forwardLinks) {
+    const arr = linkMap.get(l.fromId) || [];
+    arr.push({ id: l.id, number: l.number, title: l.title, relation: l.relation, direction: "forward" });
+    linkMap.set(l.fromId, arr);
+  }
+  for (const l of reverseLinks) {
+    const arr = linkMap.get(l.toId) || [];
+    arr.push({ id: l.id, number: l.number, title: l.title, relation: l.relation, direction: "reverse" });
+    linkMap.set(l.toId, arr);
+  }
+
   return rows.map((d) => ({
     ...d,
     tags: tagMap.get(d.id) || [],
     actionsCount: actionMap.get(d.id)?.total || 0,
     actionsComplete: actionMap.get(d.id)?.complete || 0,
-    linkedDecisions: [] as { id: string; number: number; title: string; relation: string; direction: string }[],
+    linkedDecisions: linkMap.get(d.id) || [],
   }));
 }
 

@@ -78,7 +78,9 @@ export async function getCurrentSpace() {
     .limit(1);
 
   if (result.length > 0) {
-    await setCurrentSpace(result[0].slug);
+    // Don't set cookie here — this runs during rendering (layout/page),
+    // where cookies can't be modified. The cookie gets set when the user
+    // explicitly switches spaces or creates one.
     return result[0];
   }
 

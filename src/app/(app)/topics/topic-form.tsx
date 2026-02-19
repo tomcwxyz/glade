@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createTopic } from "@/lib/topic-actions";
+import { inputClass, textareaClass } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
 import Link from "next/link";
 
@@ -11,10 +12,6 @@ const TYPES = [
   { value: "agenda_suggestion", label: "Agenda Suggestion", desc: "Something to discuss at a meeting" },
 ] as const;
 
-const inputClass =
-  "w-full px-4 py-2.5 text-sm bg-paper-warm border border-border rounded-lg placeholder:text-bark-muted/50 focus:outline-none focus:border-canopy focus:ring-1 focus:ring-canopy/20 transition-colors";
-
-const textareaClass = `${inputClass} resize-none`;
 
 export function TopicForm() {
   const [loading, setLoading] = useState(false);

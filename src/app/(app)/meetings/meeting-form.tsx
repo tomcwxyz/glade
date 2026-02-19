@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createMeeting, updateMeeting } from "@/lib/meeting-actions";
+import { inputClass } from "@/lib/utils";
 import { Check, Clock, FileText, Loader2, Plus, X, MessageSquarePlus } from "lucide-react";
 import Link from "next/link";
 
@@ -65,8 +66,6 @@ const TOPIC_TYPE_TO_AGENDA: Record<string, string> = {
   agenda_suggestion: "for_discussion",
 };
 
-const inputClass =
-  "w-full px-4 py-2.5 text-sm bg-paper-warm border border-border rounded-lg placeholder:text-bark-muted/50 focus:outline-none focus:border-canopy focus:ring-1 focus:ring-canopy/20 transition-colors";
 
 const emptyAgendaItem: AgendaItem = {
   title: "",

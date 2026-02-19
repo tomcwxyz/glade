@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createProposal, updateProposal } from "@/lib/proposal-actions";
+import { inputClass, textareaClass } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
 import Link from "next/link";
 
@@ -23,10 +24,6 @@ interface ProposalData {
   suggestedMethod: string | null;
 }
 
-const inputClass =
-  "w-full px-4 py-2.5 text-sm bg-paper-warm border border-border rounded-lg placeholder:text-bark-muted/50 focus:outline-none focus:border-canopy focus:ring-1 focus:ring-canopy/20 transition-colors";
-
-const textareaClass = `${inputClass} resize-none`;
 
 export function ProposalForm({ proposal }: { proposal?: ProposalData }) {
   const isEditing = !!proposal;

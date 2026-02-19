@@ -1,6 +1,6 @@
 # State
 
-> Last updated: 2026-02-17
+> Last updated: 2026-02-17 (session 2)
 
 ## System State Diagram
 
@@ -13,7 +13,7 @@ stateDiagram-v2
     Testing --> Deploying: tests pass
     Deploying --> Live: deployed
 
-    note right of Building: ← WE ARE HERE
+    note right of Deploying: ← WE ARE HERE
 ```
 
 ## Component Status
@@ -137,7 +137,7 @@ flowchart LR
 | Meeting form (enhanced) | ✅ Done | Status select, time estimates per item, proposal linking |
 | Meeting edit page | ✅ Done | `/meetings/[id]/edit` route wired to form |
 | Meeting detail (enhanced) | ✅ Done | Status badge, edit link, duration display on agenda items |
-| Schema: shareToken + sessionState | ✅ Done | Added to meetings table (needs `db:push`) |
+| Schema: shareToken + sessionState | ✅ Done | Added to meetings table, migration applied |
 | Shareable agenda link | ✅ Done | Generate/revoke share tokens, public `/shared/meeting/[token]` page |
 | Polling infrastructure | ✅ Done | HTTP polling via `/api/meetings/[id]/state`, version-based optimistic locking |
 | Meeting state types | ✅ Done | `MeetingSessionState` with timer, speakers, decision flow, participants |
