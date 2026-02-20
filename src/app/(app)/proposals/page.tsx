@@ -1,6 +1,9 @@
+import type { Metadata } from "next";
 import { getCurrentSpace } from "@/lib/space";
 import { getProposals } from "@/lib/queries";
 import { Plus, MessageSquare } from "lucide-react";
+
+export const metadata: Metadata = { title: "Proposals" };
 import Link from "next/link";
 import { formatDateRelative } from "@/lib/utils";
 

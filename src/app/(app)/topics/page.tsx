@@ -1,6 +1,9 @@
+import type { Metadata } from "next";
 import { getCurrentSpace } from "@/lib/space";
 import { getTopics } from "@/lib/queries";
 import { Plus, Lightbulb, HelpCircle, Zap, CalendarPlus, ArrowRight } from "lucide-react";
+
+export const metadata: Metadata = { title: "Topics" };
 import Link from "next/link";
 import { formatDateRelative } from "@/lib/utils";
 

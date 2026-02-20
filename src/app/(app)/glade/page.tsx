@@ -1,6 +1,9 @@
+import type { Metadata } from "next";
 import { getCurrentSpace } from "@/lib/space";
 import { getDecisions } from "@/lib/queries";
 import { TreePine } from "lucide-react";
+
+export const metadata: Metadata = { title: "The Glade" };
 import { EmptyState } from "@/components/empty-state";
 import { GladeCanvas } from "./glade-canvas";
 

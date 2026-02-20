@@ -1,0 +1,42 @@
+# Glade — Governance that learns
+
+> A decision-centric governance platform for social purpose organisations.
+
+Glade treats governance decisions as the primary unit of organisational memory — traceable, reviewable, connected to living governance documents.
+
+## What Glade does
+
+- **Decision log**: Every governance decision recorded with context — who decided, how, why, and what happened next. Tagged, linked, searchable.
+- **Living documents**: Governance documents (constitutions, policies, terms of reference) that trace back to the decisions that shaped them. Full version history.
+- **Structured proposals**: A clear path from idea to decision, with discussion, amendment, and resolution.
+- **Learning loops**: Scheduled reviews that help organisations learn from their own governance history.
+- **Live meeting mode**: Facilitation tools that capture decisions as a natural byproduct of running a meeting. Consent rounds, voting, advice process.
+- **AI governance insights**: Pattern analysis, review questions, document impact suggestions, governance digests, and new member briefings.
+
+## Who it's for
+
+Glade is built for charities, CICs, cooperatives, partnerships, and other social purpose organisations that want to govern better — not just comply.
+
+## Decision methods supported
+
+- Consent (adopted unless paramount objection)
+- Advice Process (individual decides after consulting affected parties)
+- Consensus (full agreement from everyone present)
+- Majority Vote (simple majority carries)
+- Delegation (authority granted within constraints)
+- Lazy Consensus (silence means agreement, time-boxed)
+
+## Pricing
+
+- **Seedling** (Free): 5 members, 50 decisions, 1 space. Decision log, documents, proposals, topics.
+- **Canopy** (£15/month or £144/year): 25 members, unlimited decisions, unlimited spaces. AI insights, live meeting mode, priority support.
+- **Old Growth** (Custom): Unlimited everything. Dedicated support, custom integrations.
+
+## Links
+
+- Website: https://ourglade.app
+- Sign up: https://ourglade.app/sign-up
+
+## Contact
+
+hello@ourglade.app

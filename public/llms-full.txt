@@ -1,0 +1,113 @@
+# Glade — Governance that learns
+
+> A decision-centric governance platform for social purpose organisations.
+
+Glade treats governance decisions as the primary unit of organisational memory — traceable, reviewable, connected to living governance documents.
+
+## The problem Glade solves
+
+Governance knowledge in most organisations is scattered across emails, minutes documents, and informal conversations. There's no clear trail connecting a policy to the decision that created it, the rationale behind it, or the people in the room.
+
+When board members change, institutional knowledge disappears. Organisations re-litigate old decisions, struggle to onboard new trustees, and find it difficult to learn from their own history.
+
+Compliance tools solve for documentation but not learning. Collaboration tools solve for communication but not accountability. Neither builds institutional memory.
+
+## Core features
+
+### Decision log
+Every governance decision recorded with context — who decided, how, why, and what happened next. Decisions can be tagged by theme, linked to related decisions, tracked through actions, and scheduled for review. The searchable timeline becomes an organisation's institutional memory.
+
+### Living documents
+Governance documents (constitutions, policies, terms of reference, role descriptions, standing orders) that trace back to the decisions that shaped them. Click any clause to see why it exists. View any document as it was on any date. Version history shows what changed and which decision drove the change.
+
+### Structured proposals
+A clear path from idea to decision, with discussion, amendment, and resolution. Proposals link to affected documents and suggest appropriate decision methods. When resolved, governance documents are prompted for update.
+
+### Learning loops
+Scheduled reviews that help organisations learn from their own governance history. Three levels of reflection: Did we follow through? Did we decide well? Are we governing well? Prompted but never forced.
+
+### Live meeting mode
+Facilitation tools that capture decisions as a natural byproduct of running a meeting. Guided consent rounds, voting, advice process. Separate facilitator and participant views. Shareable meeting agendas for observers. Auto-generated summaries with decisions and actions.
+
+### AI governance insights
+AI-powered analysis that helps organisations see patterns in how they govern — never a decision-maker, always a reflective partner. Capabilities include:
+- Pattern analysis across decisions
+- Review question generation
+- Document impact suggestions
+- Governance digests
+- New member briefings
+- Stale document detection
+
+## Decision methods supported
+
+Glade supports the decision methods progressive organisations actually use, with guided flows — not just labels.
+
+- **Consent**: Adopted unless there's a paramount objection. The default for governance decisions.
+- **Advice Process**: Individual decides after consulting affected parties. Autonomy with accountability.
+- **Consensus**: Full agreement from everyone present. For the decisions that matter most.
+- **Majority Vote**: Simple majority carries. Quick and clear for binary choices.
+- **Delegation**: Authority granted within constraints. Scope, reporting, and review date recorded.
+- **Lazy Consensus**: Silence means agreement. Time-boxed objection window for low-stakes decisions.
+
+## Decision lifecycle
+
+Glade makes the lifecycle of a decision visible:
+
+1. **Proposed** — A proposal is created with rationale, context, and a suggested decision method.
+2. **Discussed** — Async or synchronous discussion. Comments, amendments, questions from affected parties.
+3. **Decided** — Decision made using the chosen method. Outcome, participation, and conditions recorded.
+4. **Implemented** — Actions created and tracked. Governance documents updated if affected.
+5. **Reviewed** — Structured reflection: what happened, what was expected, what surprised us.
+6. **Learned** — Patterns synthesised. Insights feed back into future governance.
+
+Not every decision reaches every stage. The platform supports scheduling reviews and prompting reflection, but never forces it.
+
+## Who it's for
+
+Glade is built for charities, CICs (Community Interest Companies), cooperatives, partnerships, housing associations, and other social purpose organisations that want to govern better — not just comply.
+
+## Pricing
+
+### Seedling (Free)
+- 5 members per space
+- 50 decisions per space
+- Decision log & documents
+- Proposals & topics
+- 1 space
+
+### Canopy (£15/month or £144/year)
+- 25 members per space
+- Unlimited decisions
+- AI governance insights
+- Live meeting mode
+- Unlimited spaces
+- Priority support
+
+### Old Growth (Custom pricing)
+- Unlimited members
+- Unlimited decisions
+- AI governance insights
+- Live meeting mode
+- Unlimited spaces
+- Dedicated support
+- Custom integrations
+
+## Technical details
+
+- Built with Next.js 15, TypeScript, Tailwind CSS
+- PostgreSQL database (Neon)
+- Hosted on Vercel
+- AI powered by Claude (Anthropic)
+- Stripe billing integration
+- WCAG 2.1 AA accessible
+- en-GB locale
+
+## Links
+
+- Website: https://ourglade.app
+- Sign up: https://ourglade.app/sign-up
+- Sign in: https://ourglade.app/sign-in
+
+## Contact
+
+hello@ourglade.app

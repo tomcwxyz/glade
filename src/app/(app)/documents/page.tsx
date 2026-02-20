@@ -1,5 +1,8 @@
+import type { Metadata } from "next";
 import { getCurrentSpace } from "@/lib/space";
 import { getDocuments, getActiveInsights } from "@/lib/queries";
+
+export const metadata: Metadata = { title: "Documents" };
 import { isAiEnabled } from "@/lib/ai";
 import { Plus, FileText } from "lucide-react";
 import Link from "next/link";

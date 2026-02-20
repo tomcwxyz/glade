@@ -1,5 +1,8 @@
+import type { Metadata } from "next";
 import { formatDate } from "@/lib/utils";
 import { BookOpen, Calendar, Plus, Users } from "lucide-react";
+
+export const metadata: Metadata = { title: "Meetings" };
 import Link from "next/link";
 import { getCurrentSpace } from "@/lib/space";
 import { getMeetings } from "@/lib/queries";

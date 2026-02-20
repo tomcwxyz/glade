@@ -1,6 +1,9 @@
+import type { Metadata } from "next";
 import { getCurrentSpace, requireUser } from "@/lib/space";
 import { getSpaceMembers } from "@/lib/queries";
 import { Users } from "lucide-react";
+
+export const metadata: Metadata = { title: "Members" };
 import { MembersList } from "./members-list";
 
 export default async function MembersPage() {

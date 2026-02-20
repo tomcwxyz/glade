@@ -214,9 +214,41 @@ function ProblemIllustration() {
   );
 }
 
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  name: "Glade",
+  applicationCategory: "BusinessApplication",
+  operatingSystem: "Web",
+  description:
+    "A decision-centric governance platform for social purpose organisations. Record decisions with context, connect them to living documents, and build institutional memory.",
+  url: "https://ourglade.app",
+  offers: [
+    {
+      "@type": "Offer",
+      name: "Seedling",
+      price: "0",
+      priceCurrency: "GBP",
+      description: "Free tier — 5 members, 50 decisions, 1 space",
+    },
+    {
+      "@type": "Offer",
+      name: "Canopy",
+      price: "15",
+      priceCurrency: "GBP",
+      billingIncrement: "P1M",
+      description: "Pro tier — 25 members, unlimited decisions, AI insights, live meetings",
+    },
+  ],
+};
+
 export default function LandingPage() {
   return (
     <div className="min-h-screen bg-paper">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       {/* Navigation */}
       <LandingNav />
 

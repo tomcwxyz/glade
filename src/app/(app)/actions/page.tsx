@@ -1,6 +1,9 @@
+import type { Metadata } from "next";
 import { getCurrentSpace } from "@/lib/space";
 import { getActions } from "@/lib/queries";
 import { formatDate } from "@/lib/utils";
+
+export const metadata: Metadata = { title: "Actions" };
 import { CheckCircle2, Circle, Clock, ListChecks, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { EmptyState } from "@/components/empty-state";

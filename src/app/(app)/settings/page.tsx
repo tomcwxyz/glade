@@ -1,5 +1,8 @@
+import type { Metadata } from "next";
 import { getCurrentSpace, requireUser } from "@/lib/space";
 import { getSpaceMembers, getSpaceSubscription, getDecisionCount, getMemberCount } from "@/lib/queries";
+
+export const metadata: Metadata = { title: "Settings" };
 import { isAiAvailable, isAiEnabled } from "@/lib/ai";
 import { getSpacePlan } from "@/lib/billing";
 import { PLAN_LIMITS, PLAN_DISPLAY } from "@/lib/plans";

@@ -1,5 +1,8 @@
+import type { Metadata } from "next";
 import { getCurrentSpace } from "@/lib/space";
 import { getDecisions, getSpaceTags } from "@/lib/queries";
+
+export const metadata: Metadata = { title: "Decisions" };
 import { BookOpen, Plus } from "lucide-react";
 import Link from "next/link";
 import { EmptyState } from "@/components/empty-state";

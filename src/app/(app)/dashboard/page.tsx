@@ -1,4 +1,7 @@
+import type { Metadata } from "next";
 import { getCurrentSpace } from "@/lib/space";
+
+export const metadata: Metadata = { title: "Dashboard" };
 import { getDecisions, getActions, getMeetings, getSpaceStats, getActiveInsights } from "@/lib/queries";
 import { isAiEnabled } from "@/lib/ai";
 import { getSpacePlan } from "@/lib/billing";
