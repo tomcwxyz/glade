@@ -6,11 +6,15 @@ import { db } from "@/db";
 import { decisions, decisionLinks, decisionTags, tags, actions, meetingDecisions } from "@/db/schema";
 import { getCurrentSpace, requireUser } from "@/lib/space";
 import { getNextDecisionNumber } from "@/lib/queries";
+import { canAddDecision } from "@/lib/billing";
 
 export async function createDecision(formData: FormData) {
   const user = await requireUser();
   const space = await getCurrentSpace();
   if (!space) return { error: "No space selected" };
+
+  const allowed = await canAddDecision(space.id);
+  if (!allowed) return { error: "Decision limit reached. Upgrade to Canopy for unlimited decisions." };
 
   const title = (formData.get("title") as string)?.trim();
   if (!title) return { error: "Title is required" };

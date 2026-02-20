@@ -29,10 +29,12 @@ export function MembersList({
   members,
   currentUserId,
   isAdmin,
+  canInvite = true,
 }: {
   members: Member[];
   currentUserId: string;
   isAdmin: boolean;
+  canInvite?: boolean;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -80,11 +82,18 @@ export function MembersList({
       {/* Invite section */}
       {isAdmin && (
         <div className="mb-8">
+          {!canInvite && (
+            <p className="text-xs text-bark-muted mb-3">
+              Member limit reached on your current plan.{" "}
+              <a href="/settings" className="text-canopy hover:underline">Upgrade</a> to add more.
+            </p>
+          )}
           {!showInvite ? (
             <button
               type="button"
               onClick={() => setShowInvite(true)}
-              className="flex items-center gap-2 px-4 py-2.5 bg-canopy text-paper rounded-lg text-sm font-medium hover:bg-canopy-light transition-colors"
+              disabled={!canInvite}
+              className="flex items-center gap-2 px-4 py-2.5 bg-canopy text-paper rounded-lg text-sm font-medium hover:bg-canopy-light transition-colors disabled:opacity-50 disabled:pointer-events-none"
             >
               <UserPlus size={16} />
               Add member

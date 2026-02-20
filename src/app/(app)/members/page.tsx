@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { getCurrentSpace, requireUser } from "@/lib/space";
 import { getSpaceMembers } from "@/lib/queries";
+import { canAddMember } from "@/lib/billing";
 import { Users } from "lucide-react";
 
 export const metadata: Metadata = { title: "Members" };
@@ -11,7 +12,10 @@ export default async function MembersPage() {
   const space = await getCurrentSpace();
   if (!space) return null;
 
-  const members = await getSpaceMembers(space.id);
+  const [members, canInvite] = await Promise.all([
+    getSpaceMembers(space.id),
+    canAddMember(space.id),
+  ]);
   const currentMember = members.find((m) => m.userId === user.id || m.email === user.email);
   const isAdmin = currentMember?.role === "admin";
 
@@ -43,6 +47,7 @@ export default async function MembersPage() {
         }))}
         currentUserId={user.id!}
         isAdmin={isAdmin}
+        canInvite={canInvite}
       />
     </div>
   );

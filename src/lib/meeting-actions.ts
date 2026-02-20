@@ -8,6 +8,7 @@ import { db } from "@/db";
 import { meetings, meetingAgendaItems, meetingAttendees } from "@/db/schema";
 import { getCurrentSpace, requireUser } from "@/lib/space";
 import { createInitialState } from "@/lib/meeting-state";
+import { canUseLiveMeetings } from "@/lib/billing";
 
 type MeetingStatus = "draft" | "scheduled" | "in_progress" | "completed";
 
@@ -228,6 +229,9 @@ export async function startMeeting(meetingId: string) {
   const user = await requireUser();
   const space = await getCurrentSpace();
   if (!space) return { error: "No space selected" };
+
+  const allowed = await canUseLiveMeetings(space.id);
+  if (!allowed) return { error: "Live meetings require a Canopy plan." };
 
   const [meeting] = await db
     .select({ id: meetings.id, status: meetings.status, createdBy: meetings.createdBy })
