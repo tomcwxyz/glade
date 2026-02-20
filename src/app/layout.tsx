@@ -3,11 +3,11 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "Glade — Governance that learns",
+    default: "Glade — Governance that grows with your organisation",
     template: "%s | Glade",
   },
   description:
-    "A decision-centric governance platform for social purpose organisations. Record decisions with context, connect them to living documents, and build institutional memory.",
+    "A governance platform that treats decisions as institutional memory. Track, connect, and learn from every choice your organisation makes.",
   metadataBase: new URL("https://ourglade.app"),
   keywords: [
     "governance platform",
@@ -27,16 +27,16 @@ export const metadata: Metadata = {
     type: "website",
     locale: "en_GB",
     siteName: "Glade",
-    title: "Glade — Governance that learns",
+    title: "Glade — Governance that grows with your organisation",
     description:
-      "A decision-centric governance platform for social purpose organisations. Record decisions with context, connect them to living documents, and build institutional memory.",
+      "A governance platform that treats decisions as institutional memory. Track, connect, and learn from every choice your organisation makes.",
     url: "https://ourglade.app",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Glade — Governance that learns",
+    title: "Glade — Governance that grows with your organisation",
     description:
-      "A decision-centric governance platform for social purpose organisations. Record decisions, build institutional memory.",
+      "A governance platform that treats decisions as institutional memory. Track, connect, and learn from every choice your organisation makes.",
   },
   alternates: {
     canonical: "https://ourglade.app",
