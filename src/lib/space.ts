@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { eq, and } from "drizzle-orm";
 import { db } from "@/db";
-import { spaces, spaceMembers, users } from "@/db/schema";
+import { spaces, spaceMembers, users, subscriptions } from "@/db/schema";
 import { auth } from "@/lib/auth";
 
 /**
@@ -157,6 +157,13 @@ export async function createSpace(formData: FormData) {
     spaceId: space.id,
     userId: user.id,
     role: "admin",
+  });
+
+  // Create free subscription record
+  await db.insert(subscriptions).values({
+    spaceId: space.id,
+    planTier: "free",
+    status: "active",
   });
 
   // Set as current space

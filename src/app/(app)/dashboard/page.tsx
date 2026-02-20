@@ -1,6 +1,9 @@
 import { getCurrentSpace } from "@/lib/space";
 import { getDecisions, getActions, getMeetings, getSpaceStats, getActiveInsights } from "@/lib/queries";
 import { isAiEnabled } from "@/lib/ai";
+import { getSpacePlan } from "@/lib/billing";
+import { PLAN_LIMITS } from "@/lib/plans";
+import { UpgradePrompt } from "@/components/upgrade-prompt";
 import { formatDate, formatDateRelative } from "@/lib/utils";
 import {
   ArrowRight,
@@ -82,7 +85,9 @@ export default async function DashboardPage() {
   const space = await getCurrentSpace();
   if (!space) return null;
 
-  const aiEnabled = isAiEnabled(space.settings);
+  const planTier = await getSpacePlan(space.id);
+  const planLimits = PLAN_LIMITS[planTier];
+  const aiEnabled = planLimits.canUseAi && isAiEnabled(space.settings);
 
   const [allDecisions, allActions, allMeetings, stats, activeInsights] = await Promise.all([
     getDecisions(space.id),
@@ -258,6 +263,14 @@ export default async function DashboardPage() {
 
         {/* Right column */}
         <div className="space-y-10">
+          {/* Upgrade prompt for free tier */}
+          {!planLimits.canUseAi && (
+            <UpgradePrompt
+              feature="AI Governance Insights"
+              description="Get pattern analysis, review questions, and document intelligence powered by AI."
+            />
+          )}
+
           {/* AI Insights */}
           {aiEnabled && (
             <InsightsPanel

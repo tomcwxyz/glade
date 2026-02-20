@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { insights, decisions, documents } from "@/db/schema";
 import { getCurrentSpace } from "@/lib/space";
 import { isAiEnabled, generateText } from "@/lib/ai";
+import { canUseAi } from "@/lib/billing";
 import {
   SYSTEM_PROMPT,
   patternAnalysisPrompt,
@@ -22,6 +23,7 @@ import { tiptapToText } from "@/lib/tiptap-utils";
 async function checkAiEnabled() {
   const space = await getCurrentSpace();
   if (!space) return { error: "No space selected", space: null };
+  if (!(await canUseAi(space.id))) return { error: "AI features require a Canopy plan", space: null };
   if (!isAiEnabled(space.settings)) return { error: "AI features are not enabled", space: null };
   return { error: null, space };
 }

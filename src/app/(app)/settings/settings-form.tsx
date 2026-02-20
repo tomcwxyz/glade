@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
-import { Loader2, TriangleAlert, Sparkles } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { Loader2, TriangleAlert, Sparkles, CreditCard, ArrowUpRight } from "lucide-react";
 import { updateSpace, deleteSpace, updateSpaceSettings, clearSpaceData } from "@/lib/space-actions";
+import { createCheckoutSession, createCustomerPortalSession } from "@/lib/billing-actions";
 import { inputClass } from "@/lib/utils";
-
+import type { PlanTier } from "@/lib/plans";
 
 export function SpaceSettingsForm({
   name,
@@ -14,6 +15,15 @@ export function SpaceSettingsForm({
   isAdmin,
   aiAvailable,
   aiEnabled,
+  planTier,
+  planName,
+  hasStripeSubscription,
+  cancelAtPeriodEnd,
+  currentPeriodEnd,
+  memberCount,
+  memberLimit,
+  decisionCount,
+  decisionLimit,
 }: {
   name: string;
   description: string;
@@ -21,8 +31,18 @@ export function SpaceSettingsForm({
   isAdmin: boolean;
   aiAvailable: boolean;
   aiEnabled: boolean;
+  planTier: PlanTier;
+  planName: string;
+  hasStripeSubscription: boolean;
+  cancelAtPeriodEnd: boolean;
+  currentPeriodEnd: string | null;
+  memberCount: number;
+  memberLimit: number;
+  decisionCount: number;
+  decisionLimit: number;
 }) {
-  const router = useRouter();
+  const searchParams = useSearchParams();
+  const billingStatus = searchParams.get("billing");
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -69,11 +89,44 @@ export function SpaceSettingsForm({
     });
   }
 
+  function handleUpgrade() {
+    const priceId = process.env.NEXT_PUBLIC_STRIPE_PRO_MONTHLY_PRICE_ID;
+    if (!priceId) {
+      setError("Stripe is not configured. Set NEXT_PUBLIC_STRIPE_PRO_MONTHLY_PRICE_ID.");
+      return;
+    }
+    startTransition(async () => {
+      const result = await createCheckoutSession(priceId);
+      if (result?.error) setError(result.error);
+    });
+  }
+
+  function handleManageBilling() {
+    startTransition(async () => {
+      const result = await createCustomerPortalSession();
+      if (result?.error) setError(result.error);
+    });
+  }
+
+  const isFree = planTier === "free";
+
   return (
     <div className="space-y-12">
       {error && (
         <div className="px-4 py-3 rounded-lg bg-earth/8 border border-earth/20 text-sm text-earth">
           {error}
+        </div>
+      )}
+
+      {billingStatus === "success" && (
+        <div className="px-4 py-3 rounded-lg bg-canopy/8 border border-canopy/20 text-sm text-canopy">
+          Your plan has been upgraded. Welcome to Canopy!
+        </div>
+      )}
+
+      {billingStatus === "cancelled" && (
+        <div className="px-4 py-3 rounded-lg bg-amber/8 border border-amber/20 text-sm text-amber">
+          Checkout was cancelled. No changes were made.
         </div>
       )}
 
@@ -136,8 +189,96 @@ export function SpaceSettingsForm({
         )}
       </form>
 
+      {/* Plan & Billing */}
+      {isAdmin && (
+        <section className="border border-border rounded-xl p-6">
+          <div className="flex items-center gap-2 mb-2">
+            <CreditCard size={16} className="text-canopy" />
+            <h2 className="text-base font-medium text-bark" style={{ fontFamily: "var(--font-display)" }}>
+              Plan & Billing
+            </h2>
+          </div>
+
+          <div className="flex items-center gap-2 mb-4">
+            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+              isFree
+                ? "bg-paper-deep text-bark-muted"
+                : "bg-canopy/10 text-canopy"
+            }`}>
+              {planName}
+            </span>
+            {cancelAtPeriodEnd && currentPeriodEnd && (
+              <span className="text-xs text-amber">
+                Cancels {new Date(currentPeriodEnd).toLocaleDateString("en-GB", {
+                  day: "numeric", month: "short", year: "numeric",
+                })}
+              </span>
+            )}
+          </div>
+
+          {/* Usage stats */}
+          <div className="grid grid-cols-2 gap-4 mb-5">
+            <div className="p-3 rounded-lg bg-paper-warm border border-border">
+              <div className="text-xs text-bark-muted mb-1">Members</div>
+              <div className="text-sm font-medium text-bark">
+                {memberCount} / {memberLimit === Infinity ? "Unlimited" : memberLimit}
+              </div>
+            </div>
+            <div className="p-3 rounded-lg bg-paper-warm border border-border">
+              <div className="text-xs text-bark-muted mb-1">Decisions</div>
+              <div className="text-sm font-medium text-bark">
+                {decisionCount} / {decisionLimit === Infinity ? "Unlimited" : decisionLimit}
+              </div>
+            </div>
+          </div>
+
+          {isFree ? (
+            <div>
+              <p className="text-sm text-bark-muted mb-3">
+                Upgrade to Canopy for AI insights, live meetings, more members, and unlimited decisions.
+              </p>
+              <button
+                type="button"
+                onClick={handleUpgrade}
+                disabled={isPending}
+                className="flex items-center gap-1.5 px-4 py-2.5 bg-canopy text-paper rounded-lg text-sm font-medium hover:bg-canopy-light transition-colors disabled:opacity-60"
+              >
+                {isPending ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <>
+                    Upgrade to Canopy
+                    <ArrowUpRight size={14} />
+                  </>
+                )}
+              </button>
+            </div>
+          ) : (
+            <div>
+              {hasStripeSubscription && (
+                <button
+                  type="button"
+                  onClick={handleManageBilling}
+                  disabled={isPending}
+                  className="flex items-center gap-1.5 px-4 py-2.5 border border-border text-bark rounded-lg text-sm font-medium hover:bg-paper-deep transition-colors disabled:opacity-60"
+                >
+                  {isPending ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : (
+                    <>
+                      Manage billing
+                      <ArrowUpRight size={14} />
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
+          )}
+        </section>
+      )}
+
       {/* AI Features */}
-      {aiAvailable && isAdmin && (
+      {aiAvailable && isAdmin && !isFree && (
         <section className="border border-border rounded-xl p-6">
           <div className="flex items-center gap-2 mb-2">
             <Sparkles size={16} className="text-canopy" />

@@ -37,6 +37,12 @@ export function LandingNav() {
             How it works
           </Link>
           <Link
+            href="#pricing"
+            className="text-sm text-bark-muted hover:text-bark transition-colors"
+          >
+            Pricing
+          </Link>
+          <Link
             href="/sign-in"
             className="text-sm text-bark-muted hover:text-bark transition-colors"
           >
@@ -76,6 +82,13 @@ export function LandingNav() {
             className="block px-3 py-2.5 text-sm text-bark-muted hover:text-bark hover:bg-paper-deep rounded-lg transition-colors"
           >
             How it works
+          </Link>
+          <Link
+            href="#pricing"
+            onClick={() => setOpen(false)}
+            className="block px-3 py-2.5 text-sm text-bark-muted hover:text-bark hover:bg-paper-deep rounded-lg transition-colors"
+          >
+            Pricing
           </Link>
           <Link
             href="/sign-in"

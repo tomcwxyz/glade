@@ -1,6 +1,8 @@
 import { getCurrentSpace, requireUser } from "@/lib/space";
-import { getSpaceMembers } from "@/lib/queries";
+import { getSpaceMembers, getSpaceSubscription, getDecisionCount, getMemberCount } from "@/lib/queries";
 import { isAiAvailable, isAiEnabled } from "@/lib/ai";
+import { getSpacePlan } from "@/lib/billing";
+import { PLAN_LIMITS, PLAN_DISPLAY } from "@/lib/plans";
 import { Settings } from "lucide-react";
 import { SpaceSettingsForm } from "./settings-form";
 
@@ -9,7 +11,14 @@ export default async function SettingsPage() {
   const space = await getCurrentSpace();
   if (!space) return null;
 
-  const members = await getSpaceMembers(space.id);
+  const [members, subscription, planTier, decisionCount, memberCount] = await Promise.all([
+    getSpaceMembers(space.id),
+    getSpaceSubscription(space.id),
+    getSpacePlan(space.id),
+    getDecisionCount(space.id),
+    getMemberCount(space.id),
+  ]);
+
   const currentMember = members.find((m) => m.userId === user.id || m.email === user.email);
   const isAdmin = currentMember?.role === "admin";
 
@@ -37,6 +46,15 @@ export default async function SettingsPage() {
         isAdmin={isAdmin}
         aiAvailable={isAiAvailable()}
         aiEnabled={isAiEnabled(space.settings)}
+        planTier={planTier}
+        planName={PLAN_DISPLAY[planTier].name}
+        hasStripeSubscription={!!subscription?.stripeSubscriptionId}
+        cancelAtPeriodEnd={subscription?.cancelAtPeriodEnd ?? false}
+        currentPeriodEnd={subscription?.currentPeriodEnd?.toISOString() ?? null}
+        memberCount={memberCount}
+        memberLimit={PLAN_LIMITS[planTier].maxMembers}
+        decisionCount={decisionCount}
+        decisionLimit={PLAN_LIMITS[planTier].maxDecisions}
       />
     </div>
   );

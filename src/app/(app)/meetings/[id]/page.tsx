@@ -1,5 +1,6 @@
 import { getCurrentSpace } from "@/lib/space";
 import { getMeetingById } from "@/lib/queries";
+import { canUseLiveMeetings } from "@/lib/billing";
 import { formatDate } from "@/lib/utils";
 import {
   BookOpen,
@@ -56,6 +57,7 @@ export default async function MeetingDetailPage({
   if (!space) return null;
   const meeting = await getMeetingById(space.id, id);
   if (!meeting) return notFound();
+  const liveMeetingsAllowed = await canUseLiveMeetings(space.id);
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-8 py-6 sm:py-10">
@@ -99,7 +101,7 @@ export default async function MeetingDetailPage({
               meetingId={meeting.id}
               existingToken={meeting.shareToken || null}
             />
-            {(meeting.status === "draft" || meeting.status === "scheduled") && (
+            {liveMeetingsAllowed && (meeting.status === "draft" || meeting.status === "scheduled") && (
               <Link
                 href={`/meetings/${meeting.id}/live`}
                 className="flex items-center gap-1.5 px-3 py-2 text-sm bg-canopy text-paper rounded-lg font-medium hover:bg-canopy-light transition-colors"
@@ -108,7 +110,7 @@ export default async function MeetingDetailPage({
                 Start meeting
               </Link>
             )}
-            {meeting.status === "in_progress" && (
+            {liveMeetingsAllowed && meeting.status === "in_progress" && (
               <Link
                 href={`/meetings/${meeting.id}/live`}
                 className="flex items-center gap-1.5 px-3 py-2 text-sm bg-amber text-paper rounded-lg font-medium hover:bg-amber/90 transition-colors"
@@ -116,6 +118,12 @@ export default async function MeetingDetailPage({
                 <Play size={14} />
                 Resume meeting
               </Link>
+            )}
+            {!liveMeetingsAllowed && (meeting.status === "draft" || meeting.status === "scheduled") && (
+              <span className="flex items-center gap-1.5 px-3 py-2 text-sm border border-amber/30 bg-amber/5 text-bark-muted rounded-lg">
+                <Play size={14} />
+                Live meetings require Canopy
+              </span>
             )}
             {meeting.status === "completed" && !!meeting.sessionState && (
               <Link

@@ -19,6 +19,7 @@ import {
   proposalReferences,
   topics,
   insights,
+  subscriptions,
 } from "@/db/schema";
 import { eq, and, desc, asc, count, sql, inArray } from "drizzle-orm";
 
@@ -812,4 +813,33 @@ export async function getTopicById(spaceId: string, topicId: string) {
     ...t,
     createdByName: createdByUser[0]?.name || null,
   };
+}
+
+// ============================================================
+// Subscriptions
+// ============================================================
+
+export async function getSpaceSubscription(spaceId: string) {
+  const [row] = await db
+    .select()
+    .from(subscriptions)
+    .where(eq(subscriptions.spaceId, spaceId))
+    .limit(1);
+  return row || null;
+}
+
+export async function getDecisionCount(spaceId: string) {
+  const [result] = await db
+    .select({ count: count() })
+    .from(decisions)
+    .where(eq(decisions.spaceId, spaceId));
+  return result?.count ?? 0;
+}
+
+export async function getMemberCount(spaceId: string) {
+  const [result] = await db
+    .select({ count: count() })
+    .from(spaceMembers)
+    .where(eq(spaceMembers.spaceId, spaceId));
+  return result?.count ?? 0;
 }

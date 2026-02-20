@@ -7,6 +7,7 @@ import { db } from "@/db";
 import * as schema from "@/db/schema";
 import { spaces, spaceMembers, users } from "@/db/schema";
 import { getCurrentSpace, requireUser, setCurrentSpace } from "@/lib/space";
+import { canAddMember } from "@/lib/billing";
 
 export async function updateSpace(formData: FormData) {
   const user = await requireUser();
@@ -164,6 +165,11 @@ export async function inviteMember(email: string) {
     );
 
   if (actingMembership?.role !== "admin") return { error: "Only admins can invite members" };
+
+  // Check member limit
+  if (!(await canAddMember(space.id))) {
+    return { error: "Member limit reached. Upgrade to Canopy for more members." };
+  }
 
   // Check if user exists
   const [existingUser] = await db

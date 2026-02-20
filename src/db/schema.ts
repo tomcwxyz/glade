@@ -113,6 +113,20 @@ export const agendaItemStatusEnum = pgEnum("agenda_item_status", [
   "skipped",
 ]);
 
+export const planTierEnum = pgEnum("plan_tier", [
+  "free",
+  "pro",
+  "enterprise",
+]);
+
+export const subscriptionStatusEnum = pgEnum("subscription_status", [
+  "active",
+  "past_due",
+  "cancelled",
+  "incomplete",
+  "trialing",
+]);
+
 // ============================================================
 // NextAuth tables
 // ============================================================
@@ -536,6 +550,33 @@ export const insights = pgTable(
   ]
 );
 
+// --- Subscriptions (Billing) ---
+
+export const subscriptions = pgTable(
+  "subscriptions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    spaceId: uuid("space_id")
+      .notNull()
+      .unique()
+      .references(() => spaces.id, { onDelete: "cascade" }),
+    stripeCustomerId: varchar("stripe_customer_id", { length: 255 }),
+    stripeSubscriptionId: varchar("stripe_subscription_id", { length: 255 }),
+    stripePriceId: varchar("stripe_price_id", { length: 255 }),
+    planTier: planTierEnum("plan_tier").default("free").notNull(),
+    status: subscriptionStatusEnum("status").default("active").notNull(),
+    currentPeriodStart: timestamp("current_period_start", { mode: "date" }),
+    currentPeriodEnd: timestamp("current_period_end", { mode: "date" }),
+    cancelAtPeriodEnd: boolean("cancel_at_period_end").default(false).notNull(),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (s) => [
+    index("subscriptions_space_idx").on(s.spaceId),
+    index("subscriptions_stripe_customer_idx").on(s.stripeCustomerId),
+  ]
+);
+
 // ============================================================
 // Relations
 // ============================================================
@@ -546,7 +587,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   spaceMembers: many(spaceMembers),
 }));
 
-export const spacesRelations = relations(spaces, ({ many }) => ({
+export const spacesRelations = relations(spaces, ({ many, one }) => ({
   members: many(spaceMembers),
   decisions: many(decisions),
   meetings: many(meetings),
@@ -556,6 +597,7 @@ export const spacesRelations = relations(spaces, ({ many }) => ({
   proposals: many(proposals),
   topics: many(topics),
   insights: many(insights),
+  subscription: one(subscriptions, { fields: [spaces.id], references: [subscriptions.spaceId] }),
 }));
 
 export const spaceMembersRelations = relations(spaceMembers, ({ one }) => ({
@@ -681,4 +723,10 @@ export const insightsRelations = relations(insights, ({ one }) => ({
   space: one(spaces, { fields: [insights.spaceId], references: [spaces.id] }),
   relatedDecision: one(decisions, { fields: [insights.relatedDecisionId], references: [decisions.id] }),
   relatedDocument: one(documents, { fields: [insights.relatedDocumentId], references: [documents.id] }),
+}));
+
+// --- Subscription relations ---
+
+export const subscriptionsRelations = relations(subscriptions, ({ one }) => ({
+  space: one(spaces, { fields: [subscriptions.spaceId], references: [spaces.id] }),
 }));
