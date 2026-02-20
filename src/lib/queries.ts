@@ -843,3 +843,93 @@ export async function getMemberCount(spaceId: string) {
     .where(eq(spaceMembers.spaceId, spaceId));
   return result?.count ?? 0;
 }
+
+// ============================================================
+// Governance Health
+// ============================================================
+
+export async function getGovernanceHealthStats(spaceId: string) {
+  const [participantRows, methodRows, revisionRows, docRows, proposalRows, memberCount] =
+    await Promise.all([
+      // Participation: all participant arrays
+      db
+        .select({ participants: decisions.participants })
+        .from(decisions)
+        .where(eq(decisions.spaceId, spaceId)),
+      // Methods: distinct methods used
+      db
+        .select({ method: decisions.method })
+        .from(decisions)
+        .where(eq(decisions.spaceId, spaceId))
+        .groupBy(decisions.method),
+      // Revisions: decisions targeted by amends/supersedes links
+      db
+        .select({ id: sql<string>`distinct ${decisionLinks.toDecisionId}` })
+        .from(decisionLinks)
+        .innerJoin(decisions, eq(decisions.id, decisionLinks.toDecisionId))
+        .where(
+          and(
+            eq(decisions.spaceId, spaceId),
+            sql`${decisionLinks.linkType} in ('amends', 'supersedes')`
+          )
+        ),
+      // Document currency
+      db
+        .select({ updatedAt: documents.updatedAt })
+        .from(documents)
+        .where(eq(documents.spaceId, spaceId)),
+      // Time-to-decision: proposals with decidedAsDecisionId
+      db
+        .select({
+          proposalCreatedAt: proposals.createdAt,
+          decisionDate: decisions.date,
+        })
+        .from(proposals)
+        .innerJoin(decisions, eq(decisions.id, proposals.decidedAsDecisionId))
+        .where(eq(proposals.spaceId, spaceId)),
+      // Member count
+      getMemberCount(spaceId),
+    ]);
+
+  // Unique participants across all decisions
+  const uniqueNames = new Set<string>();
+  for (const row of participantRows) {
+    const arr = row.participants as string[] | null;
+    if (arr) for (const name of arr) uniqueNames.add(name.trim().toLowerCase());
+  }
+
+  // Revision rate
+  const totalDecisions = participantRows.length;
+  const revisedCount = revisionRows.length;
+  const revisionRate = totalDecisions > 0 ? revisedCount / totalDecisions : 0;
+
+  // Document currency — stale if not updated in 6+ months
+  const sixMonthsAgo = new Date();
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+  const staleDocCount = docRows.filter((d) => d.updatedAt < sixMonthsAgo).length;
+
+  // Median days from proposal to decision
+  let medianDaysToDecision: number | null = null;
+  if (proposalRows.length > 0) {
+    const dayDiffs = proposalRows
+      .map((r) => {
+        const ms = r.decisionDate.getTime() - r.proposalCreatedAt.getTime();
+        return Math.max(0, Math.round(ms / (1000 * 60 * 60 * 24)));
+      })
+      .sort((a, b) => a - b);
+    const mid = Math.floor(dayDiffs.length / 2);
+    medianDaysToDecision =
+      dayDiffs.length % 2 === 0
+        ? Math.round((dayDiffs[mid - 1] + dayDiffs[mid]) / 2)
+        : dayDiffs[mid];
+  }
+
+  return {
+    uniqueParticipants: uniqueNames.size,
+    totalMembers: memberCount,
+    methodsUsed: methodRows.length,
+    revisionRate,
+    documentCurrency: { total: docRows.length, stale: staleDocCount },
+    medianDaysToDecision,
+  };
+}

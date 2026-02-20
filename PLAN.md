@@ -1,7 +1,7 @@
 # Plan — Glade
 
-> Last updated: 2026-02-17
-> Status: Phase 1–4 complete. Remaining: Vercel deploy, Resend email, Phase 5 (SaaS)
+> Last updated: 2026-02-20
+> Status: Phase 1–4 complete. Stripe billing ~95% done. Remaining: Vercel deploy, Resend email, Phase 5 (SaaS), spec gaps (see unchecked items)
 
 ## Objective
 
@@ -9,7 +9,7 @@ Build **Glade**, a decision-centric governance platform for social purpose organ
 
 ## Approach
 
-**Stack:** Next.js 15 (App Router), NextAuth (Auth.js v5), Neon PostgreSQL, Drizzle ORM, Tiptap editor, Anthropic API, Vercel hosting, Stripe billing, Resend email, Socket.io/PartyKit for real-time.
+**Stack:** Next.js 15 (App Router), NextAuth (Auth.js v5), Neon PostgreSQL, Drizzle ORM, Tiptap editor, Anthropic API, Vercel hosting, Stripe billing, Resend email. Real-time via HTTP polling (2s interval).
 
 **Architecture:** Event-sourced decision model. Decisions are immutable events; document state is a projection computed from the decision trail. Multi-tenant from day one via NextAuth + spaces with row-level security.
 
@@ -89,6 +89,7 @@ Build **Glade**, a decision-centric governance platform for social purpose organ
 - [x] Full-text search across decisions and meeting records
 - [x] Simple analytics dashboard: decision count, review rate, action completion rate
 - [x] Space home/dashboard page
+- [x] Decision quality indicators (spec §3.4) — participation distribution, method diversity, revision frequency, document currency, time-to-decision
 
 ### 1.7 Navigation & Layout
 
@@ -208,8 +209,10 @@ Build **Glade**, a decision-centric governance platform for social purpose organ
 ### 4.4 Participant View
 
 - [x] Join via share link (public observer view for unauthenticated users)
+- [ ] QR code generation for meeting join link (spec says "QR code or short link")
 - [x] Current agenda item and proposal text display
 - [x] Participate in: reactions, votes, objection rounds
+- [ ] Temperature checks for consensus method (quick sentiment pulse before proceeding)
 - [x] Request to speak / speaker stack management
 - [x] Read-only observer view for shared links
 
@@ -218,6 +221,8 @@ Build **Glade**, a decision-centric governance platform for social purpose organ
 - [x] Guided consent flow: present → clarify → react → object → integrate → decide
 - [x] Majority vote flow: present → vote → results → record
 - [x] Other methods: advice process, lazy consensus (simplified 2-stage flow)
+- [ ] Delegation records: scope, constraints, reporting requirements, review date (spec §4.2 — currently just a method label)
+- [ ] Advice process consultation tracking: who was consulted, what input was given (spec §4.2 — currently just a 2-stage flow)
 - [ ] Configurable thresholds per method (deferred)
 
 ### 4.6 Post-Meeting
@@ -234,11 +239,14 @@ Build **Glade**, a decision-centric governance platform for social purpose organ
 
 ### 5.1 Billing
 
-- [ ] Stripe integration for subscription billing
-- [ ] Free tier: 1 space, limited history, core features
-- [ ] Paid tier(s): multiple spaces, full history, AI features, meeting mode
-- [ ] Charity/social enterprise discounted pricing
-- [ ] Billing management UI (upgrade, downgrade, invoices)
+- [x] Stripe integration for subscription billing (schema, checkout, webhooks, portal)
+- [x] Free tier: 1 space, 50 decisions, 5 members, no AI/live meetings
+- [x] Paid tier (Canopy): unlimited decisions, 25 members, AI, live meetings, unlimited spaces
+- [x] Feature gate enforcement (server-side + client-side upgrade prompts)
+- [x] Plan definitions and pricing display on landing page
+- [ ] Charity/social enterprise discounted pricing (coupon codes or separate Stripe price)
+- [x] Billing management UI (settings page with plan display, Stripe portal link)
+- [ ] Stripe portal for self-service upgrade, downgrade, invoice access
 
 ### 5.2 Transparency Layer
 
@@ -257,8 +265,14 @@ Build **Glade**, a decision-centric governance platform for social purpose organ
 
 - [ ] REST API for programmatic access to decision log and governance documents
 - [ ] Webhook support for decision events
-- [ ] Export: PDF minutes, CSV decision data
+- [ ] Export: PDF minutes, Word governance documents, Markdown documents, CSV decision data
+- [ ] Import: Markdown governance documents (convert to Tiptap JSON on ingest)
 - [ ] Calendar integration for meeting scheduling and review reminders
+
+### 5.5 Infrastructure
+
+- [ ] File storage (Vercel Blob or S3) for meeting attachments, document exports
+- [ ] Error monitoring (Sentry) and performance analytics (Vercel Analytics)
 
 ---
 

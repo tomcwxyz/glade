@@ -1,81 +1,54 @@
-# Handoff — 2026-02-17
+# Handoff — 2026-02-20
 
 ## What happened this session
 
-Implemented Phase 3 gaps (stale document checker, AI draft updates, governance digest) and the full Phase 4 Meeting Mode (live meetings with facilitator/participant views, decision flows, polling, share links, summaries). Then fixed two runtime errors: a cookie-setting issue in `getCurrentSpace()` and missing database columns.
+Added governance health indicators to the dashboard (spec §3.4) and fixed a Tiptap SSR hydration error in the document editor.
 
 ### Completed
 
-1. **A1: Stale document checker** — AI flags documents needing review based on recent decisions. Button on `/documents` page.
-2. **A2: Draft document updates** — AI suggests text changes to a document based on a decision. Panel on document edit page.
-3. **A3: Governance digest** — Monthly governance activity summary on dashboard. Email delivery deferred.
-4. **B1: Shareable agenda link** — Generate/revoke share tokens, public `/shared/meeting/[token]` page.
-5. **B2: Polling infrastructure** — HTTP polling (2s), JSONB session state on meetings table, version-based optimistic locking.
-6. **B3: Facilitator view** — 2-column live meeting UI: agenda sidebar + current item panel with timer, decision controls.
-7. **B4: Participant view** — Read-only with speaker stack, hand-raise, vote/reaction interactions.
-8. **B5: Decision flows** — Consent (6-stage), vote (3-stage), advice/lazy consensus (2-stage).
-9. **B6: Post-meeting** — Structured summary page, AI-generated summary, end-meeting flow.
-10. **Bug fix: cookie error** — `getCurrentSpace()` was calling `setCurrentSpace()` during rendering (illegal in Next.js 15). Removed the cookie-set fallback.
-11. **Bug fix: missing DB columns** — Phase 4 schema columns (`status`, `share_token`, `session_state` on meetings; `duration_minutes`, `status`, `proposal_id`, `topic_id` on agenda items) and enums (`meeting_status`, `agenda_item_status`) were applied via direct SQL.
-
-### Key files created
-
-| File | Purpose |
-|------|---------|
-| `src/app/(app)/documents/stale-document-checker.tsx` | Stale doc checker UI |
-| `src/app/(app)/documents/[id]/edit/ai-draft-panel.tsx` | AI draft suggestions |
-| `src/app/(app)/dashboard/governance-digest.tsx` | Monthly digest |
-| `src/lib/meeting-state.ts` | Session state types + helpers |
-| `src/lib/meeting-live-actions.ts` | 12 server actions for live meetings |
-| `src/lib/meeting-summary-actions.ts` | AI summary generation |
-| `src/app/api/meetings/[id]/state/route.ts` | GET/PUT polling endpoint |
-| `src/app/(app)/meetings/[id]/live/page.tsx` | Live meeting entry point |
-| `src/app/(app)/meetings/[id]/live/facilitator-view.tsx` | Facilitator UI |
-| `src/app/(app)/meetings/[id]/live/participant-view.tsx` | Participant UI |
-| `src/app/(app)/meetings/[id]/live/consent-flow.tsx` | 6-stage consent flow |
-| `src/app/(app)/meetings/[id]/live/vote-flow.tsx` | 3-stage vote flow |
-| `src/app/(app)/meetings/[id]/live/use-meeting-poll.ts` | Polling hook (2s) |
-| `src/app/(app)/meetings/[id]/summary/page.tsx` | Post-meeting summary |
-| `src/app/shared/meeting/[token]/page.tsx` | Public agenda view |
-| `src/app/shared/meeting/[token]/live/page.tsx` | Public observer entry |
-| `src/app/shared/meeting/[token]/live/observer-view.tsx` | Read-only observer |
+1. **Governance health indicators** — 5 metrics displayed in a grid on the dashboard when ≥5 decisions exist: participation distribution (unique participants vs members), method diversity (out of 6), revision rate (% amended/superseded), document currency (stale docs needing review), and median time from proposal to decision.
+2. **Tiptap SSR fix** — Added `immediatelyRender: false` to `useEditor()` to prevent hydration mismatch error on `/documents/new` and any other page using the editor.
+3. **Updated PLAN.md** — Marked decision quality indicators as complete.
+4. **Updated STATE.md** — Added Phase 5 partial status (Stripe, SEO, LLM docs), updated dashboard description, corrected Stripe dependency status.
 
 ### Key files modified
 
-- `src/db/schema.ts` — `shareToken`, `sessionState` on meetings; `durationMinutes`, `status`, `proposalId`, `topicId` on agenda items; 2 new enums
-- `src/lib/ai-prompts.ts` — 4 new prompt templates (stale docs, draft updates, digest, meeting summary)
-- `src/lib/ai-actions.ts` — 3 new server actions
-- `src/lib/queries.ts` — `getMeetingByShareToken`, `getMeetingSessionState`, `updateMeetingSessionState`
-- `src/lib/meeting-actions.ts` — `generateShareLink`, `revokeShareLink`, `startMeeting`
-- `src/lib/space.ts` — removed cookie-set from `getCurrentSpace()` fallback
-- `src/middleware.ts` — added `/shared` to public paths
+| File | Change |
+|------|--------|
+| `src/lib/queries.ts` | Added `getGovernanceHealthStats()` — 6 parallel queries for health metrics |
+| `src/app/(app)/dashboard/page.tsx` | Fetch health stats, render 5-cell governance health grid |
+| `src/components/tiptap-editor.tsx` | Added `immediatelyRender: false` to fix SSR error |
+| `PLAN.md` | Marked §3.4 decision quality indicators done |
+| `STATE.md` | Added Phase 5 partial table, updated dashboard and Stripe status |
+
+### No files created
+
+No new files were needed — all changes were to existing files.
 
 ## What to do next
 
-1. **Test the live meeting flow end-to-end** — create meeting → start → navigate agenda → record decision → end → view summary
-2. **Re-run seed script** — seed doesn't cover Phase 4 enhancements yet (meeting status, agenda durations). Consider updating seed.
-3. **Vercel deployment** — connect repo, set env vars (`DATABASE_URL`, `AUTH_SECRET`, `ANTHROPIC_API_KEY`), deploy
-4. **Resend email** — get API key, test magic link auth
-5. **Phase 5 (SaaS infrastructure)** — Stripe billing, transparency layer, onboarding, API
+1. **Vercel deployment** — connect repo, set env vars (`DATABASE_URL`, `AUTH_SECRET`, `AUTH_TRUST_HOST`, `ANTHROPIC_API_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`), deploy
+2. **Resend email** — get API key, set `AUTH_RESEND_KEY`, test magic link auth
+3. **Remaining spec gaps** (unchecked in PLAN.md):
+   - QR code for meeting join links (§4.4)
+   - Temperature checks for consensus (§4.4)
+   - Delegation records with scope/constraints (§4.2)
+   - Advice process consultation tracking (§4.2)
+   - Configurable method thresholds
+4. **Phase 5 remaining** — charity pricing, Stripe self-service portal, transparency layer, onboarding, API/webhooks, export/import, calendar integration, file storage, error monitoring
 
 ## Database state
 
-All Phase 4 columns and enums have been applied directly to Neon:
-- `meeting_status` enum (draft, scheduled, in_progress, completed)
-- `agenda_item_status` enum (pending, active, completed, skipped)
-- `meetings.status`, `meetings.share_token`, `meetings.session_state`
-- `meeting_agenda_items.duration_minutes`, `.status`, `.proposal_id`, `.topic_id`
-
-The Drizzle migration file `drizzle/0003_lucky_solo.sql` only covers `share_token` + `session_state`. The remaining columns were applied via ad-hoc SQL. Running `npm run db:generate` will produce a new migration that's already applied — safe to run.
+No schema or migration changes this session. All columns remain applied to Neon.
 
 ## Known issues
 
 - **Credentials auth broken** — NextAuth returns `error=Configuration` when signing in with email/password. Google OAuth works.
 - **Dev server port conflict** — port 3000 may be in use; Next.js auto-selects 3002. Kill old node processes if `.next/trace` lock error occurs.
-- **Drizzle migration drift** — schema.ts is ahead of generated migrations. `npm run db:generate` then `npm run db:push` will reconcile, but the DB already has all columns.
+- **Drizzle migration drift** — schema.ts is ahead of generated migrations. DB already has all columns.
+- **Untracked screenshots** — Several `glade-*.png` screenshots and `.playwright-mcp/` logs in working dir from previous sessions. Safe to gitignore or delete.
 
 ## Build status
 
-- `npx tsc --noEmit` — passing
-- `npx eslint src/` — passing
-- `npm run build` — passing (when dev server is stopped)
+- `npm run build` — passing
+- `npm run lint` — no errors

@@ -1,6 +1,6 @@
 # State
 
-> Last updated: 2026-02-17 (session 2)
+> Last updated: 2026-02-20
 
 ## System State Diagram
 
@@ -41,7 +41,7 @@ stateDiagram-v2
 |-----------|--------|-------|
 | Landing page (`/`) | ✅ Done | Hero, features, decision lifecycle, methods, CTA, footer |
 | App shell + sidebar | ✅ Done | Collapsible sidebar, space selector (hardcoded), nav with active states |
-| Dashboard (`/dashboard`) | ✅ Done | Stats strip, recent decisions, open actions, reviews, meetings |
+| Dashboard (`/dashboard`) | ✅ Done | Stats strip, governance health indicators, recent decisions, open actions, reviews, meetings |
 | Decision log (`/decisions`) | ✅ Done | Timeline view grouped by month, search bar, status filters |
 | Decision detail (`/decisions/[number]`) | ✅ Done | Full detail: context, rationale, outcome, actions, lifecycle, linked decisions |
 | Actions page (`/actions`) | ✅ Done | Sorted by urgency, status badges, linked decisions |
@@ -151,7 +151,18 @@ flowchart LR
 | AI meeting summary | ✅ Done | AI-generated summary with generate button |
 | End meeting flow | ✅ Done | Freezes state, sets status completed, redirects to summary |
 
-Next milestone: Vercel deployment, Resend email, Phase 5 (SaaS infrastructure).
+### Phase 5 — SaaS Infrastructure (partial)
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| Stripe billing integration | ✅ Done | Schema, checkout session, webhook handler, customer portal |
+| Plan definitions + pricing | ✅ Done | Free (Seedling) + paid (Canopy) tiers |
+| Feature gate enforcement | ✅ Done | Server-side checks + client-side upgrade prompts |
+| Billing management UI | ✅ Done | Settings page with plan display, Stripe portal link |
+| SEO metadata + OG images | ✅ Done | Per-page titles, OG/Twitter cards, JSON-LD, robots, sitemap |
+| LLM-readable docs | ✅ Done | `llms.txt` + `llms-full.txt` |
+
+Next milestone: Vercel deployment, Resend email, remaining Phase 5 items.
 
 ## Dependencies
 
@@ -164,7 +175,7 @@ Next milestone: Vercel deployment, Resend email, Phase 5 (SaaS infrastructure).
 | diff | ✅ Installed | Text diffing for document version comparison |
 | Vercel (hosting) | Not set up | |
 | Resend (email) | Partial | Provider configured, needs `AUTH_RESEND_KEY` |
-| Stripe (billing) | Not set up | Phase 5 |
+| Stripe (billing) | ✅ Working | Schema, checkout, webhooks, portal, feature gates |
 
 <!--
 Keep this file as the single source of truth for "where are we?"

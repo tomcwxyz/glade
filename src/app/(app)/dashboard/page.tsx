@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { getCurrentSpace } from "@/lib/space";
 
 export const metadata: Metadata = { title: "Dashboard" };
-import { getDecisions, getActions, getMeetings, getSpaceStats, getActiveInsights } from "@/lib/queries";
+import { getDecisions, getActions, getMeetings, getSpaceStats, getActiveInsights, getGovernanceHealthStats } from "@/lib/queries";
 import { isAiEnabled } from "@/lib/ai";
 import { getSpacePlan } from "@/lib/billing";
 import { PLAN_LIMITS } from "@/lib/plans";
@@ -92,12 +92,13 @@ export default async function DashboardPage() {
   const planLimits = PLAN_LIMITS[planTier];
   const aiEnabled = planLimits.canUseAi && isAiEnabled(space.settings);
 
-  const [allDecisions, allActions, allMeetings, stats, activeInsights] = await Promise.all([
+  const [allDecisions, allActions, allMeetings, stats, activeInsights, healthStats] = await Promise.all([
     getDecisions(space.id),
     getActions(space.id),
     getMeetings(space.id),
     getSpaceStats(space.id),
     aiEnabled ? getActiveInsights(space.id) : Promise.resolve([]),
+    getGovernanceHealthStats(space.id),
   ]);
 
   const recentDecisions = allDecisions.slice(0, 4);
@@ -204,6 +205,73 @@ export default async function DashboardPage() {
         <StatValue value={`${Math.round(stats.reviewRate * 100)}%`} label="review rate" />
         <StatValue value={stats.upcomingReviews} label="reviews due" />
       </div>
+
+      {/* Governance health */}
+      {stats.totalDecisions >= 5 && (
+        <section className="mb-14">
+          <h2
+            className="text-lg font-medium tracking-tight mb-4"
+            style={{ fontFamily: "var(--font-display)" }}
+          >
+            Governance health
+          </h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-px bg-border rounded-xl overflow-hidden border border-border">
+            <div className="bg-paper-warm px-5 py-4">
+              <div
+                className="text-2xl font-light tracking-tight text-bark"
+                style={{ fontFamily: "var(--font-display)" }}
+              >
+                {healthStats.uniqueParticipants} of {healthStats.totalMembers}
+              </div>
+              <div className="text-sm text-bark-muted mt-0.5">members participate</div>
+            </div>
+            <div className="bg-paper-warm px-5 py-4">
+              <div
+                className="text-2xl font-light tracking-tight text-bark"
+                style={{ fontFamily: "var(--font-display)" }}
+              >
+                {healthStats.methodsUsed} of 6
+              </div>
+              <div className="text-sm text-bark-muted mt-0.5">methods used</div>
+            </div>
+            <div className="bg-paper-warm px-5 py-4">
+              <div
+                className="text-2xl font-light tracking-tight text-bark"
+                style={{ fontFamily: "var(--font-display)" }}
+              >
+                {Math.round(healthStats.revisionRate * 100)}%
+              </div>
+              <div className="text-sm text-bark-muted mt-0.5">revised</div>
+            </div>
+            <div className="bg-paper-warm px-5 py-4">
+              <div
+                className="text-2xl font-light tracking-tight text-bark"
+                style={{ fontFamily: "var(--font-display)" }}
+              >
+                {healthStats.documentCurrency.total > 0
+                  ? `${healthStats.documentCurrency.stale} of ${healthStats.documentCurrency.total}`
+                  : "—"}
+              </div>
+              <div className="text-sm text-bark-muted mt-0.5">
+                {healthStats.documentCurrency.total > 0 ? "docs need review" : "no documents yet"}
+              </div>
+            </div>
+            <div className="bg-paper-warm px-5 py-4">
+              <div
+                className="text-2xl font-light tracking-tight text-bark"
+                style={{ fontFamily: "var(--font-display)" }}
+              >
+                {healthStats.medianDaysToDecision !== null
+                  ? `~${healthStats.medianDaysToDecision}d`
+                  : "—"}
+              </div>
+              <div className="text-sm text-bark-muted mt-0.5">
+                {healthStats.medianDaysToDecision !== null ? "proposal to decision" : "no proposals resolved"}
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Two-column layout */}
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-10 lg:gap-16">
