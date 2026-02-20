@@ -50,7 +50,7 @@ export default async function DocumentsPage() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-8 py-6 sm:py-10">
-      <header className="mb-10 flex items-end justify-between">
+      <header className="mb-10 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <div>
           <h1
             className="text-3xl font-light tracking-tight mb-1.5"
@@ -64,7 +64,7 @@ export default async function DocumentsPage() {
         </div>
         <Link
           href="/documents/new"
-          className="flex items-center gap-2 px-4 py-2.5 bg-canopy text-paper rounded-lg text-sm font-medium hover:bg-canopy-light transition-colors"
+          className="flex items-center gap-2 px-4 py-2.5 bg-canopy text-paper rounded-lg text-sm font-medium hover:bg-canopy-light transition-colors self-start sm:self-auto shrink-0"
         >
           <Plus size={16} />
           New document

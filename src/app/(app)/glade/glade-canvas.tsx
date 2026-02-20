@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useMemo, useCallback, useRef } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { formatDate } from "@/lib/utils";
-import { ListChecks, X } from "lucide-react";
+import { ListChecks, Minus, Plus, RotateCcw, X } from "lucide-react";
 
 // --- Types & Constants ---
 
@@ -507,68 +507,128 @@ function getRootConnections(nodes: TreeNode[]): RootConnection[] {
 
 function Legend() {
   return (
-    <div className="absolute bottom-6 left-6 flex items-center gap-6 text-xs text-bark-muted bg-paper/90 backdrop-blur-sm rounded-xl px-5 py-3 border border-border">
-      <span className="font-medium text-bark" style={{ fontFamily: "var(--font-display)" }}>
-        Lifecycle
-      </span>
-      {(
-        [
-          ["decided", "Fresh growth"],
-          ["implemented", "Taking root"],
-          ["reviewed", "Autumn reflection"],
-          ["learned", "Deep roots"],
-        ] as const
-      ).map(([status, label]) => (
-        <div key={status} className="flex items-center gap-1.5">
-          <svg width="10" height="10">
-            <circle
-              cx="5"
-              cy="5"
-              r="4.5"
-              fill={STATUS_COLORS[status].fill}
-            />
-          </svg>
-          <span>{label}</span>
+    <div className="absolute bottom-3 sm:bottom-6 left-3 sm:left-6 right-3 sm:right-auto z-10">
+      {/* Desktop: single row */}
+      <div className="hidden sm:flex items-center gap-6 text-xs text-bark-muted bg-paper/90 backdrop-blur-sm rounded-xl px-5 py-3 border border-border">
+        <span className="font-medium text-bark" style={{ fontFamily: "var(--font-display)" }}>
+          Lifecycle
+        </span>
+        {(
+          [
+            ["decided", "Fresh growth"],
+            ["implemented", "Taking root"],
+            ["reviewed", "Autumn reflection"],
+            ["learned", "Deep roots"],
+          ] as const
+        ).map(([status, label]) => (
+          <div key={status} className="flex items-center gap-1.5">
+            <svg width="10" height="10">
+              <circle cx="5" cy="5" r="4.5" fill={STATUS_COLORS[status].fill} />
+            </svg>
+            <span>{label}</span>
+          </div>
+        ))}
+        <span className="text-border-strong">|</span>
+        <span className="font-medium text-bark" style={{ fontFamily: "var(--font-display)" }}>
+          Roots
+        </span>
+        {(
+          [
+            ["supersedes", ROOT_STYLES.supersedes],
+            ["relates_to", ROOT_STYLES.relates_to],
+            ["amends", ROOT_STYLES.amends],
+          ] as const
+        ).map(([key, style]) => (
+          <div key={key} className="flex items-center gap-1.5">
+            <svg width="24" height="10">
+              {key === "relates_to" ? (
+                <>
+                  <path d="M 2 3 C 8 1 16 5 22 3" stroke={style.color} strokeWidth={style.strokeWidth * 0.7} fill="none" strokeLinecap="round" opacity={0.6} />
+                  <path d="M 2 7 C 8 9 16 5 22 7" stroke={style.color} strokeWidth={style.strokeWidth * 0.7} fill="none" strokeLinecap="round" opacity={0.6} />
+                </>
+              ) : (
+                <path
+                  d="M 2 5 C 8 3 16 7 22 5"
+                  stroke={style.color}
+                  strokeWidth={style.strokeWidth * 0.8}
+                  fill="none"
+                  strokeLinecap="round"
+                  strokeDasharray={style.dasharray === "none" ? undefined : style.dasharray}
+                  opacity={0.6}
+                />
+              )}
+            </svg>
+            <span>{style.label}</span>
+          </div>
+        ))}
+        <span className="text-border-strong">|</span>
+        <span className="font-medium text-bark" style={{ fontFamily: "var(--font-display)" }}>
+          Size
+        </span>
+        <span>= engagement</span>
+      </div>
+
+      {/* Mobile: two rows */}
+      <div className="sm:hidden bg-paper/90 backdrop-blur-sm rounded-xl px-3 py-2.5 border border-border text-[0.6875rem] text-bark-muted space-y-1.5">
+        {/* Row 1: Lifecycle */}
+        <div className="flex items-center gap-2.5">
+          <span className="font-medium text-bark" style={{ fontFamily: "var(--font-display)" }}>
+            Lifecycle
+          </span>
+          {(
+            [
+              ["decided", "Decided"],
+              ["implemented", "Implemented"],
+              ["reviewed", "Reviewed"],
+              ["learned", "Learned"],
+            ] as const
+          ).map(([status, label]) => (
+            <div key={status} className="flex items-center gap-1">
+              <svg width="8" height="8" className="shrink-0">
+                <circle cx="4" cy="4" r="3.5" fill={STATUS_COLORS[status].fill} />
+              </svg>
+              <span>{label}</span>
+            </div>
+          ))}
         </div>
-      ))}
-      <span className="text-border-strong">|</span>
-      <span className="font-medium text-bark" style={{ fontFamily: "var(--font-display)" }}>
-        Roots
-      </span>
-      {(
-        [
-          ["supersedes", ROOT_STYLES.supersedes],
-          ["relates_to", ROOT_STYLES.relates_to],
-          ["amends", ROOT_STYLES.amends],
-        ] as const
-      ).map(([key, style]) => (
-        <div key={key} className="flex items-center gap-1.5">
-          <svg width="24" height="10">
-            {key === "relates_to" ? (
-              <>
-                <path d="M 2 3 C 8 1 16 5 22 3" stroke={style.color} strokeWidth={style.strokeWidth * 0.7} fill="none" strokeLinecap="round" opacity={0.6} />
-                <path d="M 2 7 C 8 9 16 5 22 7" stroke={style.color} strokeWidth={style.strokeWidth * 0.7} fill="none" strokeLinecap="round" opacity={0.6} />
-              </>
-            ) : (
-              <path
-                d="M 2 5 C 8 3 16 7 22 5"
-                stroke={style.color}
-                strokeWidth={style.strokeWidth * 0.8}
-                fill="none"
-                strokeLinecap="round"
-                strokeDasharray={style.dasharray === "none" ? undefined : style.dasharray}
-                opacity={0.6}
-              />
-            )}
-          </svg>
-          <span>{style.label}</span>
+        {/* Row 2: Roots + Size */}
+        <div className="flex items-center gap-2.5">
+          <span className="font-medium text-bark" style={{ fontFamily: "var(--font-display)" }}>
+            Roots
+          </span>
+          {(
+            [
+              ["supersedes", ROOT_STYLES.supersedes],
+              ["relates_to", ROOT_STYLES.relates_to],
+              ["amends", ROOT_STYLES.amends],
+            ] as const
+          ).map(([key, style]) => (
+            <div key={key} className="flex items-center gap-1">
+              <svg width="18" height="8">
+                {key === "relates_to" ? (
+                  <>
+                    <path d="M 1 2 C 5 0 13 4 17 2" stroke={style.color} strokeWidth={style.strokeWidth * 0.6} fill="none" strokeLinecap="round" opacity={0.6} />
+                    <path d="M 1 6 C 5 8 13 4 17 6" stroke={style.color} strokeWidth={style.strokeWidth * 0.6} fill="none" strokeLinecap="round" opacity={0.6} />
+                  </>
+                ) : (
+                  <path
+                    d="M 1 4 C 5 2 13 6 17 4"
+                    stroke={style.color}
+                    strokeWidth={style.strokeWidth * 0.7}
+                    fill="none"
+                    strokeLinecap="round"
+                    strokeDasharray={style.dasharray === "none" ? undefined : style.dasharray}
+                    opacity={0.6}
+                  />
+                )}
+              </svg>
+              <span>{style.label}</span>
+            </div>
+          ))}
+          <span className="text-border-strong">|</span>
+          <span><span className="font-medium text-bark" style={{ fontFamily: "var(--font-display)" }}>Size</span> = engagement</span>
         </div>
-      ))}
-      <span className="text-border-strong">|</span>
-      <span className="font-medium text-bark" style={{ fontFamily: "var(--font-display)" }}>
-        Size
-      </span>
-      <span>= engagement</span>
+      </div>
     </div>
   );
 }
@@ -656,7 +716,7 @@ function Tooltip({
 
   return (
     <div
-      className="absolute z-20 bg-paper border border-border rounded-xl shadow-lg w-[320px] overflow-hidden"
+      className="absolute z-20 bg-paper border border-border rounded-xl shadow-lg w-[min(320px,calc(100vw-2rem))] overflow-hidden"
       style={{ left, top }}
     >
       <div className="px-5 py-4">
@@ -725,18 +785,185 @@ function Tooltip({
 
 // --- Main Canvas ---
 
+// --- Zoom & Pan Hook ---
+
+interface ViewBox {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+const MIN_ZOOM = 1;
+const MAX_ZOOM = 4;
+const ZOOM_STEP = 0.3;
+
+function clampViewBox(vb: ViewBox, fullW: number, fullH: number): ViewBox {
+  const w = Math.max(fullW / MAX_ZOOM, Math.min(fullW, vb.w));
+  const h = Math.max(fullH / MAX_ZOOM, Math.min(fullH, vb.h));
+  const x = Math.max(0, Math.min(fullW - w, vb.x));
+  const y = Math.max(0, Math.min(fullH - h, vb.y));
+  return { x, y, w, h };
+}
+
+function useZoomPan(fullW: number, fullH: number, svgRef: React.RefObject<SVGSVGElement | null>) {
+  const [viewBox, setViewBox] = useState<ViewBox>({ x: 0, y: 0, w: fullW, h: fullH });
+  const pinchRef = useRef<{ startDist: number; startVB: ViewBox; cx: number; cy: number } | null>(null);
+  const panRef = useRef<{ startX: number; startY: number; startVB: ViewBox } | null>(null);
+
+  const zoom = fullW / viewBox.w;
+
+  const zoomAt = useCallback((factor: number, cx: number, cy: number) => {
+    setViewBox((prev) => {
+      const newW = prev.w / factor;
+      const newH = prev.h / factor;
+      // Zoom centered on (cx, cy) in viewBox coords
+      const newX = cx - (cx - prev.x) / factor;
+      const newY = cy - (cy - prev.y) / factor;
+      return clampViewBox({ x: newX, y: newY, w: newW, h: newH }, fullW, fullH);
+    });
+  }, [fullW, fullH]);
+
+  const zoomIn = useCallback(() => {
+    const cx = viewBox.x + viewBox.w / 2;
+    const cy = viewBox.y + viewBox.h / 2;
+    zoomAt(1 + ZOOM_STEP, cx, cy);
+  }, [viewBox, zoomAt]);
+
+  const zoomOut = useCallback(() => {
+    const cx = viewBox.x + viewBox.w / 2;
+    const cy = viewBox.y + viewBox.h / 2;
+    zoomAt(1 / (1 + ZOOM_STEP), cx, cy);
+  }, [viewBox, zoomAt]);
+
+  const resetZoom = useCallback(() => {
+    setViewBox({ x: 0, y: 0, w: fullW, h: fullH });
+  }, [fullW, fullH]);
+
+  // Client point → SVG viewBox coordinates
+  const clientToSVG = useCallback((clientX: number, clientY: number): { x: number; y: number } => {
+    const svg = svgRef.current;
+    if (!svg) return { x: fullW / 2, y: fullH / 2 };
+    const rect = svg.getBoundingClientRect();
+    const ratioX = (clientX - rect.left) / rect.width;
+    const ratioY = (clientY - rect.top) / rect.height;
+    return {
+      x: viewBox.x + ratioX * viewBox.w,
+      y: viewBox.y + ratioY * viewBox.h,
+    };
+  }, [svgRef, viewBox, fullW, fullH]);
+
+  // Wheel zoom
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const handler = (e: WheelEvent) => {
+      e.preventDefault();
+      const pt = clientToSVG(e.clientX, e.clientY);
+      const delta = e.deltaY < 0 ? 1.1 : 1 / 1.1;
+      zoomAt(delta, pt.x, pt.y);
+    };
+    svg.addEventListener("wheel", handler, { passive: false });
+    return () => svg.removeEventListener("wheel", handler);
+  }, [svgRef, clientToSVG, zoomAt]);
+
+  // Touch: pinch-to-zoom + two-finger pan
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+
+    const getTouchDist = (t: TouchList) => {
+      if (t.length < 2) return 0;
+      const dx = t[1].clientX - t[0].clientX;
+      const dy = t[1].clientY - t[0].clientY;
+      return Math.sqrt(dx * dx + dy * dy);
+    };
+    const getTouchCenter = (t: TouchList) => ({
+      clientX: (t[0].clientX + t[1].clientX) / 2,
+      clientY: (t[0].clientY + t[1].clientY) / 2,
+    });
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        e.preventDefault();
+        const dist = getTouchDist(e.touches);
+        const center = getTouchCenter(e.touches);
+        const svgPt = clientToSVG(center.clientX, center.clientY);
+        pinchRef.current = { startDist: dist, startVB: { ...viewBox }, cx: svgPt.x, cy: svgPt.y };
+      } else if (e.touches.length === 1 && zoom > 1.05) {
+        // Single-finger pan when zoomed
+        panRef.current = { startX: e.touches[0].clientX, startY: e.touches[0].clientY, startVB: { ...viewBox } };
+      }
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (e.touches.length === 2 && pinchRef.current) {
+        e.preventDefault();
+        const dist = getTouchDist(e.touches);
+        const factor = dist / pinchRef.current.startDist;
+        const prev = pinchRef.current.startVB;
+        const newW = prev.w / factor;
+        const newH = prev.h / factor;
+        const cx = pinchRef.current.cx;
+        const cy = pinchRef.current.cy;
+        const newX = cx - (cx - prev.x) / factor;
+        const newY = cy - (cy - prev.y) / factor;
+        setViewBox(clampViewBox({ x: newX, y: newY, w: newW, h: newH }, fullW, fullH));
+      } else if (e.touches.length === 1 && panRef.current) {
+        e.preventDefault();
+        const dx = e.touches[0].clientX - panRef.current.startX;
+        const dy = e.touches[0].clientY - panRef.current.startY;
+        const rect = svg.getBoundingClientRect();
+        const svgDX = -(dx / rect.width) * panRef.current.startVB.w;
+        const svgDY = -(dy / rect.height) * panRef.current.startVB.h;
+        setViewBox(clampViewBox({
+          x: panRef.current.startVB.x + svgDX,
+          y: panRef.current.startVB.y + svgDY,
+          w: panRef.current.startVB.w,
+          h: panRef.current.startVB.h,
+        }, fullW, fullH));
+      }
+    };
+
+    const onTouchEnd = () => {
+      pinchRef.current = null;
+      panRef.current = null;
+    };
+
+    svg.addEventListener("touchstart", onTouchStart, { passive: false });
+    svg.addEventListener("touchmove", onTouchMove, { passive: false });
+    svg.addEventListener("touchend", onTouchEnd);
+
+    return () => {
+      svg.removeEventListener("touchstart", onTouchStart);
+      svg.removeEventListener("touchmove", onTouchMove);
+      svg.removeEventListener("touchend", onTouchEnd);
+    };
+  // We intentionally use viewBox and zoom as deps here even though they change,
+  // because the touch handlers need current values via closure for single-finger pan start.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [svgRef, fullW, fullH, zoom]);
+
+  return { viewBox, zoom, zoomIn, zoomOut, resetZoom };
+}
+
+// --- Main Canvas ---
+
 export function GladeCanvas({ decisions }: { decisions: Decision[] }) {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hoveredRootIndex, setHoveredRootIndex] = useState<number | null>(null);
   const [rootTooltip, setRootTooltip] = useState<{ x: number; y: number; label: string } | null>(null);
+  const [viewMode, setViewMode] = useState<"trees" | "rings" | "silhouettes">("trees");
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const router = useRouter();
 
-  // Canvas dimensions (fixed for now, could be responsive)
+  // Canvas dimensions
   const W = 1200;
   const H = 750;
+
+  const { viewBox, zoom, zoomIn, zoomOut, resetZoom } = useZoomPan(W, H, svgRef);
 
   const nodes = useMemo(() => layoutNodes(decisions, W, H), [decisions]);
   const connections = useMemo(() => getRootConnections(nodes), [nodes]);
@@ -862,25 +1089,73 @@ export function GladeCanvas({ decisions }: { decisions: Decision[] }) {
 
   return (
     <div ref={containerRef} className="relative flex-1 bg-paper overflow-hidden">
-      {/* Header */}
-      <div className="absolute top-6 left-6 z-10">
-        <h1
-          className="text-xl font-medium tracking-tight text-bark"
-          style={{ fontFamily: "var(--font-display)" }}
+      {/* Header + view toggle */}
+      <div className="absolute top-3 sm:top-6 left-3 sm:left-6 right-3 sm:right-6 z-10 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+        <div>
+          <h1
+            className="text-lg sm:text-xl font-medium tracking-tight text-bark"
+            style={{ fontFamily: "var(--font-display)" }}
+          >
+            The Glade
+          </h1>
+          <p className="text-xs sm:text-sm text-bark-muted mt-0.5">
+            {decisions.length} decisions · clustered by theme · sized by
+            engagement
+          </p>
+        </div>
+
+        {/* View mode toggle */}
+        <div className="flex items-center gap-1 bg-paper/90 backdrop-blur-sm rounded-lg border border-border px-1 py-1 self-start shrink-0">
+          {(["trees", "rings", "silhouettes"] as const).map((mode) => (
+            <button
+              key={mode}
+              onClick={() => setViewMode(mode)}
+              className={`px-2.5 sm:px-3 py-1.5 text-xs rounded-md transition-colors ${
+                viewMode === mode
+                  ? "bg-canopy text-paper font-medium"
+                  : "text-bark-muted hover:text-bark hover:bg-paper-deep"
+              }`}
+            >
+              {mode === "trees" ? "Canopy" : mode === "rings" ? "Rings" : "Silhouette"}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Zoom controls */}
+      <div className="absolute bottom-3 sm:bottom-6 right-3 sm:right-6 z-10 flex flex-col gap-1 bg-paper/90 backdrop-blur-sm rounded-lg border border-border p-1">
+        <button
+          onClick={zoomIn}
+          disabled={zoom >= MAX_ZOOM}
+          className="flex items-center justify-center w-8 h-8 rounded-md text-bark-muted hover:text-bark hover:bg-paper-deep transition-colors disabled:opacity-30 disabled:pointer-events-none"
+          aria-label="Zoom in"
         >
-          The Glade
-        </h1>
-        <p className="text-sm text-bark-muted mt-0.5">
-          {decisions.length} decisions · clustered by theme · sized by
-          engagement
-        </p>
+          <Plus size={16} />
+        </button>
+        {zoom > 1.05 && (
+          <button
+            onClick={resetZoom}
+            className="flex items-center justify-center w-8 h-8 rounded-md text-bark-muted hover:text-bark hover:bg-paper-deep transition-colors"
+            aria-label="Reset zoom"
+          >
+            <RotateCcw size={14} />
+          </button>
+        )}
+        <button
+          onClick={zoomOut}
+          disabled={zoom <= MIN_ZOOM}
+          className="flex items-center justify-center w-8 h-8 rounded-md text-bark-muted hover:text-bark hover:bg-paper-deep transition-colors disabled:opacity-30 disabled:pointer-events-none"
+          aria-label="Zoom out"
+        >
+          <Minus size={16} />
+        </button>
       </div>
 
       {/* SVG Canvas */}
       <svg
         ref={svgRef}
-        viewBox={`0 0 ${W} ${H}`}
-        className="w-full h-full"
+        viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`}
+        className="w-full h-full touch-none"
         style={{ minHeight: "600px" }}
         onClick={() => setSelectedId(null)}
       >
@@ -1173,6 +1448,7 @@ export function GladeCanvas({ decisions }: { decisions: Decision[] }) {
           const trunkTop = node.radius * 0.4;
           const trunkBottom = trunkTop + trunkH;
           const rand = seededRandom(node.seed + 99);
+          const labelY = viewMode === "trees" ? trunkBottom + 18 : viewMode === "rings" ? node.radius + 14 : node.radius * 0.15 + 14;
 
           return (
             <g
@@ -1192,6 +1468,7 @@ export function GladeCanvas({ decisions }: { decisions: Decision[] }) {
                 handleNodeClick(node.decision.id);
               }}
             >
+              {viewMode === "trees" && (<>
               {/* Trunk — tapered trapezoid */}
               <path
                 d={`M ${-trunkW * 0.4} ${trunkTop} L ${-trunkW * 0.6} ${trunkBottom} L ${trunkW * 0.6} ${trunkBottom} L ${trunkW * 0.4} ${trunkTop} Z`}
@@ -1277,6 +1554,186 @@ export function GladeCanvas({ decisions }: { decisions: Decision[] }) {
 
               {/* Center mark */}
               <circle r={3} fill={node.color} opacity={0.6} />
+              </>)}
+
+              {/* === Ring stump (top-down cross-section) === */}
+              {viewMode === "rings" && (() => {
+                const stages: DecisionStatus[] = ["decided", "implemented", "reviewed", "learned"];
+                const currentIdx = stages.indexOf(node.decision.status);
+                const ringCount = currentIdx + 1;
+                const nr = node.radius;
+                const barkThick = nr * 0.08;
+                const innerR = nr - barkThick;
+                const rRand = seededRandom(node.seed + 200);
+                const ringColors = [
+                  "oklch(0.72 0.06 155)", // decided - sage green
+                  "oklch(0.62 0.07 150)", // implemented - forest green
+                  "oklch(0.70 0.10 72)",  // reviewed - warm amber
+                  "oklch(0.58 0.06 48)",  // learned - rich earth
+                ];
+                const barkPts = canopyPoints(nr, node.seed + 300, 0.03, 24);
+                const barkPath = smoothClosedPath(barkPts);
+                const grainCount = 4 + currentIdx * 2;
+
+                return (
+                  <>
+                    {/* Bark — dark brown irregular outer edge */}
+                    <path d={barkPath} fill="oklch(0.35 0.04 55)" filter="url(#tree-shadow)" />
+
+                    {/* Wood base — warm cream */}
+                    <circle r={innerR} fill="oklch(0.82 0.02 80)" />
+
+                    {/* Growth ring bands — outermost = current status, innermost = decided */}
+                    {Array.from({ length: ringCount }).map((_, i) => {
+                      const stageIdx = currentIdx - i;
+                      const bandR = innerR * (1 - i / ringCount);
+                      return (
+                        <circle
+                          key={`band-${i}`}
+                          r={bandR}
+                          fill={ringColors[stageIdx]}
+                          opacity={0.35}
+                        />
+                      );
+                    })}
+
+                    {/* Ring boundary lines */}
+                    {Array.from({ length: ringCount + 1 }).map((_, i) => {
+                      const lineR = innerR * (i / ringCount);
+                      return lineR > 3 ? (
+                        <circle
+                          key={`rl-${i}`}
+                          r={lineR}
+                          fill="none"
+                          stroke="oklch(0.40 0.03 55)"
+                          strokeWidth={0.6}
+                          opacity={0.2}
+                        />
+                      ) : null;
+                    })}
+
+                    {/* Fine annual rings within each band */}
+                    {Array.from({ length: ringCount }).map((_, bandIdx) => {
+                      const outerBR = innerR * (1 - bandIdx / ringCount);
+                      const nextBR = innerR * (1 - (bandIdx + 1) / ringCount);
+                      const fineCount = Math.max(2, Math.floor((outerBR - nextBR) / 4));
+                      return Array.from({ length: fineCount }).map((__, fi) => {
+                        const fineR = nextBR + (outerBR - nextBR) * ((fi + 0.5) / fineCount);
+                        return fineR > 3 ? (
+                          <circle
+                            key={`fr-${bandIdx}-${fi}`}
+                            r={fineR}
+                            fill="none"
+                            stroke="oklch(0.42 0.03 55)"
+                            strokeWidth={0.3}
+                            opacity={0.08}
+                          />
+                        ) : null;
+                      });
+                    })}
+
+                    {/* Radial medullary rays */}
+                    {Array.from({ length: grainCount }).map((_, i) => {
+                      const angle = (i / grainCount) * Math.PI * 2 + rRand() * 0.4;
+                      const rayLen = innerR * (0.4 + rRand() * 0.5);
+                      return (
+                        <line
+                          key={`ray-${i}`}
+                          x1={Math.cos(angle) * 3}
+                          y1={Math.sin(angle) * 3}
+                          x2={Math.cos(angle) * rayLen}
+                          y2={Math.sin(angle) * rayLen}
+                          stroke="oklch(0.45 0.03 55)"
+                          strokeWidth={0.3}
+                          opacity={0.12}
+                        />
+                      );
+                    })}
+
+                    {/* Center pith */}
+                    <circle r={3.5} fill="oklch(0.45 0.04 55)" opacity={0.5} />
+                    <circle r={1.5} fill="oklch(0.55 0.03 60)" opacity={0.35} />
+
+                    {/* Hover/selection outline */}
+                    {isActive && (
+                      <path d={barkPath} fill="none" stroke={node.color} strokeWidth={2} opacity={0.8} />
+                    )}
+                  </>
+                );
+              })()}
+
+              {/* === Botanical silhouette === */}
+              {viewMode === "silhouettes" && (() => {
+                const nr = node.radius;
+                const sRand = seededRandom(node.seed + 400);
+                const silParams = {
+                  decided:     { tH: 0.50, tTopW: 0.035, tBotW: 0.05,  cOffY: -0.45, cRx: 0.25, cRy: 0.22, bulges: 0, roots: false },
+                  implemented: { tH: 0.55, tTopW: 0.045, tBotW: 0.07,  cOffY: -0.42, cRx: 0.35, cRy: 0.30, bulges: 2, roots: false },
+                  reviewed:    { tH: 0.55, tTopW: 0.055, tBotW: 0.09,  cOffY: -0.38, cRx: 0.42, cRy: 0.36, bulges: 3, roots: true },
+                  learned:     { tH: 0.50, tTopW: 0.065, tBotW: 0.12,  cOffY: -0.32, cRx: 0.50, cRy: 0.42, bulges: 4, roots: true },
+                } as const;
+                const sp = silParams[node.decision.status];
+                const tH = nr * sp.tH;
+                const tTopW = nr * sp.tTopW;
+                const tBotW = nr * sp.tBotW;
+                const tBase = nr * 0.15;
+                const tTop = tBase - tH;
+                const cY = nr * sp.cOffY;
+                const cRx = nr * sp.cRx;
+                const cRy = nr * sp.cRy;
+
+                return (
+                  <>
+                    {/* Root flares for mature trees */}
+                    {sp.roots && (
+                      <>
+                        <path
+                          d={`M ${-tBotW * 0.8} ${tBase} Q ${-tBotW * 2.8} ${tBase + 3} ${-tBotW * 3.5} ${tBase + 1}`}
+                          stroke="oklch(0.42 0.04 55)" strokeWidth={1.5} fill="none" strokeLinecap="round" opacity={0.45}
+                        />
+                        <path
+                          d={`M ${tBotW * 0.8} ${tBase} Q ${tBotW * 2.8} ${tBase + 3} ${tBotW * 3.5} ${tBase + 1}`}
+                          stroke="oklch(0.42 0.04 55)" strokeWidth={1.5} fill="none" strokeLinecap="round" opacity={0.45}
+                        />
+                      </>
+                    )}
+
+                    {/* Trunk — organic taper with bezier curves */}
+                    <path
+                      d={`M ${-tBotW} ${tBase} C ${-tBotW} ${tBase - tH * 0.4} ${-tTopW} ${tTop + tH * 0.4} ${-tTopW} ${tTop} L ${tTopW} ${tTop} C ${tTopW} ${tTop + tH * 0.4} ${tBotW} ${tBase - tH * 0.4} ${tBotW} ${tBase} Z`}
+                      fill="oklch(0.42 0.04 55)"
+                      opacity={0.75}
+                    />
+
+                    {/* Crown — main ellipse */}
+                    <ellipse
+                      cx={0} cy={cY} rx={cRx} ry={cRy}
+                      fill={`url(#tree-grad-${node.decision.id})`}
+                      filter="url(#tree-shadow)"
+                    />
+
+                    {/* Crown texture — overlapping circles for organic canopy feel */}
+                    {Array.from({ length: sp.bulges }).map((_, i) => {
+                      const bAngle = ((i + 0.3) / Math.max(sp.bulges, 1)) * Math.PI + sRand() * 0.5 - 0.25;
+                      const bDist = cRx * (0.35 + sRand() * 0.25);
+                      const bx = Math.cos(bAngle) * bDist;
+                      const by = cY - Math.abs(Math.sin(bAngle)) * cRy * 0.35 - sRand() * cRy * 0.15;
+                      const br = cRx * (0.28 + sRand() * 0.12);
+                      return (
+                        <circle key={`bulge-${i}`} cx={bx} cy={by} r={br} fill={node.colorMid} opacity={0.25} />
+                      );
+                    })}
+
+                    {/* Crown highlight on hover */}
+                    {isActive && (
+                      <ellipse cx={0} cy={cY} rx={cRx + 1.5} ry={cRy + 1.5} fill="none" stroke={node.color} strokeWidth={1.5} />
+                    )}
+
+                    {/* Crown center mark */}
+                    <circle cx={0} cy={cY} r={2.5} fill={node.color} opacity={0.4} />
+                  </>
+                );
+              })()}
 
               {/* Action satellites */}
               {node.actions.map((action, i) => {
@@ -1297,9 +1754,9 @@ export function GladeCanvas({ decisions }: { decisions: Decision[] }) {
                 );
               })}
 
-              {/* Decision number label — below trunk bottom */}
+              {/* Decision number label */}
               <text
-                y={trunkBottom + 18}
+                y={labelY}
                 textAnchor="middle"
                 className="text-[0.6875rem] fill-bark-muted select-none pointer-events-none"
                 style={{ fontFamily: "var(--font-display)" }}

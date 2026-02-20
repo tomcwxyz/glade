@@ -1,5 +1,6 @@
 import { ArrowRight, BookOpen, GitBranch, RefreshCw, TreePine } from "lucide-react";
 import Link from "next/link";
+import { LandingNav } from "@/components/landing-nav";
 
 function FeatureBlock({
   number,
@@ -67,45 +68,7 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-paper">
       {/* Navigation */}
-      <nav className="flex items-center justify-between px-8 py-5 max-w-6xl mx-auto">
-        <Link href="/" className="flex items-center gap-2.5">
-          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-canopy text-paper">
-            <TreePine size={18} strokeWidth={2.5} />
-          </div>
-          <span
-            className="text-lg tracking-tight font-semibold text-bark"
-            style={{ fontFamily: "var(--font-display)" }}
-          >
-            Glade
-          </span>
-        </Link>
-        <div className="flex items-center gap-6">
-          <Link
-            href="#features"
-            className="text-sm text-bark-muted hover:text-bark transition-colors"
-          >
-            Features
-          </Link>
-          <Link
-            href="#how-it-works"
-            className="text-sm text-bark-muted hover:text-bark transition-colors"
-          >
-            How it works
-          </Link>
-          <Link
-            href="/sign-in"
-            className="text-sm text-bark-muted hover:text-bark transition-colors"
-          >
-            Sign in
-          </Link>
-          <Link
-            href="/sign-up"
-            className="flex items-center gap-1.5 px-4 py-2 bg-canopy text-paper rounded-lg text-sm font-medium hover:bg-canopy-light transition-colors"
-          >
-            Start your glade
-          </Link>
-        </div>
-      </nav>
+      <LandingNav />
 
       {/* Hero */}
       <section className="relative overflow-hidden">
@@ -137,7 +100,7 @@ export default function LandingPage() {
           />
         </div>
 
-        <div className="max-w-6xl mx-auto px-8 pt-24 pb-32 relative">
+        <div className="max-w-6xl mx-auto px-4 sm:px-8 pt-12 sm:pt-24 pb-16 sm:pb-32 relative">
           <div className="max-w-3xl">
             <h1
               className="text-4xl leading-[1.1] tracking-tight mb-6 text-bark"
@@ -152,13 +115,13 @@ export default function LandingPage() {
               Watch your organisation&apos;s institutional memory grow — traceable,
               reviewable, alive.
             </p>
-            <p className="text-base text-bark-muted leading-relaxed max-w-lg mb-10">
+            <p className="text-base text-bark-muted leading-relaxed max-w-lg mb-8 sm:mb-10">
               Stop losing governance knowledge to scattered emails, forgotten
               minutes, and departing board members. Start building a decision
               trail that teaches your organisation how to govern better.
             </p>
 
-            <div className="flex items-center gap-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
               <Link
                 href="/sign-up"
                 className="flex items-center gap-2 px-6 py-3 bg-canopy text-paper rounded-lg text-sm font-medium hover:bg-canopy-light transition-colors"
@@ -234,19 +197,19 @@ export default function LandingPage() {
 
       {/* Social proof strip */}
       <section className="border-y border-border bg-paper-warm">
-        <div className="max-w-6xl mx-auto px-8 py-6 flex items-center justify-between text-sm text-bark-muted">
+        <div className="max-w-6xl mx-auto px-4 sm:px-8 py-4 sm:py-6 flex flex-wrap items-center justify-center sm:justify-between gap-x-4 gap-y-2 text-sm text-bark-muted">
           <span>Built for charities, CICs, cooperatives, and partnerships</span>
-          <span className="text-border-strong">|</span>
+          <span className="hidden sm:inline text-border-strong">|</span>
           <span>Decision-centric governance</span>
-          <span className="text-border-strong">|</span>
+          <span className="hidden sm:inline text-border-strong">|</span>
           <span>Open source core</span>
-          <span className="text-border-strong">|</span>
+          <span className="hidden sm:inline text-border-strong">|</span>
           <span>WCAG 2.1 AA accessible</span>
         </div>
       </section>
 
       {/* Problem statement */}
-      <section className="max-w-6xl mx-auto px-8 py-24">
+      <section className="max-w-6xl mx-auto px-4 sm:px-8 py-14 sm:py-24">
         <div className="max-w-2xl">
           <span className="text-xs uppercase tracking-[0.2em] text-canopy font-medium">
             The problem
@@ -280,18 +243,18 @@ export default function LandingPage() {
 
       {/* Features */}
       <section id="features" className="bg-paper-warm border-y border-border">
-        <div className="max-w-6xl mx-auto px-8 py-24">
+        <div className="max-w-6xl mx-auto px-4 sm:px-8 py-14 sm:py-24">
           <span className="text-xs uppercase tracking-[0.2em] text-canopy font-medium">
             What Glade does
           </span>
           <h2
-            className="text-2xl font-light tracking-tight mt-3 mb-16 text-bark max-w-lg"
+            className="text-2xl font-light tracking-tight mt-3 mb-10 sm:mb-16 text-bark max-w-lg"
             style={{ fontFamily: "var(--font-display)" }}
           >
             The decision log as the spine of your organisation
           </h2>
 
-          <div className="grid grid-cols-3 gap-x-16 gap-y-14">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-16 gap-y-10 sm:gap-y-14">
             <FeatureBlock
               number="01"
               title="Decision log"
@@ -333,8 +296,8 @@ export default function LandingPage() {
       </section>
 
       {/* How it works — decision lifecycle */}
-      <section id="how-it-works" className="max-w-6xl mx-auto px-8 py-24">
-        <div className="grid grid-cols-[1fr_1fr] gap-24 items-start">
+      <section id="how-it-works" className="max-w-6xl mx-auto px-4 sm:px-8 py-14 sm:py-24">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-24 items-start">
           <div>
             <span className="text-xs uppercase tracking-[0.2em] text-canopy font-medium">
               How it works
@@ -407,8 +370,8 @@ export default function LandingPage() {
 
       {/* Decision methods */}
       <section className="bg-paper-warm border-y border-border">
-        <div className="max-w-6xl mx-auto px-8 py-24">
-          <div className="max-w-2xl mb-14">
+        <div className="max-w-6xl mx-auto px-4 sm:px-8 py-14 sm:py-24">
+          <div className="max-w-2xl mb-10 sm:mb-14">
             <span className="text-xs uppercase tracking-[0.2em] text-canopy font-medium">
               Decision methods
             </span>
@@ -424,7 +387,7 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="grid grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-0">
             {[
               {
                 name: "Consent",
@@ -468,14 +431,14 @@ export default function LandingPage() {
       </section>
 
       {/* CTA */}
-      <section className="max-w-6xl mx-auto px-8 py-32 text-center">
+      <section className="max-w-6xl mx-auto px-4 sm:px-8 py-16 sm:py-32 text-center">
         <h2
           className="text-3xl font-light tracking-tight mb-4 text-bark"
           style={{ fontFamily: "var(--font-display)" }}
         >
           Start governing better
         </h2>
-        <p className="text-bark-soft text-base mb-10 max-w-md mx-auto leading-relaxed">
+        <p className="text-bark-soft text-base mb-8 sm:mb-10 max-w-md mx-auto leading-relaxed">
           Create a space for your organisation. Log your first decision.
           Watch your institutional memory grow.
         </p>
@@ -490,7 +453,7 @@ export default function LandingPage() {
 
       {/* Footer */}
       <footer className="border-t border-border bg-paper-warm">
-        <div className="max-w-6xl mx-auto px-8 py-8 flex items-center justify-between text-sm text-bark-muted">
+        <div className="max-w-6xl mx-auto px-4 sm:px-8 py-6 sm:py-8 flex flex-wrap items-center justify-between gap-4 text-sm text-bark-muted">
           <div className="flex items-center gap-2.5">
             <div className="flex items-center justify-center w-6 h-6 rounded bg-canopy text-paper">
               <TreePine size={13} strokeWidth={2.5} />

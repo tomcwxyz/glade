@@ -69,30 +69,29 @@ export default async function ActionsPage() {
           return (
             <div
               key={action.id}
-              className="flex items-start gap-4 py-4 border-b border-border last:border-b-0 -mx-3 px-3"
+              className="flex items-start gap-3 sm:gap-4 py-4 border-b border-border last:border-b-0 -mx-3 px-3"
             >
               <ActionToggle actionId={action.id} initialStatus={action.status} />
               <div className="flex-1 min-w-0">
                 <p className={`text-[0.9375rem] leading-snug ${action.status === "complete" ? "text-bark-muted line-through" : "text-bark"}`}>
                   {action.description}
                 </p>
-                <div className="flex items-center gap-2 mt-1.5 text-xs text-bark-muted">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1.5 text-xs text-bark-muted">
                   <span>{action.ownerName}</span>
                   <span className="text-border-strong">·</span>
                   <Link
                     href={`/decisions/${action.decisionNumber}`}
-                    className="hover:text-canopy transition-colors"
+                    className="hover:text-canopy transition-colors truncate"
                   >
                     #{action.decisionNumber} {action.decisionTitle}
                   </Link>
-                </div>
-              </div>
-              <div className="text-right shrink-0">
-                <span className={`text-xs ${action.status === "overdue" ? "text-earth font-medium" : "text-bark-muted"}`}>
-                  {formatDate(action.dueDate?.toISOString() ?? "")}
-                </span>
-                <div className={`inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full text-xs ${config.bg} ${config.color}`}>
-                  {config.label}
+                  <span className="text-border-strong">·</span>
+                  <span className={action.status === "overdue" ? "text-earth font-medium" : ""}>
+                    {formatDate(action.dueDate?.toISOString() ?? "")}
+                  </span>
+                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full ${config.bg} ${config.color}`}>
+                    {config.label}
+                  </span>
                 </div>
               </div>
             </div>

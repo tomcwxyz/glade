@@ -163,26 +163,29 @@ export function DecisionList({ decisions, tags, participants }: DecisionListProp
     <>
       {/* Search and filters */}
       <div className="mb-10 pb-6 border-b border-border">
-        <div className="flex items-center gap-3">
-          <div className="relative flex-1 max-w-sm">
-            <Search
-              size={15}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-bark-muted"
-            />
-            <input
-              type="text"
-              placeholder="Search decisions..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 text-sm bg-paper-warm border border-border rounded-lg placeholder:text-bark-muted/60 focus:outline-none focus:border-canopy focus:ring-1 focus:ring-canopy/20 transition-colors"
-            />
-          </div>
-          <div className="flex gap-2">
+        {/* Search row */}
+        <div className="relative mb-3 sm:mb-0 sm:max-w-sm">
+          <Search
+            size={15}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-bark-muted"
+          />
+          <input
+            type="text"
+            placeholder="Search decisions..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-9 pr-4 py-2.5 sm:py-2 text-sm bg-paper-warm border border-border rounded-lg placeholder:text-bark-muted/60 focus:outline-none focus:border-canopy focus:ring-1 focus:ring-canopy/20 transition-colors"
+          />
+        </div>
+
+        {/* Status tabs + more filters — horizontally scrollable on mobile */}
+        <div className="flex items-center gap-2 sm:gap-3 mt-3 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 pb-1 sm:pb-0">
+          <div className="flex gap-1.5 sm:gap-2 shrink-0">
             {FILTERS.map((filter) => (
               <button
                 key={filter}
                 onClick={() => setStatusFilter(filter)}
-                className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${
+                className={`px-3 py-2 sm:py-1.5 text-xs rounded-lg transition-colors whitespace-nowrap ${
                   statusFilter === filter
                     ? "bg-canopy-pale text-canopy font-medium"
                     : "text-bark-muted hover:text-bark hover:bg-paper-deep"
@@ -194,7 +197,7 @@ export function DecisionList({ decisions, tags, participants }: DecisionListProp
           </div>
           <button
             onClick={() => setShowMoreFilters(!showMoreFilters)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg transition-colors ${
+            className={`flex items-center gap-1.5 px-3 py-2 sm:py-1.5 text-xs rounded-lg transition-colors whitespace-nowrap shrink-0 ${
               showMoreFilters || advancedFilterCount > 0
                 ? "bg-canopy-pale text-canopy font-medium"
                 : "text-bark-muted hover:text-bark hover:bg-paper-deep"
@@ -212,9 +215,9 @@ export function DecisionList({ decisions, tags, participants }: DecisionListProp
 
         {/* Advanced filters row */}
         {showMoreFilters && (
-          <div className="mt-4 pt-4 border-t border-border/50 flex flex-wrap items-end gap-5">
+          <div className="mt-4 pt-4 border-t border-border/50 flex flex-wrap items-end gap-4 sm:gap-5">
             {/* Method pills */}
-            <div>
+            <div className="w-full sm:w-auto">
               <label className="block text-[0.6875rem] uppercase tracking-wider text-bark-muted font-medium mb-1.5">
                 Method
               </label>
@@ -223,7 +226,7 @@ export function DecisionList({ decisions, tags, participants }: DecisionListProp
                   <button
                     key={m}
                     onClick={() => setMethodFilter(m)}
-                    className={`px-2.5 py-1 text-xs rounded-lg transition-colors ${
+                    className={`px-2.5 py-1.5 sm:py-1 text-xs rounded-lg transition-colors ${
                       methodFilter === m
                         ? "bg-canopy-pale text-canopy font-medium"
                         : "text-bark-muted hover:text-bark hover:bg-paper-deep"
@@ -237,7 +240,7 @@ export function DecisionList({ decisions, tags, participants }: DecisionListProp
 
             {/* Tag toggle chips */}
             {tags.length > 0 && (
-              <div>
+              <div className="w-full sm:w-auto">
                 <label className="block text-[0.6875rem] uppercase tracking-wider text-bark-muted font-medium mb-1.5">
                   Tags
                 </label>
@@ -252,7 +255,7 @@ export function DecisionList({ decisions, tags, participants }: DecisionListProp
                             active ? prev.filter((t) => t !== tag) : [...prev, tag]
                           )
                         }
-                        className={`px-2.5 py-1 text-xs rounded-lg transition-colors ${
+                        className={`px-2.5 py-1.5 sm:py-1 text-xs rounded-lg transition-colors ${
                           active
                             ? "bg-canopy-pale text-canopy font-medium"
                             : "text-bark-muted hover:text-bark hover:bg-paper-deep"
@@ -275,7 +278,7 @@ export function DecisionList({ decisions, tags, participants }: DecisionListProp
                 <select
                   value={participantFilter}
                   onChange={(e) => setParticipantFilter(e.target.value)}
-                  className="px-3 py-1.5 text-xs bg-paper-warm border border-border rounded-lg text-bark focus:outline-none focus:border-canopy focus:ring-1 focus:ring-canopy/20"
+                  className="px-3 py-2 sm:py-1.5 text-xs bg-paper-warm border border-border rounded-lg text-bark focus:outline-none focus:border-canopy focus:ring-1 focus:ring-canopy/20"
                 >
                   <option value="all">All participants</option>
                   {participants.map((p) => (
@@ -292,19 +295,19 @@ export function DecisionList({ decisions, tags, participants }: DecisionListProp
               <label className="block text-[0.6875rem] uppercase tracking-wider text-bark-muted font-medium mb-1.5">
                 Date range
               </label>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
                 <input
                   type="date"
                   value={dateFrom}
                   onChange={(e) => setDateFrom(e.target.value)}
-                  className="px-2.5 py-1.5 text-xs bg-paper-warm border border-border rounded-lg text-bark focus:outline-none focus:border-canopy focus:ring-1 focus:ring-canopy/20"
+                  className="px-2.5 py-2 sm:py-1.5 text-xs bg-paper-warm border border-border rounded-lg text-bark focus:outline-none focus:border-canopy focus:ring-1 focus:ring-canopy/20"
                 />
-                <span className="text-xs text-bark-muted">to</span>
+                <span className="text-xs text-bark-muted hidden sm:inline">to</span>
                 <input
                   type="date"
                   value={dateTo}
                   onChange={(e) => setDateTo(e.target.value)}
-                  className="px-2.5 py-1.5 text-xs bg-paper-warm border border-border rounded-lg text-bark focus:outline-none focus:border-canopy focus:ring-1 focus:ring-canopy/20"
+                  className="px-2.5 py-2 sm:py-1.5 text-xs bg-paper-warm border border-border rounded-lg text-bark focus:outline-none focus:border-canopy focus:ring-1 focus:ring-canopy/20"
                 />
               </div>
             </div>
@@ -335,7 +338,7 @@ export function DecisionList({ decisions, tags, participants }: DecisionListProp
       {/* Timeline */}
       <div className="relative">
         {filtered.length > 0 && (
-          <div className="absolute left-[27px] top-4 bottom-4 w-px bg-border" />
+          <div className="absolute left-[15px] sm:left-[27px] top-4 bottom-4 w-px bg-border" />
         )}
 
         {filtered.length === 0 && (
@@ -347,8 +350,8 @@ export function DecisionList({ decisions, tags, participants }: DecisionListProp
         {Object.entries(grouped).map(([month, monthDecisions]) => (
           <section key={month} className="mb-12 last:mb-0">
             {/* Month label */}
-            <div className="relative flex items-center gap-4 mb-6">
-              <div className="relative z-10 w-[55px] flex justify-center">
+            <div className="relative flex items-center gap-3 sm:gap-4 mb-6">
+              <div className="relative z-10 w-[31px] sm:w-[55px] flex justify-center">
                 <div className="w-3 h-3 rounded-full bg-paper border-2 border-canopy" />
               </div>
               <h2
@@ -365,49 +368,36 @@ export function DecisionList({ decisions, tags, participants }: DecisionListProp
                 <Link
                   key={decision.id}
                   href={`/decisions/${decision.number}`}
-                  className="group relative flex gap-4 py-4 hover:bg-paper-warm -mx-3 px-3 rounded-xl transition-colors"
+                  className="group relative flex gap-3 sm:gap-4 py-4 hover:bg-paper-warm -mx-3 px-3 rounded-xl transition-colors"
                 >
                   {/* Timeline dot */}
-                  <div className="relative z-10 w-[55px] flex justify-center shrink-0 pt-1">
+                  <div className="relative z-10 w-[31px] sm:w-[55px] flex justify-center shrink-0 pt-1">
                     <div className="w-1.5 h-1.5 rounded-full bg-border-strong group-hover:bg-canopy transition-colors" />
                   </div>
 
                   {/* Content */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2.5 mb-1.5">
-                          <span className="text-xs text-bark-muted font-medium tabular-nums">
-                            #{decision.number}
-                          </span>
-                          <StatusPill status={decision.status} />
-                          <MethodTag method={decision.method} />
-                        </div>
-                        <h3 className="text-[0.9375rem] font-medium text-bark leading-snug group-hover:text-canopy transition-colors">
-                          {decision.title}
-                        </h3>
-                        <p className="text-sm text-bark-muted mt-1.5 line-clamp-2 leading-relaxed">
-                          {decision.outcome}
-                        </p>
-                      </div>
-
-                      <div className="text-right shrink-0 pt-0.5">
-                        <div className="text-xs text-bark-muted">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 mb-1.5">
+                        <span className="text-xs text-bark-muted font-medium tabular-nums">
+                          #{decision.number}
+                        </span>
+                        <StatusPill status={decision.status} />
+                        <MethodTag method={decision.method} />
+                        <span className="text-xs text-bark-muted ml-auto">
                           {formatDate(decision.date)}
-                        </div>
-                        {decision.actionsCount > 0 && (
-                          <div className="flex items-center justify-end gap-1 mt-1.5 text-xs text-bark-muted">
-                            <ListChecks size={12} />
-                            <span>
-                              {decision.actionsComplete}/{decision.actionsCount}
-                            </span>
-                          </div>
-                        )}
+                        </span>
                       </div>
+                      <h3 className="text-[0.9375rem] font-medium text-bark leading-snug group-hover:text-canopy transition-colors">
+                        {decision.title}
+                      </h3>
+                      <p className="text-sm text-bark-muted mt-1.5 line-clamp-2 leading-relaxed">
+                        {decision.outcome}
+                      </p>
                     </div>
 
-                    {/* Participants */}
-                    <div className="flex items-center gap-1.5 mt-3">
+                    {/* Participants & metadata */}
+                    <div className="flex flex-wrap items-center gap-1.5 mt-3">
                       {(decision.participants ?? []).slice(0, 5).map((p, i) => (
                         <div
                           key={p}
@@ -425,6 +415,15 @@ export function DecisionList({ decisions, tags, participants }: DecisionListProp
                         <span className="text-xs text-bark-muted ml-1">
                           +{(decision.participants?.length ?? 0) - 5}
                         </span>
+                      )}
+                      {decision.actionsCount > 0 && (
+                        <>
+                          <span className="text-border-strong mx-1">·</span>
+                          <span className="flex items-center gap-1 text-xs text-bark-muted">
+                            <ListChecks size={12} />
+                            {decision.actionsComplete}/{decision.actionsCount}
+                          </span>
+                        </>
                       )}
                       {decision.tags.length > 0 && (
                         <>

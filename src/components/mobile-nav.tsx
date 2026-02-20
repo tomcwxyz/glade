@@ -7,14 +7,17 @@ import { cn } from "@/lib/utils";
 import {
   BookOpen,
   Calendar,
+  CircleDot,
+  FileText,
   Home,
+  Lightbulb,
   ListChecks,
   Menu,
+  MessageSquare,
   Settings,
   TreePine,
   Users,
   X,
-  CircleDot,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -23,6 +26,9 @@ const NAV_ITEMS = [
   { href: "/decisions", label: "Decisions", icon: BookOpen },
   { href: "/meetings", label: "Meetings", icon: Calendar },
   { href: "/actions", label: "Actions", icon: ListChecks },
+  { href: "/documents", label: "Documents", icon: FileText },
+  { href: "/proposals", label: "Proposals", icon: MessageSquare },
+  { href: "/topics", label: "Topics", icon: Lightbulb },
   { href: "/members", label: "Members", icon: Users },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
@@ -48,7 +54,8 @@ export function MobileNav({ spaceName }: { spaceName: string }) {
         </div>
         <button
           onClick={() => setOpen(!open)}
-          className="p-1.5 text-bark-muted hover:text-bark transition-colors"
+          className="flex items-center justify-center w-10 h-10 rounded-lg text-bark-muted hover:text-bark hover:bg-paper-deep transition-colors"
+          aria-label={open ? "Close menu" : "Open menu"}
         >
           {open ? <X size={20} /> : <Menu size={20} />}
         </button>
@@ -69,7 +76,7 @@ export function MobileNav({ spaceName }: { spaceName: string }) {
                 href={item.href}
                 onClick={() => setOpen(false)}
                 className={cn(
-                  "flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm transition-colors",
+                  "flex items-center gap-2.5 px-3 py-3 rounded-lg text-sm min-h-[44px] transition-colors",
                   isActive
                     ? "bg-canopy-pale text-canopy font-medium"
                     : "text-bark-muted hover:text-bark hover:bg-paper-deep"
