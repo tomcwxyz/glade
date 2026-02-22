@@ -1,54 +1,84 @@
-# Handoff — 2026-02-20
+# Handoff — 2026-02-22
 
 ## What happened this session
 
-Added governance health indicators to the dashboard (spec §3.4) and fixed a Tiptap SSR hydration error in the document editor.
+Completed all remaining code-only items from the plan. Six features shipped:
 
 ### Completed
 
-1. **Governance health indicators** — 5 metrics displayed in a grid on the dashboard when ≥5 decisions exist: participation distribution (unique participants vs members), method diversity (out of 6), revision rate (% amended/superseded), document currency (stale docs needing review), and median time from proposal to decision.
-2. **Tiptap SSR fix** — Added `immediatelyRender: false` to `useEditor()` to prevent hydration mismatch error on `/documents/new` and any other page using the editor.
-3. **Updated PLAN.md** — Marked decision quality indicators as complete.
-4. **Updated STATE.md** — Added Phase 5 partial status (Stripe, SEO, LLM docs), updated dashboard description, corrected Stripe dependency status.
+1. **Public pages + transparency layer** — `/public/[spaceSlug]/decisions` and `/documents` with space-level toggles
+2. **Per-item visibility** — `isPublic` boolean on decisions and documents, checkbox in forms, Globe badge
+3. **Embeddable decision log widget** — `/embed/[spaceSlug]/decisions` for iframe embedding
+4. **Markdown import/export** — `markdownToTiptap()` converter, file upload on document form, download button on detail page
+5. **Interactive walkthrough** — 7-step tooltip walkthrough with localStorage persistence, restart in settings
+6. **Help documentation** — `/help` page with 9 sections, linked from sidebar
+7. **Configurable vote threshold** — Space setting (0.5–0.75), threaded through live meeting to VoteFlow
+8. **PDF export** — Print-friendly meeting record at `/meetings/[id]/print`
+9. **REST API** — `/api/v1/` with 6 endpoints (decisions, documents, meetings, actions) + API key auth
+10. **API key management** — Settings UI for creating/deleting keys, SHA-256 hashing, usage tracking
+11. **Webhooks** — decision.created/updated/status_changed events, HMAC-SHA256 signing, settings UI
+12. **Word document export** — `.doc` format via `?format=docx` query param, `tiptapToHtml()` converter
+
+### Key files created
+
+| File | Purpose |
+|------|---------|
+| `src/lib/api-auth.ts` | API key authentication helper |
+| `src/lib/api-key-actions.ts` | Server actions for API key CRUD |
+| `src/lib/webhooks.ts` | Webhook delivery (fire-and-forget, HMAC signing) |
+| `src/lib/webhook-actions.ts` | Server actions for webhook CRUD |
+| `src/app/api/v1/decisions/route.ts` | GET /api/v1/decisions |
+| `src/app/api/v1/decisions/[number]/route.ts` | GET /api/v1/decisions/[number] |
+| `src/app/api/v1/documents/route.ts` | GET /api/v1/documents |
+| `src/app/api/v1/documents/[id]/route.ts` | GET /api/v1/documents/[id] |
+| `src/app/api/v1/meetings/route.ts` | GET /api/v1/meetings |
+| `src/app/api/v1/actions/route.ts` | GET /api/v1/actions |
+| `src/app/(app)/settings/api-keys.tsx` | API key management UI |
+| `src/app/(app)/settings/webhooks.tsx` | Webhook management UI |
+| `src/app/(app)/meetings/[id]/print/page.tsx` | Print-friendly meeting record |
+| `src/app/(app)/meetings/[id]/print/print-button.tsx` | Print trigger button |
 
 ### Key files modified
 
 | File | Change |
 |------|--------|
-| `src/lib/queries.ts` | Added `getGovernanceHealthStats()` — 6 parallel queries for health metrics |
-| `src/app/(app)/dashboard/page.tsx` | Fetch health stats, render 5-cell governance health grid |
-| `src/components/tiptap-editor.tsx` | Added `immediatelyRender: false` to fix SSR error |
-| `PLAN.md` | Marked §3.4 decision quality indicators done |
-| `STATE.md` | Added Phase 5 partial table, updated dashboard and Stripe status |
+| `src/db/schema.ts` | Added `apiKeys`, `webhooks` tables, `isPublic` on decisions + documents |
+| `src/lib/queries.ts` | Added `getApiKeys()`, `getWebhooks()`, `outcome` in getMeetingById |
+| `src/lib/decision-actions.ts` | Added `fireWebhooks()` calls on create/update/status change |
+| `src/lib/tiptap-utils.ts` | Added `tiptapToHtml()`, `markdownToTiptap()` |
+| `src/app/api/documents/[id]/export/route.ts` | Added `?format=docx` Word export |
+| `src/app/(app)/settings/page.tsx` | Added API keys + webhooks sections |
+| `src/middleware.ts` | Added `/api/v1` to public paths |
+| `PLAN.md` | Added Manual Deployment Steps section, marked all code items done |
+| `STATE.md` | Full rewrite with current status |
 
-### No files created
+### Database changes
 
-No new files were needed — all changes were to existing files.
+Two new tables created via migration scripts:
+- `api_keys` (id, space_id, name, key_hash, key_prefix, permissions, last_used_at, expires_at, created_at)
+- `webhooks` (id, space_id, url, secret, events, active, last_delivery_at, last_delivery_status, created_at)
+
+Plus `is_public` boolean column added to `decisions` and `documents` tables.
 
 ## What to do next
 
-1. **Vercel deployment** — connect repo, set env vars (`DATABASE_URL`, `AUTH_SECRET`, `AUTH_TRUST_HOST`, `ANTHROPIC_API_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`), deploy
-2. **Resend email** — get API key, set `AUTH_RESEND_KEY`, test magic link auth
-3. **Remaining spec gaps** (unchecked in PLAN.md):
-   - QR code for meeting join links (§4.4)
-   - Temperature checks for consensus (§4.4)
-   - Delegation records with scope/constraints (§4.2)
-   - Advice process consultation tracking (§4.2)
-   - Configurable method thresholds
-4. **Phase 5 remaining** — charity pricing, Stripe self-service portal, transparency layer, onboarding, API/webhooks, export/import, calendar integration, file storage, error monitoring
+All code-only work is complete. Remaining items require external service setup:
 
-## Database state
+1. **Deploy to Vercel** — See PLAN.md "Manual Deployment Steps" for env vars and post-deploy checklist
+2. **Set up Resend** — Get API key, verify domain, set `AUTH_RESEND_KEY`
+3. **Configure Stripe for production** — Create products, set price IDs, create webhook endpoint
+4. **Charity pricing** — Create Stripe coupon code
+5. **Sentry error monitoring** (optional) — Install SDK, set DSN
+6. **Vercel Analytics** (optional) — Enable in dashboard, add `<Analytics />` to layout
 
-No schema or migration changes this session. All columns remain applied to Neon.
+### Human decisions needed
 
-## Known issues
-
-- **Credentials auth broken** — NextAuth returns `error=Configuration` when signing in with email/password. Google OAuth works.
-- **Dev server port conflict** — port 3000 may be in use; Next.js auto-selects 3002. Kill old node processes if `.next/trace` lock error occurs.
-- **Drizzle migration drift** — schema.ts is ahead of generated migrations. DB already has all columns.
-- **Untracked screenshots** — Several `glade-*.png` screenshots and `.playwright-mcp/` logs in working dir from previous sessions. Safe to gitignore or delete.
+- Open source licence model (AGPL, MIT, BSL)
+- WCAG 2.1 AA accessibility strategy
+- Integration priorities (Google Workspace, Microsoft 365, Notion)
+- Pilot organisation for beta testing
 
 ## Build status
 
-- `npm run build` — passing
-- `npm run lint` — no errors
+- `npm run build` — **passing**
+- `npm run lint` — **no errors**

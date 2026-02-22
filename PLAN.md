@@ -1,7 +1,7 @@
 # Plan — Glade
 
 > Last updated: 2026-02-22
-> Status: Phase 1–4 complete. Stripe billing done. Remaining: Vercel deploy, Resend email, Phase 5 (SaaS), spec gaps (see unchecked items)
+> Status: Phases 1–5 feature-complete. All code-only items done. Remaining: external service setup (Vercel, Resend, Sentry) and human decisions.
 
 ## Objective
 
@@ -24,8 +24,8 @@ Build **Glade**, a decision-centric governance platform for social purpose organ
 - [x] Set up NextAuth authentication (credentials, magic link, Google, Microsoft)
 - [x] Set up Neon PostgreSQL database and Drizzle ORM
 - [x] Create initial database schema (15 tables) and migration system
-- [ ] Configure Vercel deployment pipeline
-- [ ] Set up Resend for transactional email (provider configured, needs API key)
+- [ ] Configure Vercel deployment pipeline — see [Manual Deployment Steps](#manual-deployment-steps)
+- [ ] Set up Resend for transactional email — see [Manual Deployment Steps](#manual-deployment-steps)
 - [x] Establish UI component foundation (custom design system, lucide-react, clsx)
 - [x] Update CLAUDE.md with actual project conventions
 - [x] Build UI prototype with mock data (landing, dashboard, decisions, actions, meetings, glade canvas)
@@ -244,7 +244,7 @@ Build **Glade**, a decision-centric governance platform for social purpose organ
 - [x] Paid tier (Canopy): unlimited decisions, 25 members, AI, live meetings, unlimited spaces
 - [x] Feature gate enforcement (server-side + client-side upgrade prompts)
 - [x] Plan definitions and pricing display on landing page
-- [ ] Charity/social enterprise discounted pricing (coupon codes or separate Stripe price)
+- [ ] Charity/social enterprise discounted pricing — needs Stripe coupon or separate price ID
 - [x] Billing management UI (settings page with plan display, Stripe portal link)
 - [x] Stripe portal for self-service upgrade, downgrade, invoice access
 
@@ -263,16 +263,18 @@ Build **Glade**, a decision-centric governance platform for social purpose organ
 
 ### 5.4 API & Integrations
 
-- [x] REST API for programmatic access to decision log and governance documents (API key auth + /api/v1/ endpoints)
+- [x] REST API for programmatic access (`/api/v1/` — decisions, documents, meetings, actions)
+- [x] API key authentication (SHA-256 hashed, settings UI for CRUD)
 - [x] Webhook support for decision events (HMAC-SHA256 signed payloads, settings UI)
-- [x] Export: PDF minutes, Word governance documents (CSV decision export + Markdown document export + Word .doc export done)
+- [x] Export: CSV decisions, Markdown documents, Word (.doc) documents, PDF meeting minutes
 - [x] Import: Markdown governance documents (convert to Tiptap JSON on ingest)
-- [ ] Calendar integration for meeting scheduling and review reminders
+- [ ] Calendar integration for meeting scheduling and review reminders — needs external API (Google/Outlook)
 
 ### 5.5 Infrastructure
 
-- [ ] File storage (Vercel Blob or S3) for meeting attachments, document exports
-- [ ] Error monitoring (Sentry) and performance analytics (Vercel Analytics)
+- [ ] File storage (Vercel Blob or S3) — needs service account setup
+- [ ] Error monitoring (Sentry) — needs DSN
+- [ ] Performance analytics (Vercel Analytics) — needs Vercel deployment
 
 ---
 
@@ -283,6 +285,99 @@ Build **Glade**, a decision-centric governance platform for social purpose organ
 - [x] Seed covers all tables: decisions, meetings (with agenda items + notes), actions (including completed), documents (with Tiptap JSON versions + section links), proposals (with comments + references), topics (with promotion), AI insights
 - [x] "Clear all data" admin action in Settings — deletes all content, preserves space + members
 - [x] Decision `conditions` and `createdBy` fields populated
+
+---
+
+## Manual Deployment Steps
+
+These items cannot be automated by Claude — they require account credentials, browser-based dashboards, or human decisions.
+
+### 1. Vercel Deployment
+
+```
+1. Install Vercel CLI:          npm i -g vercel
+2. Login:                       vercel login
+3. Link project:                vercel link
+4. Set environment variables:   vercel env add <NAME>
+5. Deploy:                      vercel --prod
+```
+
+**Required environment variables** (set all in Vercel dashboard or via `vercel env add`):
+
+| Variable | Source | Required |
+|----------|--------|----------|
+| `DATABASE_URL` | Neon dashboard → Connection string (pooled) | Yes |
+| `AUTH_SECRET` | Generate with `openssl rand -base64 32` | Yes |
+| `AUTH_URL` | Your production URL, e.g. `https://glade.app` | Yes |
+| `AUTH_GOOGLE_ID` | Google Cloud Console → OAuth 2.0 credentials | For Google login |
+| `AUTH_GOOGLE_SECRET` | Google Cloud Console → OAuth 2.0 credentials | For Google login |
+| `AUTH_MICROSOFT_ENTRA_ID_ID` | Azure portal → App registrations | For Microsoft login |
+| `AUTH_MICROSOFT_ENTRA_ID_SECRET` | Azure portal → App registrations | For Microsoft login |
+| `AUTH_MICROSOFT_ENTRA_ID_ISSUER` | Azure portal → App registrations | For Microsoft login |
+| `AUTH_RESEND_KEY` | Resend dashboard → API Keys | For magic link email |
+| `ANTHROPIC_API_KEY` | Anthropic Console → API Keys | For AI features |
+| `STRIPE_SECRET_KEY` | Stripe dashboard → Developers → API keys | For billing |
+| `STRIPE_WEBHOOK_SECRET` | Stripe dashboard → Developers → Webhooks → Signing secret | For billing |
+| `NEXT_PUBLIC_STRIPE_PRO_MONTHLY_PRICE_ID` | Stripe dashboard → Products → Price ID | For billing |
+| `NEXT_PUBLIC_APP_URL` | Your production URL, e.g. `https://glade.app` | For Stripe redirects |
+
+**Post-deploy checklist:**
+- [ ] Set `AUTH_TRUST_HOST=true` in Vercel env vars (required for NextAuth on Vercel)
+- [ ] Update Google OAuth redirect URI to `https://your-domain.vercel.app/api/auth/callback/google`
+- [ ] Update Microsoft redirect URI to `https://your-domain.vercel.app/api/auth/callback/azure-ad`
+- [ ] Create Stripe webhook endpoint pointing to `https://your-domain.vercel.app/api/webhooks/stripe`
+- [ ] Run seed if needed: set `DATABASE_URL` locally and run `npx tsx src/db/seed.ts`
+- [ ] Verify all auth methods work on production
+
+### 2. Resend Email Setup
+
+```
+1. Create account:     https://resend.com/signup
+2. Verify domain:      Resend dashboard → Domains → Add domain → add DNS records
+3. Create API key:     Resend dashboard → API Keys → Create
+4. Set env var:        AUTH_RESEND_KEY=re_xxxxx (in .env.local and Vercel)
+5. Test:               Try magic link sign-in on the app
+```
+
+The NextAuth Resend provider is already configured in `src/lib/auth.config.ts` — it activates automatically when `AUTH_RESEND_KEY` is set.
+
+### 3. Stripe Billing Setup
+
+```
+1. Create products:    Stripe dashboard → Products → Add product
+   - "Canopy" plan:    Monthly recurring, set your price
+   - Copy the Price ID (price_xxx)
+2. Set env vars:
+   - STRIPE_SECRET_KEY=sk_live_xxx
+   - STRIPE_WEBHOOK_SECRET=whsec_xxx
+   - NEXT_PUBLIC_STRIPE_PRO_MONTHLY_PRICE_ID=price_xxx
+   - NEXT_PUBLIC_APP_URL=https://your-domain.com
+3. Create webhook:     Stripe dashboard → Developers → Webhooks
+   - Endpoint URL:     https://your-domain.com/api/webhooks/stripe
+   - Events:           checkout.session.completed, customer.subscription.updated,
+                        customer.subscription.deleted
+4. Charity pricing:    Create a Stripe Coupon (e.g. 50% off) and share coupon code
+```
+
+### 4. Error Monitoring (Optional)
+
+```
+1. Create Sentry project:  https://sentry.io → Create project → Next.js
+2. Install SDK:             npm install @sentry/nextjs
+3. Run setup wizard:        npx @sentry/wizard@latest -i nextjs
+4. Set SENTRY_DSN in env
+```
+
+### 5. Vercel Analytics (Optional)
+
+```
+1. Enable in Vercel dashboard → project → Analytics tab → Enable
+2. Install:   npm install @vercel/analytics
+3. Add to layout:  import { Analytics } from '@vercel/analytics/react'
+                    <Analytics /> in root layout
+```
+
+---
 
 ## Decisions Made
 
