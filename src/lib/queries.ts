@@ -21,6 +21,7 @@ import {
   insights,
   spaces,
   subscriptions,
+  apiKeys,
 } from "@/db/schema";
 import { eq, and, desc, asc, count, sql, inArray } from "drizzle-orm";
 
@@ -995,4 +996,23 @@ export async function getGovernanceHealthStats(spaceId: string) {
     documentCurrency: { total: docRows.length, stale: staleDocCount },
     medianDaysToDecision,
   };
+}
+
+// ============================================================
+// API Keys
+// ============================================================
+
+export async function getApiKeys(spaceId: string) {
+  return db
+    .select({
+      id: apiKeys.id,
+      name: apiKeys.name,
+      keyPrefix: apiKeys.keyPrefix,
+      permissions: apiKeys.permissions,
+      lastUsedAt: apiKeys.lastUsedAt,
+      createdAt: apiKeys.createdAt,
+    })
+    .from(apiKeys)
+    .where(eq(apiKeys.spaceId, spaceId))
+    .orderBy(desc(apiKeys.createdAt));
 }

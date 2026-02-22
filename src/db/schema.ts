@@ -579,6 +579,29 @@ export const subscriptions = pgTable(
   ]
 );
 
+// --- API Keys ---
+
+export const apiKeys = pgTable(
+  "api_keys",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    spaceId: uuid("space_id")
+      .notNull()
+      .references(() => spaces.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 255 }).notNull(),
+    keyHash: varchar("key_hash", { length: 64 }).notNull(),
+    keyPrefix: varchar("key_prefix", { length: 12 }).notNull(),
+    permissions: varchar("permissions", { length: 20 }).default("read").notNull(),
+    lastUsedAt: timestamp("last_used_at", { mode: "date" }),
+    expiresAt: timestamp("expires_at", { mode: "date" }),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (ak) => [
+    index("api_keys_space_idx").on(ak.spaceId),
+    index("api_keys_hash_idx").on(ak.keyHash),
+  ]
+);
+
 // ============================================================
 // Relations
 // ============================================================

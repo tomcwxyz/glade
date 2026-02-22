@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { getCurrentSpace, requireUser } from "@/lib/space";
-import { getSpaceMembers, getSpaceSubscription, getDecisionCount, getMemberCount } from "@/lib/queries";
+import { getSpaceMembers, getSpaceSubscription, getDecisionCount, getMemberCount, getApiKeys } from "@/lib/queries";
 
 export const metadata: Metadata = { title: "Settings" };
 import { isAiAvailable, isAiEnabled } from "@/lib/ai";
@@ -8,18 +8,20 @@ import { getSpacePlan } from "@/lib/billing";
 import { PLAN_LIMITS, PLAN_DISPLAY } from "@/lib/plans";
 import { Settings } from "lucide-react";
 import { SpaceSettingsForm } from "./settings-form";
+import { ApiKeys } from "./api-keys";
 
 export default async function SettingsPage() {
   const user = await requireUser();
   const space = await getCurrentSpace();
   if (!space) return null;
 
-  const [members, subscription, planTier, decisionCount, memberCount] = await Promise.all([
+  const [members, subscription, planTier, decisionCount, memberCount, apiKeys] = await Promise.all([
     getSpaceMembers(space.id),
     getSpaceSubscription(space.id),
     getSpacePlan(space.id),
     getDecisionCount(space.id),
     getMemberCount(space.id),
+    getApiKeys(space.id),
   ]);
 
   const currentMember = members.find((m) => m.userId === user.id || m.email === user.email);
@@ -62,6 +64,12 @@ export default async function SettingsPage() {
         decisionCount={decisionCount}
         decisionLimit={PLAN_LIMITS[planTier].maxDecisions}
       />
+
+      {isAdmin && (
+        <div className="mt-12">
+          <ApiKeys keys={apiKeys} />
+        </div>
+      )}
     </div>
   );
 }
