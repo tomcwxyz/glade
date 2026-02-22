@@ -265,7 +265,7 @@ Build **Glade**, a decision-centric governance platform for social purpose organ
 
 - [ ] REST API for programmatic access to decision log and governance documents
 - [ ] Webhook support for decision events
-- [ ] Export: PDF minutes, Word governance documents, Markdown documents (CSV decision export done)
+- [ ] Export: PDF minutes, Word governance documents (CSV decision export + Markdown document export done)
 - [ ] Import: Markdown governance documents (convert to Tiptap JSON on ingest)
 - [ ] Calendar integration for meeting scheduling and review reminders
 

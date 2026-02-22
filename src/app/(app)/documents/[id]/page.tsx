@@ -3,7 +3,7 @@ import { getDocumentById, getDecisionsList } from "@/lib/queries";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/breadcrumbs";
-import { Clock, Edit, FileText, History } from "lucide-react";
+import { Clock, Download, Edit, FileText, History } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { DocumentStatusActions } from "./document-status-actions";
 import { DocumentWithTrail } from "./document-with-trail";
@@ -97,6 +97,14 @@ export default async function DocumentDetailPage({
               <History size={14} />
               History
             </Link>
+            <a
+              href={`/api/documents/${doc.id}/export`}
+              download
+              className="flex items-center gap-1.5 px-3 py-2 text-sm bg-paper-deep border border-border rounded-lg text-bark-muted hover:text-bark hover:bg-paper-warm transition-colors"
+            >
+              <Download size={14} />
+              Markdown
+            </a>
           </div>
         </div>
       </header>
