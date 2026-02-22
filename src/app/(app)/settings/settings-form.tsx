@@ -328,7 +328,8 @@ export function SpaceSettingsForm({
           </div>
           <p className="text-sm text-bark-muted mb-5">
             Make parts of your governance record publicly accessible at{" "}
-            <span className="font-medium text-bark">/public/{slug}</span>
+            <span className="font-medium text-bark">/public/{slug}</span>.
+            You can also embed the decision log on your website.
           </p>
 
           <div className="space-y-4">
@@ -388,6 +389,18 @@ export function SpaceSettingsForm({
               </div>
             </label>
           </div>
+
+          {publicDecisionLog && (
+            <div className="mt-5 pt-5 border-t border-border">
+              <h3 className="text-sm font-medium text-bark mb-2">Embed code</h3>
+              <p className="text-xs text-bark-muted mb-2">
+                Add this to your website to embed your decision log:
+              </p>
+              <code className="block text-xs bg-paper-deep border border-border rounded-lg p-3 text-bark-muted break-all select-all">
+                {`<iframe src="${typeof window !== "undefined" ? window.location.origin : ""}/embed/${slug}/decisions" width="100%" height="500" frameborder="0"></iframe>`}
+              </code>
+            </div>
+          )}
         </section>
       )}
 
