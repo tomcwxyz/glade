@@ -231,7 +231,7 @@ Build **Glade**, a decision-centric governance platform for social purpose organ
 - [x] AI-generated meeting summary (when AI enabled)
 - [x] Decisions automatically added to decision log from live meeting
 - [x] Actions automatically created and assigned from live meeting
-- [ ] PDF export of meeting record (deferred)
+- [x] PDF export of meeting record (print-friendly page at `/meetings/[id]/print`)
 
 ---
 

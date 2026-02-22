@@ -267,6 +267,7 @@ export async function getMeetingById(spaceId: string, meetingId: string) {
       title: decisions.title,
       status: decisions.status,
       method: decisions.method,
+      outcome: decisions.outcome,
     })
     .from(meetingDecisions)
     .innerJoin(decisions, eq(decisions.id, meetingDecisions.decisionId))

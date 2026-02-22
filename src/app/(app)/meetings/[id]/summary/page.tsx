@@ -6,6 +6,7 @@ import {
   Calendar,
   CheckCircle2,
   CircleDot,
+  Printer,
   SkipForward,
   Users,
 } from "lucide-react";
@@ -68,12 +69,21 @@ export default async function MeetingSummaryPage({
             {formatDate(meeting.date.toISOString())}
           </span>
         </div>
-        <h1
-          className="text-2xl font-medium tracking-tight mb-2"
-          style={{ fontFamily: "var(--font-display)" }}
-        >
-          {meeting.title} — Summary
-        </h1>
+        <div className="flex items-center justify-between gap-4">
+          <h1
+            className="text-2xl font-medium tracking-tight mb-2"
+            style={{ fontFamily: "var(--font-display)" }}
+          >
+            {meeting.title} — Summary
+          </h1>
+          <Link
+            href={`/meetings/${meeting.id}/print`}
+            className="flex items-center gap-1.5 px-3 py-2 text-sm bg-paper-deep border border-border rounded-lg text-bark-muted hover:text-bark hover:bg-paper-warm transition-colors shrink-0"
+          >
+            <Printer size={14} />
+            Print
+          </Link>
+        </div>
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-10 lg:gap-14">
