@@ -19,6 +19,7 @@ import {
   proposalReferences,
   topics,
   insights,
+  spaces,
   subscriptions,
 } from "@/db/schema";
 import { eq, and, desc, asc, count, sql, inArray } from "drizzle-orm";
@@ -847,6 +848,67 @@ export async function getMemberCount(spaceId: string) {
 // ============================================================
 // Governance Health
 // ============================================================
+
+export async function getPublicSpace(slug: string) {
+  const [space] = await db
+    .select({
+      id: spaces.id,
+      name: spaces.name,
+      slug: spaces.slug,
+      description: spaces.description,
+      settings: spaces.settings,
+    })
+    .from(spaces)
+    .where(eq(spaces.slug, slug))
+    .limit(1);
+
+  return space || null;
+}
+
+export async function getPublicDecisions(spaceId: string) {
+  const rows = await db
+    .select({
+      id: decisions.id,
+      number: decisions.number,
+      title: decisions.title,
+      date: decisions.date,
+      status: decisions.status,
+      method: decisions.method,
+      outcome: decisions.outcome,
+      description: decisions.description,
+    })
+    .from(decisions)
+    .where(eq(decisions.spaceId, spaceId))
+    .orderBy(desc(decisions.date), desc(decisions.number));
+
+  const ids = rows.map((d) => d.id);
+  if (ids.length === 0) return [];
+
+  const allTags = await db
+    .select({ decisionId: decisionTags.decisionId, name: tags.name })
+    .from(decisionTags)
+    .innerJoin(tags, eq(tags.id, decisionTags.tagId))
+    .where(inArray(decisionTags.decisionId, ids));
+
+  return rows.map((d) => ({
+    ...d,
+    tags: allTags.filter((t) => t.decisionId === d.id).map((t) => t.name),
+  }));
+}
+
+export async function getPublicDocuments(spaceId: string) {
+  return db
+    .select({
+      id: documents.id,
+      title: documents.title,
+      type: documents.type,
+      currentVersion: documents.currentVersion,
+      updatedAt: documents.updatedAt,
+    })
+    .from(documents)
+    .where(and(eq(documents.spaceId, spaceId), eq(documents.status, "published")))
+    .orderBy(desc(documents.updatedAt));
+}
 
 export async function getGovernanceHealthStats(spaceId: string) {
   const [participantRows, methodRows, revisionRows, docRows, proposalRows, memberCount] =

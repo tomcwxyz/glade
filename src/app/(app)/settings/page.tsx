@@ -49,6 +49,8 @@ export default async function SettingsPage() {
         isAdmin={isAdmin}
         aiAvailable={isAiAvailable()}
         aiEnabled={isAiEnabled(space.settings)}
+        publicDecisionLog={((space.settings as Record<string, unknown>) || {}).publicDecisionLog === true}
+        publicDocuments={((space.settings as Record<string, unknown>) || {}).publicDocuments === true}
         planTier={planTier}
         planName={PLAN_DISPLAY[planTier].name}
         hasStripeSubscription={!!subscription?.stripeSubscriptionId}

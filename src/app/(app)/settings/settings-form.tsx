@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useSearchParams } from "next/navigation";
-import { Loader2, TriangleAlert, Sparkles, CreditCard, ArrowUpRight } from "lucide-react";
+import { Loader2, TriangleAlert, Sparkles, CreditCard, ArrowUpRight, Globe } from "lucide-react";
 import { updateSpace, deleteSpace, updateSpaceSettings, clearSpaceData } from "@/lib/space-actions";
 import { createCheckoutSession, createCustomerPortalSession } from "@/lib/billing-actions";
 import { inputClass } from "@/lib/utils";
@@ -15,6 +15,8 @@ export function SpaceSettingsForm({
   isAdmin,
   aiAvailable,
   aiEnabled,
+  publicDecisionLog,
+  publicDocuments,
   planTier,
   planName,
   hasStripeSubscription,
@@ -31,6 +33,8 @@ export function SpaceSettingsForm({
   isAdmin: boolean;
   aiAvailable: boolean;
   aiEnabled: boolean;
+  publicDecisionLog: boolean;
+  publicDocuments: boolean;
   planTier: PlanTier;
   planName: string;
   hasStripeSubscription: boolean;
@@ -310,6 +314,80 @@ export function SpaceSettingsForm({
               {aiEnabled ? "AI features enabled" : "AI features disabled"}
             </span>
           </label>
+        </section>
+      )}
+
+      {/* Public Visibility */}
+      {isAdmin && (
+        <section className="border border-border rounded-xl p-6">
+          <div className="flex items-center gap-2 mb-2">
+            <Globe size={16} className="text-canopy" />
+            <h2 className="text-base font-medium text-bark" style={{ fontFamily: "var(--font-display)" }}>
+              Public Visibility
+            </h2>
+          </div>
+          <p className="text-sm text-bark-muted mb-5">
+            Make parts of your governance record publicly accessible at{" "}
+            <span className="font-medium text-bark">/public/{slug}</span>
+          </p>
+
+          <div className="space-y-4">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <button
+                type="button"
+                role="switch"
+                aria-checked={publicDecisionLog}
+                onClick={() => {
+                  startTransition(async () => {
+                    const result = await updateSpaceSettings({ publicDecisionLog: !publicDecisionLog });
+                    if (result?.error) setError(result.error);
+                  });
+                }}
+                disabled={isPending}
+                className={`relative w-10 h-5.5 rounded-full transition-colors ${
+                  publicDecisionLog ? "bg-canopy" : "bg-paper-deep border border-border"
+                }`}
+              >
+                <span
+                  className={`absolute top-0.5 left-0.5 w-4.5 h-4.5 rounded-full bg-paper shadow transition-transform ${
+                    publicDecisionLog ? "translate-x-[18px]" : ""
+                  }`}
+                />
+              </button>
+              <div>
+                <span className="text-sm text-bark block">Public decision log</span>
+                <span className="text-xs text-bark-muted">Anyone can view your decisions without signing in</span>
+              </div>
+            </label>
+
+            <label className="flex items-center gap-3 cursor-pointer">
+              <button
+                type="button"
+                role="switch"
+                aria-checked={publicDocuments}
+                onClick={() => {
+                  startTransition(async () => {
+                    const result = await updateSpaceSettings({ publicDocuments: !publicDocuments });
+                    if (result?.error) setError(result.error);
+                  });
+                }}
+                disabled={isPending}
+                className={`relative w-10 h-5.5 rounded-full transition-colors ${
+                  publicDocuments ? "bg-canopy" : "bg-paper-deep border border-border"
+                }`}
+              >
+                <span
+                  className={`absolute top-0.5 left-0.5 w-4.5 h-4.5 rounded-full bg-paper shadow transition-transform ${
+                    publicDocuments ? "translate-x-[18px]" : ""
+                  }`}
+                />
+              </button>
+              <div>
+                <span className="text-sm text-bark block">Public governance documents</span>
+                <span className="text-xs text-bark-muted">Published documents visible to the public</span>
+              </div>
+            </label>
+          </div>
         </section>
       )}
 

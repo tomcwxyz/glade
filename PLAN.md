@@ -250,9 +250,9 @@ Build **Glade**, a decision-centric governance platform for social purpose organ
 
 ### 5.2 Transparency Layer
 
-- [ ] Per-space setting: public decision log, public documents, or fully private
+- [x] Per-space setting: public decision log, public documents, or fully private
 - [ ] Configurable per-decision and per-document visibility
-- [ ] Public-facing read-only pages with clean presentation
+- [x] Public-facing read-only pages with clean presentation
 - [ ] Embeddable decision log widget
 
 ### 5.3 Onboarding
