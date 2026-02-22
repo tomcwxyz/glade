@@ -22,6 +22,7 @@ import {
   spaces,
   subscriptions,
   apiKeys,
+  webhooks,
 } from "@/db/schema";
 import { eq, and, desc, asc, count, sql, inArray } from "drizzle-orm";
 
@@ -1015,4 +1016,20 @@ export async function getApiKeys(spaceId: string) {
     .from(apiKeys)
     .where(eq(apiKeys.spaceId, spaceId))
     .orderBy(desc(apiKeys.createdAt));
+}
+
+export async function getWebhooks(spaceId: string) {
+  return db
+    .select({
+      id: webhooks.id,
+      url: webhooks.url,
+      events: webhooks.events,
+      active: webhooks.active,
+      lastDeliveryAt: webhooks.lastDeliveryAt,
+      lastDeliveryStatus: webhooks.lastDeliveryStatus,
+      createdAt: webhooks.createdAt,
+    })
+    .from(webhooks)
+    .where(eq(webhooks.spaceId, spaceId))
+    .orderBy(desc(webhooks.createdAt));
 }

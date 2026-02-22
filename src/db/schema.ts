@@ -579,6 +579,26 @@ export const subscriptions = pgTable(
   ]
 );
 
+// --- Webhooks ---
+
+export const webhooks = pgTable(
+  "webhooks",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    spaceId: uuid("space_id")
+      .notNull()
+      .references(() => spaces.id, { onDelete: "cascade" }),
+    url: text("url").notNull(),
+    secret: varchar("secret", { length: 64 }).notNull(),
+    events: jsonb("events").default(["decision.created", "decision.updated", "decision.status_changed"]).notNull(),
+    active: boolean("active").default(true).notNull(),
+    lastDeliveryAt: timestamp("last_delivery_at", { mode: "date" }),
+    lastDeliveryStatus: integer("last_delivery_status"),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (w) => [index("webhooks_space_idx").on(w.spaceId)]
+);
+
 // --- API Keys ---
 
 export const apiKeys = pgTable(

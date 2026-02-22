@@ -7,6 +7,7 @@ import { decisions, decisionLinks, decisionTags, tags, actions, meetingDecisions
 import { getCurrentSpace, requireUser } from "@/lib/space";
 import { getNextDecisionNumber } from "@/lib/queries";
 import { canAddDecision } from "@/lib/billing";
+import { fireWebhooks } from "@/lib/webhooks";
 
 export async function createDecision(formData: FormData) {
   const user = await requireUser();
@@ -100,6 +101,14 @@ export async function createDecision(formData: FormData) {
     );
   }
 
+  fireWebhooks(space.id, "decision.created", {
+    id: decision.id,
+    number: decision.number,
+    title,
+    status,
+    method,
+  });
+
   redirect(`/decisions/${decision.number}`);
 }
 
@@ -172,6 +181,14 @@ export async function updateDecision(decisionId: string, formData: FormData) {
     );
   }
 
+  fireWebhooks(space.id, "decision.updated", {
+    id: decisionId,
+    number: existing.number,
+    title,
+    status,
+    method,
+  });
+
   redirect(`/decisions/${existing.number}`);
 }
 
@@ -186,6 +203,11 @@ export async function updateDecisionStatus(
     .update(decisions)
     .set({ status, updatedAt: new Date() })
     .where(and(eq(decisions.id, decisionId), eq(decisions.spaceId, space.id)));
+
+  fireWebhooks(space.id, "decision.status_changed", {
+    id: decisionId,
+    status,
+  });
 }
 
 export async function addDecisionLink(

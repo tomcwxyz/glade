@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { getCurrentSpace, requireUser } from "@/lib/space";
-import { getSpaceMembers, getSpaceSubscription, getDecisionCount, getMemberCount, getApiKeys } from "@/lib/queries";
+import { getSpaceMembers, getSpaceSubscription, getDecisionCount, getMemberCount, getApiKeys, getWebhooks } from "@/lib/queries";
 
 export const metadata: Metadata = { title: "Settings" };
 import { isAiAvailable, isAiEnabled } from "@/lib/ai";
@@ -9,19 +9,21 @@ import { PLAN_LIMITS, PLAN_DISPLAY } from "@/lib/plans";
 import { Settings } from "lucide-react";
 import { SpaceSettingsForm } from "./settings-form";
 import { ApiKeys } from "./api-keys";
+import { Webhooks } from "./webhooks";
 
 export default async function SettingsPage() {
   const user = await requireUser();
   const space = await getCurrentSpace();
   if (!space) return null;
 
-  const [members, subscription, planTier, decisionCount, memberCount, apiKeys] = await Promise.all([
+  const [members, subscription, planTier, decisionCount, memberCount, apiKeys, spaceWebhooks] = await Promise.all([
     getSpaceMembers(space.id),
     getSpaceSubscription(space.id),
     getSpacePlan(space.id),
     getDecisionCount(space.id),
     getMemberCount(space.id),
     getApiKeys(space.id),
+    getWebhooks(space.id),
   ]);
 
   const currentMember = members.find((m) => m.userId === user.id || m.email === user.email);
@@ -66,8 +68,9 @@ export default async function SettingsPage() {
       />
 
       {isAdmin && (
-        <div className="mt-12">
+        <div className="mt-12 space-y-8">
           <ApiKeys keys={apiKeys} />
+          <Webhooks hooks={spaceWebhooks} />
         </div>
       )}
     </div>
