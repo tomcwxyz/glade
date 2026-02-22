@@ -36,17 +36,17 @@ Build **Glade**, a decision-centric governance platform for social purpose organ
 
 ### 1.1 Data Model & Schema
 
-- [ ] `spaces` table — organisation container (name, slug, description, settings, created_at)
-- [ ] `space_members` table — membership with roles (admin, member, observer)
-- [ ] `decisions` table — title, description, rationale, method, outcome, status, participants, date, conditions, tags, review_date, space_id
-- [ ] `decision_links` table — relationships between decisions (supersedes, relates_to, amends)
-- [ ] `meetings` table — date, type, notes, space_id
-- [ ] `meeting_attendees` table — meeting ↔ member join
-- [ ] `meeting_agenda_items` table — ordered items with type (for_decision, for_discussion, for_information)
-- [ ] `meeting_decisions` table — meeting ↔ decision join
-- [ ] `actions` table — description, owner, due_date, status (open, in_progress, complete, overdue), decision_id
-- [ ] `tags` table + `decision_tags` join — theme tagging (finance, HR, strategy, etc.)
-- [ ] Run initial migration against Neon
+- [x] `spaces` table — organisation container (name, slug, description, settings, created_at)
+- [x] `space_members` table — membership with roles (admin, member, observer)
+- [x] `decisions` table — title, description, rationale, method, outcome, status, participants, date, conditions, tags, review_date, space_id
+- [x] `decision_links` table — relationships between decisions (supersedes, relates_to, amends)
+- [x] `meetings` table — date, type, notes, space_id
+- [x] `meeting_attendees` table — meeting ↔ member join
+- [x] `meeting_agenda_items` table — ordered items with type (for_decision, for_discussion, for_information)
+- [x] `meeting_decisions` table — meeting ↔ decision join
+- [x] `actions` table — description, owner, due_date, status (open, in_progress, complete, overdue), decision_id
+- [x] `tags` table + `decision_tags` join — theme tagging (finance, HR, strategy, etc.)
+- [x] Run initial migration against Neon
 
 ### 1.2 Space Management
 
@@ -221,8 +221,8 @@ Build **Glade**, a decision-centric governance platform for social purpose organ
 - [x] Guided consent flow: present → clarify → react → object → integrate → decide
 - [x] Majority vote flow: present → vote → results → record
 - [x] Other methods: advice process, lazy consensus (simplified 2-stage flow)
-- [ ] Delegation records: scope, constraints, reporting requirements, review date (spec §4.2 — currently just a method label)
-- [ ] Advice process consultation tracking: who was consulted, what input was given (spec §4.2 — currently just a 2-stage flow)
+- [x] Delegation records: scope, constraints, reporting requirements, review date (spec §4.2 — currently just a method label)
+- [x] Advice process consultation tracking: who was consulted, what input was given (spec §4.2 — currently just a 2-stage flow)
 - [ ] Configurable thresholds per method (deferred)
 
 ### 4.6 Post-Meeting

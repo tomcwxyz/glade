@@ -3,6 +3,8 @@
 import type { MeetingSessionState } from "@/lib/meeting-state";
 import { ConsentFlow } from "./consent-flow";
 import { VoteFlow } from "./vote-flow";
+import { AdviceFlow } from "./advice-flow";
+import { DelegationFlow } from "./delegation-flow";
 import { TemperatureCheckFlow } from "./temperature-check-flow";
 import {
   advanceDecisionStage,
@@ -43,9 +45,9 @@ export function DecisionFlowContainer({
     [meetingId, mutate]
   );
 
-  const handleTempSubmit = useCallback(
-    async (value: string) => {
-      const result = await submitResponse(meetingId, value);
+  const handleSubmitResponse = useCallback(
+    async (value: string, comment?: string) => {
+      const result = await submitResponse(meetingId, value, comment);
       if ("state" in result && result.state) mutate(result.state);
     },
     [meetingId, mutate]
@@ -65,7 +67,7 @@ export function DecisionFlowContainer({
         flow={flow}
         state={state}
         isFacilitator={isFacilitator}
-        onSubmit={handleTempSubmit}
+        onSubmit={(value) => handleSubmitResponse(value)}
         onClose={handleCloseFlow}
       />
     );
@@ -99,7 +101,31 @@ export function DecisionFlowContainer({
     );
   }
 
-  // Advice process / lazy consensus: simplified flow
+  if (flow.method === "delegation") {
+    return (
+      <DelegationFlow
+        flow={flow}
+        isFacilitator={isFacilitator}
+        onAdvanceStage={handleAdvanceStage}
+        onRecord={handleRecordAndAdvance}
+      />
+    );
+  }
+
+  if (flow.method === "advice_process") {
+    return (
+      <AdviceFlow
+        flow={flow}
+        state={state}
+        isFacilitator={isFacilitator}
+        onAdvanceStage={handleAdvanceStage}
+        onSubmitAdvice={handleSubmitResponse}
+        onRecord={handleRecordAndAdvance}
+      />
+    );
+  }
+
+  // Lazy consensus: simplified flow
   return (
     <div className="p-4 bg-paper-warm rounded-xl border border-border">
       <h3 className="text-sm font-medium text-bark mb-2 capitalize">
