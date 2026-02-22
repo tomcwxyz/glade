@@ -4,9 +4,10 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { createDocument, updateDocument, autoSaveDocument } from "@/lib/document-actions";
 import { inputClass } from "@/lib/utils";
 import { TiptapEditor } from "@/components/tiptap-editor";
-import { Check, Cloud, CloudOff, Loader2 } from "lucide-react";
+import { Check, Cloud, CloudOff, Loader2, Upload } from "lucide-react";
 import Link from "next/link";
 import type { JSONContent } from "@tiptap/react";
+import { markdownToTiptap } from "@/lib/tiptap-utils";
 
 const TYPES = [
   { value: "constitution", label: "Constitution" },
@@ -60,6 +61,7 @@ export function DocumentForm({ document }: { document?: DocumentData }) {
   const [content, setContent] = useState<JSONContent | null>(
     document?.content || null
   );
+  const [editorKey, setEditorKey] = useState(0);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -174,9 +176,34 @@ export function DocumentForm({ document }: { document?: DocumentData }) {
             <label className="block text-sm font-medium text-bark">
               Content
             </label>
-            {isEditing && <SaveStatusIndicator status={saveStatus} />}
+            <div className="flex items-center gap-3">
+              {isEditing && <SaveStatusIndicator status={saveStatus} />}
+              <label className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-paper-deep border border-border rounded-lg text-bark-muted hover:text-bark hover:bg-paper-warm transition-colors cursor-pointer">
+                <Upload size={12} />
+                Import Markdown
+                <input
+                  type="file"
+                  accept=".md,.markdown,text/markdown"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                      const md = reader.result as string;
+                      const tiptap = markdownToTiptap(md) as JSONContent;
+                      setContent(tiptap);
+                      setEditorKey((k) => k + 1);
+                    };
+                    reader.readAsText(file);
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+            </div>
           </div>
           <TiptapEditor
+            key={editorKey}
             content={content}
             onChange={handleContentChange}
             placeholder="Start writing your document…"
