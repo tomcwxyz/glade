@@ -27,7 +27,7 @@ interface AppShellProps {
 export function AppShell({ children, currentSpace, userSpaces }: AppShellProps) {
   return (
     <div className="flex flex-col md:flex-row h-screen overflow-hidden">
-      <MobileNav spaceName={currentSpace.name} />
+      <MobileNav currentSpace={currentSpace} userSpaces={userSpaces} />
       <div className="hidden md:flex">
         <Sidebar currentSpace={currentSpace} userSpaces={userSpaces} />
       </div>
