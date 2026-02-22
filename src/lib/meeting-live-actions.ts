@@ -248,6 +248,20 @@ export async function withdrawSpeaker(meetingId: string, participantId?: string)
   });
 }
 
+export async function cancelDecisionFlow(meetingId: string) {
+  return withMeetingState(meetingId, async ({ state }) => {
+    const newState: MeetingSessionState = {
+      ...state,
+      phase: "agenda_item",
+      decisionFlow: null,
+      version: state.version + 1,
+      updatedAt: new Date().toISOString(),
+    };
+    await saveState(meetingId, newState);
+    return { state: newState };
+  });
+}
+
 export async function recordMeetingDecision(
   meetingId: string,
   title: string,

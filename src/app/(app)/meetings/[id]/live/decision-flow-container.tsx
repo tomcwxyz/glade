@@ -3,10 +3,13 @@
 import type { MeetingSessionState } from "@/lib/meeting-state";
 import { ConsentFlow } from "./consent-flow";
 import { VoteFlow } from "./vote-flow";
+import { TemperatureCheckFlow } from "./temperature-check-flow";
 import {
   advanceDecisionStage,
+  submitResponse,
   recordMeetingDecision,
   advanceAgendaItem,
+  cancelDecisionFlow,
 } from "@/lib/meeting-live-actions";
 import { useCallback } from "react";
 
@@ -40,8 +43,33 @@ export function DecisionFlowContainer({
     [meetingId, mutate]
   );
 
+  const handleTempSubmit = useCallback(
+    async (value: string) => {
+      const result = await submitResponse(meetingId, value);
+      if ("state" in result && result.state) mutate(result.state);
+    },
+    [meetingId, mutate]
+  );
+
+  const handleCloseFlow = useCallback(async () => {
+    const result = await cancelDecisionFlow(meetingId);
+    if ("state" in result && result.state) mutate(result.state);
+  }, [meetingId, mutate]);
+
   const flow = state.decisionFlow;
   if (!flow) return null;
+
+  if (flow.method === "temperature_check") {
+    return (
+      <TemperatureCheckFlow
+        flow={flow}
+        state={state}
+        isFacilitator={isFacilitator}
+        onSubmit={handleTempSubmit}
+        onClose={handleCloseFlow}
+      />
+    );
+  }
 
   if (flow.method === "consent") {
     return (

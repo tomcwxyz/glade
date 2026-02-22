@@ -190,6 +190,7 @@ export function startDecisionFlow(
     majority_vote: "present",
     advice_process: "present",
     lazy_consensus: "present",
+    temperature_check: "vote",
   };
 
   return {

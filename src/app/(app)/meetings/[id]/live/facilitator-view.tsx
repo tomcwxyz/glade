@@ -27,6 +27,7 @@ import {
   CheckCircle2,
   List,
   X,
+  Thermometer,
 } from "lucide-react";
 
 const AGENDA_TYPE_LABELS: Record<string, { label: string; color: string }> = {
@@ -329,7 +330,7 @@ export function FacilitatorView({
                 )}
 
                 {/* Navigation */}
-                <div className="flex items-center gap-2 pt-4 border-t border-border">
+                <div className="flex flex-wrap items-center gap-2 pt-4 border-t border-border">
                   <button
                     type="button"
                     onClick={handleAdvance}
@@ -345,6 +346,14 @@ export function FacilitatorView({
                   >
                     <SkipForward size={14} />
                     Skip
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleStartDecisionFlow("temperature_check")}
+                    className="flex items-center gap-1.5 px-3 py-2.5 text-sm text-amber border border-amber/30 rounded-lg hover:bg-amber/5 transition-colors"
+                  >
+                    <Thermometer size={14} />
+                    Temp check
                   </button>
                 </div>
               </div>

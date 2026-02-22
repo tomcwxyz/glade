@@ -1,7 +1,7 @@
 # Plan — Glade
 
-> Last updated: 2026-02-20
-> Status: Phase 1–4 complete. Stripe billing ~95% done. Remaining: Vercel deploy, Resend email, Phase 5 (SaaS), spec gaps (see unchecked items)
+> Last updated: 2026-02-22
+> Status: Phase 1–4 complete. Stripe billing done. Remaining: Vercel deploy, Resend email, Phase 5 (SaaS), spec gaps (see unchecked items)
 
 ## Objective
 
@@ -209,10 +209,10 @@ Build **Glade**, a decision-centric governance platform for social purpose organ
 ### 4.4 Participant View
 
 - [x] Join via share link (public observer view for unauthenticated users)
-- [ ] QR code generation for meeting join link (spec says "QR code or short link")
+- [x] QR code generation for meeting join link (spec says "QR code or short link")
 - [x] Current agenda item and proposal text display
 - [x] Participate in: reactions, votes, objection rounds
-- [ ] Temperature checks for consensus method (quick sentiment pulse before proceeding)
+- [x] Temperature checks for consensus method (quick sentiment pulse before proceeding)
 - [x] Request to speak / speaker stack management
 - [x] Read-only observer view for shared links
 
@@ -246,7 +246,7 @@ Build **Glade**, a decision-centric governance platform for social purpose organ
 - [x] Plan definitions and pricing display on landing page
 - [ ] Charity/social enterprise discounted pricing (coupon codes or separate Stripe price)
 - [x] Billing management UI (settings page with plan display, Stripe portal link)
-- [ ] Stripe portal for self-service upgrade, downgrade, invoice access
+- [x] Stripe portal for self-service upgrade, downgrade, invoice access
 
 ### 5.2 Transparency Layer
 

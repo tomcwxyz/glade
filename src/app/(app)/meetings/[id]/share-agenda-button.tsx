@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { QRCodeSVG } from "qrcode.react";
 import { generateShareLink, revokeShareLink } from "@/lib/meeting-actions";
-import { Share2, Copy, Check, X, Loader2 } from "lucide-react";
+import { Share2, Copy, Check, X, Loader2, Download } from "lucide-react";
 
 export function ShareAgendaButton({
   meetingId,
@@ -73,7 +74,7 @@ export function ShareAgendaButton({
           <p className="text-xs text-bark-muted mb-3">
             Anyone with this link can view the meeting agenda.
           </p>
-          <div className="flex items-center gap-2 mb-3">
+          <div className="flex items-center gap-2 mb-4">
             <input
               type="text"
               readOnly
@@ -89,6 +90,42 @@ export function ShareAgendaButton({
               {copied ? "Copied" : "Copy"}
             </button>
           </div>
+
+          {/* QR code */}
+          <div className="flex flex-col items-center mb-4 p-3 bg-white rounded-lg border border-border">
+            <QRCodeSVG
+              value={`${typeof window !== "undefined" ? window.location.origin : ""}/shared/meeting/${token}`}
+              size={160}
+              level="M"
+              id="meeting-qr"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                const svg = document.getElementById("meeting-qr");
+                if (!svg) return;
+                const svgData = new XMLSerializer().serializeToString(svg);
+                const canvas = document.createElement("canvas");
+                canvas.width = 320;
+                canvas.height = 320;
+                const ctx = canvas.getContext("2d");
+                const img = new Image();
+                img.onload = () => {
+                  ctx?.drawImage(img, 0, 0, 320, 320);
+                  const a = document.createElement("a");
+                  a.download = "meeting-qr.png";
+                  a.href = canvas.toDataURL("image/png");
+                  a.click();
+                };
+                img.src = "data:image/svg+xml;base64," + btoa(svgData);
+              }}
+              className="flex items-center gap-1 mt-2 text-xs text-bark-muted hover:text-bark transition-colors"
+            >
+              <Download size={12} />
+              Download QR code
+            </button>
+          </div>
+
           <button
             type="button"
             onClick={handleRevoke}
