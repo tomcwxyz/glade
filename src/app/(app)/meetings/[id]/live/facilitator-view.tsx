@@ -48,10 +48,12 @@ export function FacilitatorView({
   meetingId,
   meetingTitle,
   agendaItems,
+  voteThreshold,
 }: {
   meetingId: string;
   meetingTitle: string;
   agendaItems: AgendaItem[];
+  voteThreshold?: number;
 }) {
   const router = useRouter();
   const { state, loading, mutate } = useMeetingPoll(meetingId);
@@ -319,6 +321,7 @@ export function FacilitatorView({
                 state={state}
                 mutate={mutate}
                 isFacilitator
+                voteThreshold={voteThreshold}
               />
             ) : (
               <div className="space-y-4">

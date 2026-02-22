@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { useSearchParams } from "next/navigation";
-import { Loader2, TriangleAlert, Sparkles, CreditCard, ArrowUpRight, Globe } from "lucide-react";
+import { Loader2, TriangleAlert, Sparkles, CreditCard, ArrowUpRight, Globe, RotateCcw, Calendar } from "lucide-react";
+import { resetWalkthrough } from "@/components/walkthrough";
 import { updateSpace, deleteSpace, updateSpaceSettings, clearSpaceData } from "@/lib/space-actions";
 import { createCheckoutSession, createCustomerPortalSession } from "@/lib/billing-actions";
 import { inputClass } from "@/lib/utils";
@@ -17,6 +18,7 @@ export function SpaceSettingsForm({
   aiEnabled,
   publicDecisionLog,
   publicDocuments,
+  votePassThreshold,
   planTier,
   planName,
   hasStripeSubscription,
@@ -35,6 +37,7 @@ export function SpaceSettingsForm({
   aiEnabled: boolean;
   publicDecisionLog: boolean;
   publicDocuments: boolean;
+  votePassThreshold: number;
   planTier: PlanTier;
   planName: string;
   hasStripeSubscription: boolean;
@@ -191,6 +194,18 @@ export function SpaceSettingsForm({
             Only space admins can modify settings.
           </p>
         )}
+
+        <button
+          type="button"
+          onClick={() => {
+            resetWalkthrough();
+            window.location.href = "/dashboard";
+          }}
+          className="flex items-center gap-1.5 text-xs text-bark-muted hover:text-bark transition-colors mt-2"
+        >
+          <RotateCcw size={12} />
+          Restart walkthrough
+        </button>
       </form>
 
       {/* Plan & Billing */}
@@ -314,6 +329,46 @@ export function SpaceSettingsForm({
               {aiEnabled ? "AI features enabled" : "AI features disabled"}
             </span>
           </label>
+        </section>
+      )}
+
+      {/* Meeting Configuration */}
+      {isAdmin && (
+        <section className="border border-border rounded-xl p-6">
+          <div className="flex items-center gap-2 mb-2">
+            <Calendar size={16} className="text-canopy" />
+            <h2 className="text-base font-medium text-bark" style={{ fontFamily: "var(--font-display)" }}>
+              Meeting Configuration
+            </h2>
+          </div>
+          <p className="text-sm text-bark-muted mb-4">
+            Configure thresholds for decision methods used in live meetings.
+          </p>
+          <div>
+            <label htmlFor="voteThreshold" className="block text-sm font-medium text-bark mb-1.5">
+              Vote pass threshold
+            </label>
+            <select
+              id="voteThreshold"
+              defaultValue={String(votePassThreshold)}
+              onChange={(e) => {
+                startTransition(async () => {
+                  const result = await updateSpaceSettings({ votePassThreshold: parseFloat(e.target.value) });
+                  if (result?.error) setError(result.error);
+                });
+              }}
+              disabled={isPending}
+              className={inputClass}
+            >
+              <option value="0.5">Simple majority (&gt;50%)</option>
+              <option value="0.6">Three-fifths (&gt;60%)</option>
+              <option value="0.667">Two-thirds (&gt;66.7%)</option>
+              <option value="0.75">Three-quarters (&gt;75%)</option>
+            </select>
+            <p className="text-xs text-bark-muted mt-1.5">
+              Percentage of &quot;for&quot; votes (excluding abstentions) needed to carry a motion.
+            </p>
+          </div>
         </section>
       )}
 

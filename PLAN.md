@@ -223,7 +223,7 @@ Build **Glade**, a decision-centric governance platform for social purpose organ
 - [x] Other methods: advice process, lazy consensus (simplified 2-stage flow)
 - [x] Delegation records: scope, constraints, reporting requirements, review date (spec §4.2 — currently just a method label)
 - [x] Advice process consultation tracking: who was consulted, what input was given (spec §4.2 — currently just a 2-stage flow)
-- [ ] Configurable thresholds per method (deferred)
+- [x] Configurable thresholds per method (vote pass threshold in space settings)
 
 ### 4.6 Post-Meeting
 
@@ -258,7 +258,7 @@ Build **Glade**, a decision-centric governance platform for social purpose organ
 ### 5.3 Onboarding
 
 - [x] Guided onboarding flow: create space → invite members → log first decision
-- [ ] Interactive walkthrough of key concepts
+- [x] Interactive walkthrough of key concepts
 - [ ] Help documentation
 
 ### 5.4 API & Integrations

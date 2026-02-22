@@ -18,6 +18,7 @@ export function VoteFlow({
   isFacilitator,
   onAdvanceStage,
   onRecord,
+  passThreshold,
 }: {
   meetingId: string;
   flow: DecisionFlow;
@@ -26,16 +27,20 @@ export function VoteFlow({
   isFacilitator: boolean;
   onAdvanceStage: (stage: string) => Promise<void>;
   onRecord: (title: string, method: string, outcome?: string) => Promise<void>;
+  passThreshold?: number;
 }) {
   const [title, setTitle] = useState(flow.proposalText || "");
   const currentStageIndex = VOTE_STAGES.findIndex((s) => s.key === flow.stage);
+  const threshold = passThreshold ?? 0.5;
 
   // Vote tallies
   const forVotes = flow.responses.filter((r) => r.value === "for").length;
   const againstVotes = flow.responses.filter((r) => r.value === "against").length;
   const abstainVotes = flow.responses.filter((r) => r.value === "abstain").length;
   const totalVotes = flow.responses.length;
-  const passed = forVotes > againstVotes;
+  const castVotes = forVotes + againstVotes; // abstentions don't count toward threshold
+  const passed = castVotes > 0 ? forVotes / castVotes > threshold : false;
+  const thresholdLabel = threshold === 0.5 ? "Simple majority" : `${Math.round(threshold * 100)}% required`;
 
   function nextStage() {
     const next = VOTE_STAGES[currentStageIndex + 1];
@@ -115,6 +120,7 @@ export function VoteFlow({
         <div className="space-y-3 mb-4">
           <div className={`text-sm font-medium p-2 rounded ${passed ? "text-canopy bg-canopy-pale" : "text-earth bg-earth/5"}`}>
             {passed ? "Motion carried" : "Motion not carried"}
+            <span className="font-normal text-xs ml-2 opacity-70">({thresholdLabel})</span>
           </div>
           <input
             type="text"

@@ -51,6 +51,7 @@ export default async function SettingsPage() {
         aiEnabled={isAiEnabled(space.settings)}
         publicDecisionLog={((space.settings as Record<string, unknown>) || {}).publicDecisionLog === true}
         publicDocuments={((space.settings as Record<string, unknown>) || {}).publicDocuments === true}
+        votePassThreshold={typeof ((space.settings as Record<string, unknown>) || {}).votePassThreshold === "number" ? ((space.settings as Record<string, unknown>).votePassThreshold as number) : 0.5}
         planTier={planTier}
         planName={PLAN_DISPLAY[planTier].name}
         hasStripeSubscription={!!subscription?.stripeSubscriptionId}

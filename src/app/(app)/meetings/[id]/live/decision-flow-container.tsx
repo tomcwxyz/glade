@@ -20,11 +20,13 @@ export function DecisionFlowContainer({
   state,
   mutate,
   isFacilitator,
+  voteThreshold,
 }: {
   meetingId: string;
   state: MeetingSessionState;
   mutate: (s: MeetingSessionState) => void;
   isFacilitator: boolean;
+  voteThreshold?: number;
 }) {
   const handleAdvanceStage = useCallback(
     async (nextStage: string) => {
@@ -97,6 +99,7 @@ export function DecisionFlowContainer({
         isFacilitator={isFacilitator}
         onAdvanceStage={handleAdvanceStage}
         onRecord={handleRecordAndAdvance}
+        passThreshold={voteThreshold}
       />
     );
   }

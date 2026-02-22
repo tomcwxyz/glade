@@ -25,6 +25,8 @@ export default async function LiveMeetingPage({
   }
 
   const isFacilitator = meeting.createdBy === user.id;
+  const settings = (space.settings as Record<string, unknown>) || {};
+  const voteThreshold = typeof settings.votePassThreshold === "number" ? settings.votePassThreshold : 0.5;
 
   const agendaItems = meeting.agendaItems.map((item) => ({
     id: item.id,
@@ -40,6 +42,7 @@ export default async function LiveMeetingPage({
         meetingId={meeting.id}
         meetingTitle={meeting.title}
         agendaItems={agendaItems}
+        voteThreshold={voteThreshold}
       />
     );
   }
@@ -49,6 +52,7 @@ export default async function LiveMeetingPage({
       meetingId={meeting.id}
       meetingTitle={meeting.title}
       agendaItems={agendaItems}
+      voteThreshold={voteThreshold}
     />
   );
 }

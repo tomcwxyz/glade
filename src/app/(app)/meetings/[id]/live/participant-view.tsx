@@ -34,10 +34,12 @@ export function ParticipantView({
   meetingId,
   meetingTitle,
   agendaItems,
+  voteThreshold,
 }: {
   meetingId: string;
   meetingTitle: string;
   agendaItems: AgendaItem[];
+  voteThreshold?: number;
 }) {
   const { state, loading, mutate } = useMeetingPoll(meetingId);
   const [mobileAgendaOpen, setMobileAgendaOpen] = useState(false);
@@ -246,6 +248,7 @@ export function ParticipantView({
                 state={state}
                 mutate={mutate}
                 isFacilitator={false}
+                voteThreshold={voteThreshold}
               />
             ) : (
               <ParticipantInteractions

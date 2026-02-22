@@ -2,6 +2,7 @@
 
 import { Sidebar } from "./sidebar";
 import { MobileNav } from "./mobile-nav";
+import { Walkthrough } from "./walkthrough";
 
 export interface SpaceInfo {
   id: string;
@@ -32,6 +33,7 @@ export function AppShell({ children, currentSpace, userSpaces }: AppShellProps) 
         <Sidebar currentSpace={currentSpace} userSpaces={userSpaces} />
       </div>
       <main className="flex-1 overflow-y-auto">{children}</main>
+      <Walkthrough />
     </div>
   );
 }

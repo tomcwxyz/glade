@@ -26,14 +26,14 @@ import {
 } from "lucide-react";
 
 const NAV_ITEMS = [
-  { href: "/dashboard", label: "Dashboard", icon: Home },
-  { href: "/glade", label: "The Glade", icon: CircleDot },
-  { href: "/decisions", label: "Decisions", icon: BookOpen },
-  { href: "/meetings", label: "Meetings", icon: Calendar },
-  { href: "/actions", label: "Actions", icon: ListChecks },
-  { href: "/documents", label: "Documents", icon: FileText },
-  { href: "/proposals", label: "Proposals", icon: MessageSquare },
-  { href: "/topics", label: "Topics", icon: Lightbulb },
+  { href: "/dashboard", label: "Dashboard", icon: Home, walkthrough: "dashboard" },
+  { href: "/glade", label: "The Glade", icon: CircleDot, walkthrough: undefined },
+  { href: "/decisions", label: "Decisions", icon: BookOpen, walkthrough: "decisions" },
+  { href: "/meetings", label: "Meetings", icon: Calendar, walkthrough: "meetings" },
+  { href: "/actions", label: "Actions", icon: ListChecks, walkthrough: undefined },
+  { href: "/documents", label: "Documents", icon: FileText, walkthrough: "documents" },
+  { href: "/proposals", label: "Proposals", icon: MessageSquare, walkthrough: "proposals" },
+  { href: "/topics", label: "Topics", icon: Lightbulb, walkthrough: undefined },
 ];
 
 const BOTTOM_ITEMS = [
@@ -156,6 +156,7 @@ export function Sidebar({ currentSpace, userSpaces }: SidebarProps) {
             <Link
               key={item.href}
               href={item.href}
+              data-walkthrough={item.walkthrough}
               className={cn(
                 "flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[0.8125rem] transition-colors",
                 isActive
