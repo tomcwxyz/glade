@@ -52,12 +52,12 @@ export function ConsentFlow({
   return (
     <div className="p-5 bg-paper-warm rounded-xl border border-border">
       {/* Stage indicator */}
-      <div className="flex items-center gap-1 mb-5 overflow-x-auto pb-2">
+      <div className="flex flex-wrap items-center gap-1 mb-5">
         {CONSENT_STAGES.map((stage, i) => {
           const isCurrent = stage.key === flow.stage;
           const isPast = i < currentStageIndex;
           return (
-            <div key={stage.key} className="flex items-center shrink-0">
+            <div key={stage.key} className="flex items-center">
               <div
                 className={`px-2.5 py-1 rounded-full text-[0.6875rem] font-medium transition-colors ${
                   isCurrent
@@ -70,7 +70,7 @@ export function ConsentFlow({
                 {stage.label}
               </div>
               {i < CONSENT_STAGES.length - 1 && (
-                <ChevronRight size={12} className="text-bark-muted/30 mx-0.5" />
+                <ChevronRight size={12} className="text-bark-muted/30 mx-0.5 hidden sm:block" />
               )}
             </div>
           );

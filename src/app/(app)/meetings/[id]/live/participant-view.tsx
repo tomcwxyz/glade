@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback, useState } from "react";
 import { useMeetingPoll } from "./use-meeting-poll";
 import { AgendaNavigator } from "./agenda-navigator";
 import { MeetingTimer } from "./meeting-timer";
@@ -10,9 +11,10 @@ import {
   CheckCircle2,
   Users,
   Hand,
+  List,
+  X,
 } from "lucide-react";
 import { requestToSpeak, withdrawSpeaker } from "@/lib/meeting-live-actions";
-import { useCallback } from "react";
 
 const AGENDA_TYPE_LABELS: Record<string, { label: string; color: string }> = {
   for_decision: { label: "For decision", color: "text-canopy bg-canopy-pale" },
@@ -38,6 +40,7 @@ export function ParticipantView({
   agendaItems: AgendaItem[];
 }) {
   const { state, loading, mutate } = useMeetingPoll(meetingId);
+  const [mobileAgendaOpen, setMobileAgendaOpen] = useState(false);
 
   const handleRequestToSpeak = useCallback(async () => {
     const result = await requestToSpeak(meetingId);
@@ -79,9 +82,52 @@ export function ParticipantView({
   const participantCount = Object.keys(state.participants).length;
 
   return (
-    <div className="flex min-h-[calc(100vh-4rem)]">
-      {/* Left sidebar */}
-      <aside className="w-72 border-r border-border bg-paper-warm p-4 overflow-y-auto shrink-0">
+    <div className="flex flex-col md:flex-row min-h-[calc(100vh-4rem)]">
+      {/* Mobile: compact agenda bar + collapsible panel */}
+      <div className="md:hidden border-b border-border bg-paper-warm">
+        <div className="flex items-center justify-between px-4 py-3">
+          <div className="flex-1 min-w-0">
+            <h2
+              className="text-sm font-medium text-bark truncate"
+              style={{ fontFamily: "var(--font-display)" }}
+            >
+              {meetingTitle}
+            </h2>
+            <div className="flex items-center gap-2 mt-0.5 text-xs text-bark-muted">
+              <span className="flex items-center gap-1">
+                <Users size={11} />
+                {participantCount}
+              </span>
+              <span>·</span>
+              <span>
+                Item {state.currentAgendaItemIndex + 1}/{agendaItems.length}
+              </span>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setMobileAgendaOpen(!mobileAgendaOpen)}
+            className="flex items-center justify-center w-9 h-9 rounded-lg text-bark-muted hover:text-bark hover:bg-paper-deep transition-colors shrink-0"
+            aria-label={mobileAgendaOpen ? "Close agenda" : "View agenda"}
+          >
+            {mobileAgendaOpen ? <X size={18} /> : <List size={18} />}
+          </button>
+        </div>
+
+        {mobileAgendaOpen && (
+          <div className="px-4 pb-3 border-t border-border/50">
+            <AgendaNavigator
+              agendaItems={agendaItems}
+              state={state}
+              onGoTo={() => {}}
+              readOnly
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Desktop: sidebar */}
+      <aside className="hidden md:flex md:flex-col w-72 border-r border-border bg-paper-warm p-4 overflow-y-auto shrink-0">
         <div className="mb-4">
           <h2
             className="text-sm font-medium text-bark truncate"
@@ -110,11 +156,11 @@ export function ParticipantView({
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 p-8 overflow-y-auto">
+      <main className="flex-1 p-4 md:p-8 overflow-y-auto">
         {currentItem && (
           <div className="max-w-2xl">
             {/* Current item */}
-            <div className="mb-8">
+            <div className="mb-6 md:mb-8">
               <div className="flex items-center gap-2 mb-3">
                 <span className="text-xs text-bark-muted font-medium">
                   Item {state.currentAgendaItemIndex + 1} of {agendaItems.length}
@@ -126,7 +172,7 @@ export function ParticipantView({
                 </span>
               </div>
               <h1
-                className="text-2xl font-medium tracking-tight mb-2"
+                className="text-xl md:text-2xl font-medium tracking-tight mb-2"
                 style={{ fontFamily: "var(--font-display)" }}
               >
                 {currentItem.title}
@@ -139,7 +185,7 @@ export function ParticipantView({
             </div>
 
             {/* Timer (read-only) */}
-            <div className="mb-8">
+            <div className="mb-6 md:mb-8">
               <MeetingTimer
                 timer={{
                   ...state.timer,
@@ -153,7 +199,7 @@ export function ParticipantView({
             </div>
 
             {/* Speaker stack + request to speak */}
-            <div className="mb-8">
+            <div className="mb-6 md:mb-8">
               <div className="flex items-center justify-between mb-2">
                 <h3 className="text-xs uppercase tracking-wider text-bark-muted font-medium">
                   Speaker stack ({state.speakerStack.length})
@@ -178,7 +224,6 @@ export function ParticipantView({
                         {i + 1}.
                       </span>
                       <span className="text-bark flex-1">{s.name}</span>
-                      {/* Show withdraw button for own entry */}
                     </div>
                   ))}
                 </div>
