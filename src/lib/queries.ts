@@ -878,7 +878,7 @@ export async function getPublicDecisions(spaceId: string) {
       description: decisions.description,
     })
     .from(decisions)
-    .where(eq(decisions.spaceId, spaceId))
+    .where(and(eq(decisions.spaceId, spaceId), eq(decisions.isPublic, true)))
     .orderBy(desc(decisions.date), desc(decisions.number));
 
   const ids = rows.map((d) => d.id);
@@ -906,7 +906,7 @@ export async function getPublicDocuments(spaceId: string) {
       updatedAt: documents.updatedAt,
     })
     .from(documents)
-    .where(and(eq(documents.spaceId, spaceId), eq(documents.status, "published")))
+    .where(and(eq(documents.spaceId, spaceId), eq(documents.status, "published"), eq(documents.isPublic, true)))
     .orderBy(desc(documents.updatedAt));
 }
 

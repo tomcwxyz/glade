@@ -38,6 +38,7 @@ export async function createDocument(formData: FormData) {
       content,
       status: "draft",
       currentVersion: 1,
+      isPublic: formData.get("isPublic") === "on",
       createdBy: user.id,
     })
     .returning({ id: documents.id });
@@ -89,6 +90,7 @@ export async function updateDocument(documentId: string, formData: FormData) {
       title,
       content,
       currentVersion: newVersion,
+      isPublic: formData.get("isPublic") === "on",
       updatedAt: new Date(),
     })
     .where(eq(documents.id, documentId));

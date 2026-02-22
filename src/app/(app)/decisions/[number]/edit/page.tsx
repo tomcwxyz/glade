@@ -59,6 +59,7 @@ export default async function EditDecisionPage({
           conditions: decision.conditions,
           reviewDate: decision.reviewDate?.toISOString() || null,
           tagIds: decisionTagIds,
+          isPublic: decision.isPublic,
         }}
       />
     </div>

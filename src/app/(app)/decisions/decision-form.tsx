@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createDecision, updateDecision } from "@/lib/decision-actions";
 import { inputClass, textareaClass } from "@/lib/utils";
 import {
+  Globe,
   Loader2,
   Plus,
   X,
@@ -35,6 +36,7 @@ interface DecisionData {
   conditions: string | null;
   reviewDate: string | null; // ISO string
   tagIds: string[];
+  isPublic: boolean;
 }
 
 const METHODS = [
@@ -471,6 +473,20 @@ export function DecisionForm({
             </div>
           </div>
         )}
+
+        {/* Public visibility */}
+        <div className="flex items-center gap-3">
+          <label className="flex items-center gap-2.5 cursor-pointer">
+            <input
+              type="checkbox"
+              name="isPublic"
+              defaultChecked={decision?.isPublic ?? false}
+              className="w-4 h-4 rounded border-border text-canopy focus:ring-canopy"
+            />
+            <Globe size={14} className="text-bark-muted" />
+            <span className="text-sm text-bark">Make this decision publicly visible</span>
+          </label>
+        </div>
 
         {/* Submit */}
         <div className="flex items-center gap-4 pt-4 border-t border-border">
