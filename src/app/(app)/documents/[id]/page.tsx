@@ -105,6 +105,14 @@ export default async function DocumentDetailPage({
               <Download size={14} />
               Markdown
             </a>
+            <a
+              href={`/api/documents/${doc.id}/export?format=docx`}
+              download
+              className="flex items-center gap-1.5 px-3 py-2 text-sm bg-paper-deep border border-border rounded-lg text-bark-muted hover:text-bark hover:bg-paper-warm transition-colors"
+            >
+              <Download size={14} />
+              Word
+            </a>
           </div>
         </div>
       </header>
