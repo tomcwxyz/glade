@@ -259,7 +259,7 @@ Build **Glade**, a decision-centric governance platform for social purpose organ
 
 - [x] Guided onboarding flow: create space → invite members → log first decision
 - [x] Interactive walkthrough of key concepts
-- [ ] Help documentation
+- [x] Help documentation
 
 ### 5.4 API & Integrations
 

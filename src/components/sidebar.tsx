@@ -14,6 +14,7 @@ import {
   ChevronLeft,
   CircleDot,
   FileText,
+  HelpCircle,
   Home,
   Lightbulb,
   ListChecks,
@@ -38,6 +39,7 @@ const NAV_ITEMS = [
 
 const BOTTOM_ITEMS = [
   { href: "/members", label: "Members", icon: Users },
+  { href: "/help", label: "Help", icon: HelpCircle },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
