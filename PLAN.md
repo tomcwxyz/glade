@@ -257,7 +257,7 @@ Build **Glade**, a decision-centric governance platform for social purpose organ
 
 ### 5.3 Onboarding
 
-- [ ] Guided onboarding flow: create space → invite members → log first decision
+- [x] Guided onboarding flow: create space → invite members → log first decision
 - [ ] Interactive walkthrough of key concepts
 - [ ] Help documentation
 
@@ -265,7 +265,7 @@ Build **Glade**, a decision-centric governance platform for social purpose organ
 
 - [ ] REST API for programmatic access to decision log and governance documents
 - [ ] Webhook support for decision events
-- [ ] Export: PDF minutes, Word governance documents, Markdown documents, CSV decision data
+- [ ] Export: PDF minutes, Word governance documents, Markdown documents (CSV decision export done)
 - [ ] Import: Markdown governance documents (convert to Tiptap JSON on ingest)
 - [ ] Calendar integration for meeting scheduling and review reminders
 

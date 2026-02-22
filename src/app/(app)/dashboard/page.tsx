@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getCurrentSpace } from "@/lib/space";
+import { getCurrentSpace, getSpaceMemberCount } from "@/lib/space";
 
 export const metadata: Metadata = { title: "Dashboard" };
 import { getDecisions, getActions, getMeetings, getSpaceStats, getActiveInsights, getGovernanceHealthStats } from "@/lib/queries";
@@ -11,6 +11,7 @@ import { formatDate, formatDateRelative } from "@/lib/utils";
 import {
   ArrowRight,
   BookOpen,
+  Calendar,
   CalendarClock,
   CheckCircle2,
   Circle,
@@ -18,6 +19,7 @@ import {
   ListChecks,
   TreePine,
   TriangleAlert,
+  Users,
 } from "lucide-react";
 import Link from "next/link";
 import { InsightsPanel } from "./insights-panel";
@@ -133,9 +135,21 @@ export default async function DashboardPage() {
   );
 
   if (stats.totalDecisions === 0) {
+    const memberCount = await getSpaceMemberCount(space.id);
+    const hasMeetings = allMeetings.length > 0;
+    const hasMembers = memberCount > 1;
+
+    const steps = [
+      { done: true, label: "Create your space", description: `${space.name} is ready`, icon: TreePine, href: null },
+      { done: hasMembers, label: "Invite a team member", description: "Governance works best together", icon: Users, href: "/members" },
+      { done: false, label: "Log your first decision", description: "The heart of your governance record", icon: BookOpen, href: "/decisions/new" },
+      { done: hasMeetings, label: "Record a meeting", description: "Link decisions to where they were made", icon: Calendar, href: "/meetings/new" },
+    ];
+    const completedCount = steps.filter((s) => s.done).length;
+
     return (
       <div className="max-w-5xl mx-auto px-4 sm:px-8 py-6 sm:py-10">
-        <header className="mb-12">
+        <header className="mb-10">
           <h1
             className="text-3xl font-light tracking-tight mb-2"
             style={{ fontFamily: "var(--font-display)" }}
@@ -143,37 +157,72 @@ export default async function DashboardPage() {
             {getGreeting()}
           </h1>
           <p className="text-bark-muted text-base">
-            Welcome to {space.name}. Let&apos;s get started.
+            Welcome to {space.name}. Let&apos;s get you started.
           </p>
         </header>
 
-        <div className="flex flex-col items-center text-center py-16 border border-border rounded-2xl bg-paper-warm">
-          <div className="flex items-center justify-center w-14 h-14 rounded-2xl bg-canopy-pale mb-5">
-            <TreePine size={28} className="text-canopy" />
+        <div className="border border-border rounded-2xl bg-paper-warm overflow-hidden">
+          {/* Progress header */}
+          <div className="px-6 py-5 border-b border-border">
+            <div className="flex items-center justify-between mb-3">
+              <h2
+                className="text-lg font-medium tracking-tight"
+                style={{ fontFamily: "var(--font-display)" }}
+              >
+                Getting started
+              </h2>
+              <span className="text-xs text-bark-muted font-medium">
+                {completedCount} of {steps.length}
+              </span>
+            </div>
+            <div className="h-1.5 bg-paper-deep rounded-full overflow-hidden">
+              <div
+                className="h-full bg-canopy rounded-full transition-all duration-500"
+                style={{ width: `${(completedCount / steps.length) * 100}%` }}
+              />
+            </div>
           </div>
-          <h2
-            className="text-xl font-medium tracking-tight mb-2"
-            style={{ fontFamily: "var(--font-display)" }}
-          >
-            Your glade is ready
-          </h2>
-          <p className="text-[0.8125rem] text-bark-muted max-w-sm leading-relaxed mb-8">
-            Start by logging a decision or recording a meeting. Everything you
-            add builds your organisation&apos;s governance memory.
-          </p>
-          <div className="flex items-center gap-3">
-            <Link
-              href="/decisions/new"
-              className="inline-flex items-center gap-2 px-4 py-2.5 bg-canopy text-paper rounded-lg text-sm font-medium hover:bg-canopy-light transition-colors"
-            >
-              Log a decision
-            </Link>
-            <Link
-              href="/meetings/new"
-              className="inline-flex items-center gap-2 px-4 py-2.5 border border-border text-bark rounded-lg text-sm font-medium hover:bg-paper-deep transition-colors"
-            >
-              Record a meeting
-            </Link>
+
+          {/* Steps */}
+          <div className="divide-y divide-border">
+            {steps.map((step) => {
+              const Icon = step.icon;
+              const content = (
+                <div className="flex items-center gap-4 px-6 py-4">
+                  <div className={`flex items-center justify-center w-10 h-10 rounded-xl shrink-0 ${
+                    step.done ? "bg-canopy-pale" : "bg-paper-deep"
+                  }`}>
+                    {step.done ? (
+                      <CheckCircle2 size={18} className="text-canopy" />
+                    ) : (
+                      <Icon size={18} className="text-bark-muted" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className={`text-sm font-medium ${step.done ? "text-bark-muted line-through" : "text-bark"}`}>
+                      {step.label}
+                    </div>
+                    <div className="text-xs text-bark-muted mt-0.5">{step.description}</div>
+                  </div>
+                  {!step.done && step.href && (
+                    <ArrowRight size={16} className="text-bark-muted shrink-0" />
+                  )}
+                </div>
+              );
+
+              if (step.done || !step.href) {
+                return <div key={step.label}>{content}</div>;
+              }
+              return (
+                <Link
+                  key={step.label}
+                  href={step.href}
+                  className="block hover:bg-paper transition-colors"
+                >
+                  {content}
+                </Link>
+              );
+            })}
           </div>
         </div>
       </div>

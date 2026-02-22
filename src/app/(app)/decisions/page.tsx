@@ -3,7 +3,7 @@ import { getCurrentSpace } from "@/lib/space";
 import { getDecisions, getSpaceTags } from "@/lib/queries";
 
 export const metadata: Metadata = { title: "Decisions" };
-import { BookOpen, Plus } from "lucide-react";
+import { BookOpen, Download, Plus } from "lucide-react";
 import Link from "next/link";
 import { EmptyState } from "@/components/empty-state";
 import { DecisionList } from "./decision-list";
@@ -75,13 +75,23 @@ export default async function DecisionsPage() {
             {allDecisions.length} decisions recorded
           </p>
         </div>
-        <Link
-          href="/decisions/new"
-          className="flex items-center gap-2 px-4 py-2.5 bg-canopy text-paper rounded-lg text-sm font-medium hover:bg-canopy-light transition-colors self-start sm:self-auto shrink-0"
-        >
-          <Plus size={16} />
-          Log a decision
-        </Link>
+        <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
+          <a
+            href="/api/decisions/export"
+            download
+            className="flex items-center gap-1.5 px-3 py-2.5 text-sm border border-border rounded-lg text-bark-muted hover:text-bark hover:bg-paper-warm transition-colors"
+          >
+            <Download size={14} />
+            Export CSV
+          </a>
+          <Link
+            href="/decisions/new"
+            className="flex items-center gap-2 px-4 py-2.5 bg-canopy text-paper rounded-lg text-sm font-medium hover:bg-canopy-light transition-colors"
+          >
+            <Plus size={16} />
+            Log a decision
+          </Link>
+        </div>
       </header>
 
       <DecisionList decisions={serialized} tags={tagNames} participants={allParticipants} />
