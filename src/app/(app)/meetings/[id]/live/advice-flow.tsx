@@ -2,7 +2,8 @@
 
 import type { MeetingSessionState, DecisionFlow } from "@/lib/meeting-state";
 import { ChevronRight, MessageSquare } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useLiveRegion } from "@/components/live-region";
 
 const ADVICE_STAGES = [
   { key: "present", label: "Present", description: "Present the proposal and who will decide" },
@@ -25,12 +26,24 @@ export function AdviceFlow({
   onSubmitAdvice: (value: string, comment?: string) => Promise<void>;
   onRecord: (title: string, method: string, outcome?: string) => Promise<void>;
 }) {
+  const { announce } = useLiveRegion();
   const [title, setTitle] = useState(flow.proposalText || "");
   const [outcome, setOutcome] = useState("");
   const [advice, setAdvice] = useState("");
   const [submitted, setSubmitted] = useState(false);
 
   const currentStageIndex = ADVICE_STAGES.findIndex((s) => s.key === flow.stage);
+
+  useEffect(() => {
+    if (flow?.stage) {
+      const stageLabels: Record<string, string> = {
+        present: "Presenting proposal",
+        consult: "Consultation open",
+        review: "Review and decide",
+      };
+      announce(stageLabels[flow.stage] || flow.stage);
+    }
+  }, [flow?.stage, announce]);
   const participantCount = Object.keys(state.participants).length;
 
   async function handleSubmitAdvice() {

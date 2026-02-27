@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useState, useEffect } from "react";
+import { useLiveRegion } from "@/components/live-region";
 import { useMeetingPoll } from "./use-meeting-poll";
 import { AgendaNavigator } from "./agenda-navigator";
 import { MeetingTimer } from "./meeting-timer";
@@ -41,6 +42,7 @@ export function ParticipantView({
   agendaItems: AgendaItem[];
   voteThreshold?: number;
 }) {
+  const { announce } = useLiveRegion();
   const { state, loading, mutate } = useMeetingPoll(meetingId);
   const [mobileAgendaOpen, setMobileAgendaOpen] = useState(false);
 
@@ -53,6 +55,16 @@ export function ParticipantView({
     const result = await withdrawSpeaker(meetingId);
     if ("state" in result && result.state) mutate(result.state);
   }, [meetingId, mutate]);
+
+  // Announce agenda item changes to screen readers
+  const currentAgendaItem = state ? agendaItems[state.currentAgendaItemIndex] : null;
+  const currentAgendaItemId = currentAgendaItem?.id;
+  const currentAgendaItemTitle = currentAgendaItem?.title;
+  useEffect(() => {
+    if (currentAgendaItemTitle) {
+      announce(`Now discussing: ${currentAgendaItemTitle}`);
+    }
+  }, [currentAgendaItemId, currentAgendaItemTitle, announce]);
 
   if (loading || !state) {
     return (

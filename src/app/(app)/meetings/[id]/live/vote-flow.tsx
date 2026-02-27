@@ -2,7 +2,8 @@
 
 import type { MeetingSessionState, DecisionFlow } from "@/lib/meeting-state";
 import { ChevronRight, BarChart3 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useLiveRegion } from "@/components/live-region";
 
 const VOTE_STAGES = [
   { key: "present", label: "Present", description: "Present the proposal" },
@@ -29,6 +30,7 @@ export function VoteFlow({
   onRecord: (title: string, method: string, outcome?: string) => Promise<void>;
   passThreshold?: number;
 }) {
+  const { announce } = useLiveRegion();
   const [title, setTitle] = useState(flow.proposalText || "");
   const currentStageIndex = VOTE_STAGES.findIndex((s) => s.key === flow.stage);
   const threshold = passThreshold ?? 0.5;
@@ -41,6 +43,17 @@ export function VoteFlow({
   const castVotes = forVotes + againstVotes; // abstentions don't count toward threshold
   const passed = castVotes > 0 ? forVotes / castVotes > threshold : false;
   const thresholdLabel = threshold === 0.5 ? "Simple majority" : `${Math.round(threshold * 100)}% required`;
+
+  useEffect(() => {
+    if (flow?.stage) {
+      const stageLabels: Record<string, string> = {
+        present: "Presenting proposal",
+        vote: "Voting open",
+        results: `Vote results: ${forVotes} for, ${againstVotes} against, ${abstainVotes} abstain. ${passed ? "Motion carried" : "Motion not carried"}`,
+      };
+      announce(stageLabels[flow.stage] || flow.stage);
+    }
+  }, [flow?.stage, announce, forVotes, againstVotes, abstainVotes, passed]);
 
   function nextStage() {
     const next = VOTE_STAGES[currentStageIndex + 1];

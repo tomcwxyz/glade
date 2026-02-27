@@ -2,7 +2,8 @@
 
 import type { MeetingSessionState, DecisionFlow } from "@/lib/meeting-state";
 import { ChevronRight, UserCheck } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useLiveRegion } from "@/components/live-region";
 
 const DELEGATION_STAGES = [
   { key: "present", label: "Present", description: "Describe the delegation" },
@@ -20,6 +21,7 @@ export function DelegationFlow({
   onAdvanceStage: (stage: string) => Promise<void>;
   onRecord: (title: string, method: string, outcome?: string) => Promise<void>;
 }) {
+  const { announce } = useLiveRegion();
   const [title, setTitle] = useState(flow.proposalText || "");
   const [delegate, setDelegate] = useState("");
   const [scope, setScope] = useState("");
@@ -28,6 +30,16 @@ export function DelegationFlow({
   const [reviewDate, setReviewDate] = useState("");
 
   const currentStageIndex = DELEGATION_STAGES.findIndex((s) => s.key === flow.stage);
+
+  useEffect(() => {
+    if (flow?.stage) {
+      const stageLabels: Record<string, string> = {
+        present: "Presenting delegation",
+        record: "Recording delegation details",
+      };
+      announce(stageLabels[flow.stage] || flow.stage);
+    }
+  }, [flow?.stage, announce]);
 
   function handleRecord() {
     const parts = [`Delegated to: ${delegate}`];

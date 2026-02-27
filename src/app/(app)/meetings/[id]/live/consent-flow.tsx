@@ -2,7 +2,8 @@
 
 import type { MeetingSessionState, DecisionFlow } from "@/lib/meeting-state";
 import { ChevronRight, AlertTriangle, CheckCircle2 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useLiveRegion } from "@/components/live-region";
 
 const CONSENT_STAGES = [
   { key: "present", label: "Present", description: "Present the proposal to the group" },
@@ -30,10 +31,25 @@ export function ConsentFlow({
   onAdvanceStage: (stage: string) => Promise<void>;
   onRecord: (title: string, method: string, outcome?: string) => Promise<void>;
 }) {
+  const { announce } = useLiveRegion();
   const [title, setTitle] = useState(flow.proposalText || "");
   const [outcome, setOutcome] = useState("");
 
   const currentStageIndex = CONSENT_STAGES.findIndex((s) => s.key === flow.stage);
+
+  useEffect(() => {
+    if (flow?.stage) {
+      const stageLabels: Record<string, string> = {
+        present: "Presenting proposal",
+        clarify: "Clarifying questions",
+        react: "Reactions round",
+        object: "Objection round",
+        integrate: "Integration",
+        decide: "Decision",
+      };
+      announce(stageLabels[flow.stage] || flow.stage);
+    }
+  }, [flow?.stage, announce]);
   const objections = flow.responses.filter((r) => r.value === "objection");
   const hasObjections = objections.length > 0;
 

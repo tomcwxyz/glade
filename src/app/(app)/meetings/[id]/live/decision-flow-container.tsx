@@ -13,7 +13,8 @@ import {
   advanceAgendaItem,
   cancelDecisionFlow,
 } from "@/lib/meeting-live-actions";
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
+import { useLiveRegion } from "@/components/live-region";
 
 export function DecisionFlowContainer({
   meetingId,
@@ -60,7 +61,21 @@ export function DecisionFlowContainer({
     if ("state" in result && result.state) mutate(result.state);
   }, [meetingId, mutate]);
 
+  const { announce } = useLiveRegion();
   const flow = state.decisionFlow;
+
+  // Announce stage changes for lazy consensus (other methods announce in their own components)
+  const lazyConsensusStage = flow?.method === "lazy_consensus" ? flow.stage : null;
+  useEffect(() => {
+    if (lazyConsensusStage) {
+      const stageLabels: Record<string, string> = {
+        present: "Presenting proposal for lazy consensus",
+        record: "Recording decision",
+      };
+      announce(stageLabels[lazyConsensusStage] || lazyConsensusStage);
+    }
+  }, [lazyConsensusStage, announce]);
+
   if (!flow) return null;
 
   if (flow.method === "temperature_check") {

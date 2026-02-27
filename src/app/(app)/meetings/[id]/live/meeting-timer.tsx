@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Play, Pause, RotateCcw } from "lucide-react";
 import type { MeetingTimer as TimerState } from "@/lib/meeting-state";
+import { useLiveRegion } from "@/components/live-region";
 
 export function MeetingTimer({
   timer,
@@ -17,7 +18,10 @@ export function MeetingTimer({
   onReset: () => void;
   readOnly?: boolean;
 }) {
+  const { announce } = useLiveRegion();
   const [now, setNow] = useState(() => Date.now());
+  const announcedOneMinute = useRef(false);
+  const announcedTimeUp = useRef(false);
 
   useEffect(() => {
     if (!timer.startedAt || timer.paused) return;
@@ -36,6 +40,27 @@ export function MeetingTimer({
   const seconds = Math.floor(remaining % 60);
   const isRunning = !!timer.startedAt && !timer.paused;
   const isOvertime = remaining === 0 && (isRunning || elapsed > 0);
+
+  // Reset announcement flags when timer is reset
+  useEffect(() => {
+    if (!timer.startedAt && timer.elapsed === 0) {
+      announcedOneMinute.current = false;
+      announcedTimeUp.current = false;
+    }
+  }, [timer.startedAt, timer.elapsed]);
+
+  // Announce time milestones
+  useEffect(() => {
+    const remainingSeconds = Math.floor(remaining);
+    if (remainingSeconds <= 60 && remainingSeconds > 0 && !announcedOneMinute.current && isRunning) {
+      announcedOneMinute.current = true;
+      announce("One minute remaining");
+    }
+    if (remainingSeconds === 0 && isRunning && !announcedTimeUp.current) {
+      announcedTimeUp.current = true;
+      announce("Time is up", "assertive");
+    }
+  }, [remaining, isRunning, announce]);
 
   const progress = totalSeconds > 0 ? Math.min(1, elapsed / totalSeconds) : 0;
 
