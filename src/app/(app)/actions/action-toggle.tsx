@@ -48,6 +48,7 @@ export function ActionToggle({
       disabled={loading}
       className="mt-0.5 hover:scale-110 transition-transform disabled:opacity-50"
       title={`Click to mark as ${STATUS_CYCLE[status]}`}
+      aria-label={`Action status: ${status}. Click to mark as ${STATUS_CYCLE[status]}`}
     >
       {loading ? (
         <Loader2 size={16} className="text-bark-muted animate-spin" />
