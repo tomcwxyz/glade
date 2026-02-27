@@ -91,6 +91,7 @@ export function SectionLinkManager({
                 type="button"
                 onClick={() => handleRemove(link.id)}
                 className="text-bark-muted hover:text-earth opacity-0 group-hover:opacity-100 transition-all shrink-0"
+                aria-label="Remove section link"
               >
                 <Trash2 size={13} />
               </button>

@@ -263,6 +263,7 @@ export function ApiKeys({ keys }: { keys: ApiKey[] }) {
                     onClick={() => setDeletingId(k.id)}
                     className="p-1.5 text-bark-muted hover:text-earth transition-colors rounded-lg hover:bg-earth/5"
                     title="Delete API key"
+                    aria-label="Delete API key"
                   >
                     <Trash2 size={14} />
                   </button>

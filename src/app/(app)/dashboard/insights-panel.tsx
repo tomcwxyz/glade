@@ -93,6 +93,7 @@ export function InsightsPanel({
                   onClick={() => handleDismiss(insight.id)}
                   className="text-bark-muted hover:text-earth opacity-0 group-hover:opacity-100 transition-all shrink-0"
                   title="Dismiss"
+                  aria-label="Dismiss insight"
                 >
                   <X size={14} />
                 </button>

@@ -147,6 +147,7 @@ export function Walkthrough() {
           <button
             onClick={dismiss}
             className="p-1 rounded text-bark-muted hover:text-bark hover:bg-paper-deep transition-colors"
+            aria-label="Dismiss walkthrough"
           >
             <X size={14} />
           </button>

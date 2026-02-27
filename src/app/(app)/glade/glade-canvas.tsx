@@ -738,6 +738,7 @@ function Tooltip({
               onClose();
             }}
             className="text-bark-muted hover:text-bark shrink-0 mt-0.5"
+            aria-label="Close decision detail"
           >
             <X size={14} />
           </button>

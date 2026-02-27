@@ -78,6 +78,7 @@ export function DocumentWithTrail({
                       type="button"
                       onClick={() => setActivePopover(null)}
                       className="text-bark-muted hover:text-bark"
+                      aria-label="Close linked decisions"
                     >
                       <X size={12} />
                     </button>

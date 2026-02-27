@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
@@ -17,6 +18,8 @@ import {
   Link as LinkIcon,
   Undo,
   Redo,
+  Check,
+  X,
 } from "lucide-react";
 import type { JSONContent } from "@tiptap/react";
 
@@ -33,6 +36,10 @@ export function TiptapEditor({
   editable = true,
   placeholder = "Start writing…",
 }: TiptapEditorProps) {
+  const [showLinkInput, setShowLinkInput] = useState(false);
+  const [linkUrl, setLinkUrl] = useState("");
+  const linkInputRef = useRef<HTMLInputElement>(null);
+
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [
@@ -67,6 +74,27 @@ export function TiptapEditor({
     },
   });
 
+  // Focus the link input when it appears
+  useEffect(() => {
+    if (showLinkInput && linkInputRef.current) {
+      linkInputRef.current.focus();
+    }
+  }, [showLinkInput]);
+
+  const applyLink = useCallback(() => {
+    if (linkUrl.trim() && editor) {
+      editor.chain().focus().setLink({ href: linkUrl.trim() }).run();
+    }
+    setShowLinkInput(false);
+    setLinkUrl("");
+  }, [linkUrl, editor]);
+
+  const cancelLink = useCallback(() => {
+    setShowLinkInput(false);
+    setLinkUrl("");
+    editor?.chain().focus().run();
+  }, [editor]);
+
   if (!editor) return null;
 
   if (!editable) {
@@ -77,11 +105,13 @@ export function TiptapEditor({
     );
   }
 
-  const addLink = () => {
-    const url = window.prompt("Enter URL:");
-    if (url) {
-      editor.chain().focus().setLink({ href: url }).run();
+  const toggleLinkInput = () => {
+    if (editor.isActive("link")) {
+      editor.chain().focus().unsetLink().run();
+      return;
     }
+    setShowLinkInput(!showLinkInput);
+    setLinkUrl("");
   };
 
   return (
@@ -92,6 +122,7 @@ export function TiptapEditor({
           onClick={() => editor.chain().focus().toggleBold().run()}
           active={editor.isActive("bold")}
           title="Bold"
+          aria-label="Bold"
         >
           <Bold size={15} />
         </ToolbarButton>
@@ -99,6 +130,7 @@ export function TiptapEditor({
           onClick={() => editor.chain().focus().toggleItalic().run()}
           active={editor.isActive("italic")}
           title="Italic"
+          aria-label="Italic"
         >
           <Italic size={15} />
         </ToolbarButton>
@@ -106,6 +138,7 @@ export function TiptapEditor({
           onClick={() => editor.chain().focus().toggleUnderline().run()}
           active={editor.isActive("underline")}
           title="Underline"
+          aria-label="Underline"
         >
           <UnderlineIcon size={15} />
         </ToolbarButton>
@@ -116,6 +149,7 @@ export function TiptapEditor({
           onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
           active={editor.isActive("heading", { level: 2 })}
           title="Heading 2"
+          aria-label="Heading 2"
         >
           <Heading2 size={15} />
         </ToolbarButton>
@@ -123,6 +157,7 @@ export function TiptapEditor({
           onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
           active={editor.isActive("heading", { level: 3 })}
           title="Heading 3"
+          aria-label="Heading 3"
         >
           <Heading3 size={15} />
         </ToolbarButton>
@@ -133,6 +168,7 @@ export function TiptapEditor({
           onClick={() => editor.chain().focus().toggleBulletList().run()}
           active={editor.isActive("bulletList")}
           title="Bullet list"
+          aria-label="Bullet list"
         >
           <List size={15} />
         </ToolbarButton>
@@ -140,6 +176,7 @@ export function TiptapEditor({
           onClick={() => editor.chain().focus().toggleOrderedList().run()}
           active={editor.isActive("orderedList")}
           title="Numbered list"
+          aria-label="Numbered list"
         >
           <ListOrdered size={15} />
         </ToolbarButton>
@@ -147,9 +184,10 @@ export function TiptapEditor({
         <ToolbarDivider />
 
         <ToolbarButton
-          onClick={addLink}
-          active={editor.isActive("link")}
+          onClick={toggleLinkInput}
+          active={editor.isActive("link") || showLinkInput}
           title="Add link"
+          aria-label="Add link"
         >
           <LinkIcon size={15} />
         </ToolbarButton>
@@ -160,6 +198,7 @@ export function TiptapEditor({
           onClick={() => editor.chain().focus().undo().run()}
           disabled={!editor.can().undo()}
           title="Undo"
+          aria-label="Undo"
         >
           <Undo size={15} />
         </ToolbarButton>
@@ -167,10 +206,53 @@ export function TiptapEditor({
           onClick={() => editor.chain().focus().redo().run()}
           disabled={!editor.can().redo()}
           title="Redo"
+          aria-label="Redo"
         >
           <Redo size={15} />
         </ToolbarButton>
       </div>
+
+      {/* Inline link input */}
+      {showLinkInput && (
+        <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-paper-deep/30">
+          <label htmlFor="tiptap-link-url" className="sr-only">
+            URL
+          </label>
+          <input
+            ref={linkInputRef}
+            id="tiptap-link-url"
+            type="url"
+            value={linkUrl}
+            onChange={(e) => setLinkUrl(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                applyLink();
+              } else if (e.key === "Escape") {
+                cancelLink();
+              }
+            }}
+            placeholder="https://example.com"
+            className="flex-1 px-3 py-1.5 text-sm bg-paper-warm border border-border rounded-lg placeholder:text-bark-muted/50 focus:outline-none focus:border-canopy focus:ring-1 focus:ring-canopy/20 transition-colors"
+          />
+          <button
+            type="button"
+            onClick={applyLink}
+            className="p-1.5 rounded text-canopy hover:bg-canopy-pale transition-colors"
+            aria-label="Apply link"
+          >
+            <Check size={15} />
+          </button>
+          <button
+            type="button"
+            onClick={cancelLink}
+            className="p-1.5 rounded text-bark-muted hover:text-bark hover:bg-paper-deep transition-colors"
+            aria-label="Cancel link"
+          >
+            <X size={15} />
+          </button>
+        </div>
+      )}
 
       {/* Editor content */}
       <EditorContent editor={editor} />
@@ -184,12 +266,14 @@ function ToolbarButton({
   active = false,
   disabled = false,
   title,
+  "aria-label": ariaLabel,
 }: {
   children: React.ReactNode;
   onClick?: () => void;
   active?: boolean;
   disabled?: boolean;
   title?: string;
+  "aria-label"?: string;
 }) {
   return (
     <button
@@ -197,6 +281,7 @@ function ToolbarButton({
       onClick={onClick}
       disabled={disabled}
       title={title}
+      aria-label={ariaLabel}
       className={cn(
         "p-1.5 rounded transition-colors",
         active

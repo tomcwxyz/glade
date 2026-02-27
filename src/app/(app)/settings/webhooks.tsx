@@ -289,6 +289,7 @@ export function Webhooks({ hooks }: { hooks: WebhookData[] }) {
                     onClick={() => setDeletingId(h.id)}
                     className="p-1.5 text-bark-muted hover:text-earth transition-colors rounded-lg hover:bg-earth/5"
                     title="Delete webhook"
+                    aria-label="Delete webhook"
                   >
                     <Trash2 size={14} />
                   </button>

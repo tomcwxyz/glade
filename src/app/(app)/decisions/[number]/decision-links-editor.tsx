@@ -221,6 +221,7 @@ export function DecisionLinksEditor({
                 type="button"
                 onClick={() => handleRemoveLink(linked.linkId)}
                 className="opacity-0 group-hover:opacity-100 text-bark-muted hover:text-earth transition-all shrink-0"
+                aria-label="Remove linked decision"
               >
                 <X size={14} />
               </button>
@@ -307,6 +308,7 @@ export function DecisionLinksEditor({
                 type="button"
                 onClick={() => handleRemoveMeeting(m.meetingId)}
                 className="opacity-0 group-hover:opacity-100 text-bark-muted hover:text-earth transition-all shrink-0"
+                aria-label="Remove linked meeting"
               >
                 <X size={14} />
               </button>

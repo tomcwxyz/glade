@@ -67,6 +67,7 @@ export function ShareAgendaButton({
               type="button"
               onClick={() => setShowPanel(false)}
               className="text-bark-muted hover:text-bark"
+              aria-label="Close share panel"
             >
               <X size={14} />
             </button>

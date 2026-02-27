@@ -498,6 +498,7 @@ export function MeetingForm({
                     setAgendaItems(agendaItems.filter((_, idx) => idx !== i))
                   }
                   className="text-bark-muted hover:text-earth transition-colors mt-2"
+                  aria-label="Remove agenda item"
                 >
                   <X size={16} />
                 </button>

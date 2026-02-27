@@ -78,6 +78,7 @@ export function ProposalReferences({
               type="button"
               onClick={() => handleRemove(ref.id)}
               className="text-bark-muted hover:text-earth opacity-0 group-hover:opacity-100 transition-all shrink-0"
+              aria-label="Remove reference"
             >
               <X size={14} />
             </button>

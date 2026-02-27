@@ -338,6 +338,7 @@ export function DecisionForm({
                   type="button"
                   onClick={() => removeParticipant(name)}
                   className="hover:text-earth transition-colors"
+                  aria-label={`Remove ${name}`}
                 >
                   <X size={12} />
                 </button>
@@ -465,6 +466,7 @@ export function DecisionForm({
                     type="button"
                     onClick={() => removeAction(i)}
                     className="text-bark-muted hover:text-earth transition-colors mt-2"
+                    aria-label="Remove action"
                   >
                     <X size={16} />
                   </button>

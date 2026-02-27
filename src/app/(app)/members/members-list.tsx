@@ -218,6 +218,7 @@ export function MembersList({
                   onClick={() => handleRemove(member.id)}
                   className="text-bark-muted hover:text-earth transition-colors"
                   title="Remove member"
+                  aria-label="Remove member"
                 >
                   <X size={16} />
                 </button>

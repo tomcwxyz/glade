@@ -81,6 +81,7 @@ export function MemberBriefing({
             onClick={handleDismiss}
             className="absolute top-3 right-3 text-bark-muted hover:text-earth transition-colors"
             title="Dismiss"
+            aria-label="Dismiss briefing"
           >
             <X size={14} />
           </button>

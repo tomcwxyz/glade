@@ -81,6 +81,7 @@ export function GovernanceDigest({
             onClick={handleDismiss}
             className="absolute top-3 right-3 text-bark-muted hover:text-earth transition-colors"
             title="Dismiss"
+            aria-label="Dismiss digest"
           >
             <X size={14} />
           </button>
