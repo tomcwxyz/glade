@@ -3,6 +3,7 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { formatDate } from "@/lib/utils";
+import { useLiveRegion } from "@/components/live-region";
 import { ListChecks, Minus, Plus, RotateCcw, X } from "lucide-react";
 
 // --- Types & Constants ---
@@ -964,7 +965,30 @@ export function GladeCanvas({ decisions }: { decisions: Decision[] }) {
   const W = 1200;
   const H = 750;
 
-  const { viewBox, zoom, zoomIn, zoomOut, resetZoom } = useZoomPan(W, H, svgRef);
+  const { viewBox, zoom, zoomIn: rawZoomIn, zoomOut: rawZoomOut, resetZoom: rawResetZoom } = useZoomPan(W, H, svgRef);
+  const { announce } = useLiveRegion();
+
+  const zoomIn = useCallback(() => {
+    rawZoomIn();
+    // Announce after state updates (next tick)
+    requestAnimationFrame(() => {
+      const newZoom = Math.min(W / (viewBox.w / (1 + ZOOM_STEP)), MAX_ZOOM);
+      announce(`Zoom ${Math.round(newZoom * 100)}%`);
+    });
+  }, [rawZoomIn, announce, viewBox.w]);
+
+  const zoomOut = useCallback(() => {
+    rawZoomOut();
+    requestAnimationFrame(() => {
+      const newZoom = Math.max(W / (viewBox.w * (1 + ZOOM_STEP)), MIN_ZOOM);
+      announce(`Zoom ${Math.round(newZoom * 100)}%`);
+    });
+  }, [rawZoomOut, announce, viewBox.w]);
+
+  const resetZoom = useCallback(() => {
+    rawResetZoom();
+    announce("Zoom reset to 100%");
+  }, [rawResetZoom, announce]);
 
   const nodes = useMemo(() => layoutNodes(decisions, W, H), [decisions]);
   const connections = useMemo(() => getRootConnections(nodes), [nodes]);
@@ -1155,11 +1179,18 @@ export function GladeCanvas({ decisions }: { decisions: Decision[] }) {
       {/* SVG Canvas */}
       <svg
         ref={svgRef}
+        role="img"
+        aria-labelledby="glade-canvas-title glade-canvas-desc"
         viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`}
         className="w-full h-full touch-none"
         style={{ minHeight: "600px" }}
         onClick={() => setSelectedId(null)}
       >
+        <title id="glade-canvas-title">Decision relationship canvas</title>
+        <desc id="glade-canvas-desc">
+          Visual map showing {decisions.length} decisions and their connections
+        </desc>
+
         {/* Defs: filters and gradients */}
         <defs>
           {/* Soft shadow for tree nodes */}
@@ -1792,6 +1823,31 @@ export function GladeCanvas({ decisions }: { decisions: Decision[] }) {
           </g>
         )}
       </svg>
+
+      {/* Screen-reader text alternative for the canvas */}
+      <div className="sr-only" role="region" aria-label="Decision relationships summary">
+        <h2>Decision relationships</h2>
+        <ul>
+          {nodes.map((node) => {
+            const d = node.decision;
+            const linked = d.linkedDecisions || [];
+            return (
+              <li key={d.id}>
+                Decision #{d.number}: {d.title} — {STATUS_LABELS[d.status]}
+                {linked.length > 0 && (
+                  <ul>
+                    {linked.map((link) => (
+                      <li key={link.id}>
+                        {ROOT_STYLES[link.relation as RelationType]?.label || link.relation} #{link.number}: {link.title}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      </div>
 
       {/* Tooltip for selected node */}
       {selectedNode && (() => {
