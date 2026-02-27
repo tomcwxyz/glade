@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -51,6 +51,67 @@ export function MobileNav({ currentSpace, userSpaces }: MobileNavProps) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [spaceSwitcherOpen, setSpaceSwitcherOpen] = useState(false);
+  const [focusedIndex, setFocusedIndex] = useState(-1);
+  const spaceSwitcherRef = useRef<HTMLDivElement>(null);
+  const spaceSwitcherButtonRef = useRef<HTMLButtonElement>(null);
+
+  // Reset focus index when space switcher opens/closes
+  useEffect(() => {
+    setFocusedIndex(spaceSwitcherOpen ? 0 : -1);
+  }, [spaceSwitcherOpen]);
+
+  // Scroll focused item into view
+  useEffect(() => {
+    if (focusedIndex < 0 || !spaceSwitcherRef.current) return;
+    const items = spaceSwitcherRef.current.querySelectorAll("[role='option']");
+    if (items[focusedIndex]) {
+      items[focusedIndex].scrollIntoView({ block: "nearest" });
+    }
+  }, [focusedIndex]);
+
+  const handleSpaceSwitcherKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (!spaceSwitcherOpen) {
+        if (e.key === "ArrowDown" || e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          setSpaceSwitcherOpen(true);
+        }
+        return;
+      }
+
+      const itemCount = userSpaces.length + 1; // spaces + "Create new"
+      switch (e.key) {
+        case "Escape":
+          e.preventDefault();
+          setSpaceSwitcherOpen(false);
+          spaceSwitcherButtonRef.current?.focus();
+          break;
+        case "ArrowDown":
+          e.preventDefault();
+          setFocusedIndex((prev) => (prev + 1) % itemCount);
+          break;
+        case "ArrowUp":
+          e.preventDefault();
+          setFocusedIndex((prev) => (prev - 1 + itemCount) % itemCount);
+          break;
+        case "Enter":
+        case " ":
+          e.preventDefault();
+          if (focusedIndex < userSpaces.length) {
+            const space = userSpaces[focusedIndex];
+            setSpaceSwitcherOpen(false);
+            setOpen(false);
+            if (space.slug !== currentSpace.slug) switchSpace(space.slug);
+          } else {
+            setSpaceSwitcherOpen(false);
+            setOpen(false);
+            window.location.href = "/new-space";
+          }
+          break;
+      }
+    },
+    [spaceSwitcherOpen, userSpaces, focusedIndex, currentSpace.slug]
+  );
 
   return (
     <div className="md:hidden">
@@ -82,10 +143,14 @@ export function MobileNav({ currentSpace, userSpaces }: MobileNavProps) {
         <nav aria-label="Main navigation" className="px-3 py-2 border-b border-border bg-paper-warm">
           {/* Space switcher */}
           {userSpaces.length > 1 && (
-            <div className="relative mb-1">
+            <div ref={spaceSwitcherRef} className="relative mb-1">
               <button
+                ref={spaceSwitcherButtonRef}
                 onClick={() => setSpaceSwitcherOpen(!spaceSwitcherOpen)}
+                onKeyDown={handleSpaceSwitcherKeyDown}
                 aria-expanded={spaceSwitcherOpen}
+                aria-haspopup="listbox"
+                aria-label="Switch space"
                 className="w-full flex items-center gap-2.5 px-3 py-3 rounded-lg text-sm min-h-[44px] transition-colors text-bark-muted hover:text-bark hover:bg-paper-deep"
               >
                 <div className="w-5 h-5 rounded bg-canopy-pale flex items-center justify-center shrink-0">
@@ -105,10 +170,12 @@ export function MobileNav({ currentSpace, userSpaces }: MobileNavProps) {
               </button>
 
               {spaceSwitcherOpen && (
-                <div className="ml-8 mb-1 space-y-0.5">
-                  {userSpaces.map((space) => (
+                <div role="listbox" aria-label="Spaces" className="ml-8 mb-1 space-y-0.5">
+                  {userSpaces.map((space, i) => (
                     <button
                       key={space.id}
+                      role="option"
+                      aria-selected={space.slug === currentSpace.slug}
                       onClick={async () => {
                         setSpaceSwitcherOpen(false);
                         setOpen(false);
@@ -116,7 +183,10 @@ export function MobileNav({ currentSpace, userSpaces }: MobileNavProps) {
                           await switchSpace(space.slug);
                         }
                       }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm min-h-[44px] text-left hover:bg-paper-deep transition-colors"
+                      className={cn(
+                        "w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm min-h-[44px] text-left hover:bg-paper-deep transition-colors",
+                        focusedIndex === i && "bg-paper-deep"
+                      )}
                     >
                       <div className="w-5 h-5 rounded bg-canopy-pale flex items-center justify-center shrink-0">
                         <span className="text-[0.5rem] font-bold text-canopy">
@@ -129,14 +199,22 @@ export function MobileNav({ currentSpace, userSpaces }: MobileNavProps) {
                       )}
                     </button>
                   ))}
-                  <Link
-                    href="/new-space"
-                    onClick={() => { setSpaceSwitcherOpen(false); setOpen(false); }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm min-h-[44px] text-left hover:bg-paper-deep transition-colors text-bark-muted"
+                  <div
+                    role="option"
+                    aria-selected={false}
                   >
-                    <Plus size={14} aria-hidden="true" />
-                    <span>Create new space</span>
-                  </Link>
+                    <Link
+                      href="/new-space"
+                      onClick={() => { setSpaceSwitcherOpen(false); setOpen(false); }}
+                      className={cn(
+                        "w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm min-h-[44px] text-left hover:bg-paper-deep transition-colors text-bark-muted",
+                        focusedIndex === userSpaces.length && "bg-paper-deep"
+                      )}
+                    >
+                      <Plus size={14} aria-hidden="true" />
+                      <span>Create new space</span>
+                    </Link>
+                  </div>
                 </div>
               )}
             </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -52,6 +52,77 @@ export function Sidebar({ currentSpace, userSpaces }: SidebarProps) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [spaceSwitcherOpen, setSpaceSwitcherOpen] = useState(false);
+  const [focusedIndex, setFocusedIndex] = useState(-1);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+
+  // Close on outside click
+  useEffect(() => {
+    if (!spaceSwitcherOpen) return;
+    function handleClick(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setSpaceSwitcherOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [spaceSwitcherOpen]);
+
+  // Reset focus index when dropdown opens/closes
+  useEffect(() => {
+    setFocusedIndex(spaceSwitcherOpen ? 0 : -1);
+  }, [spaceSwitcherOpen]);
+
+  // Scroll focused item into view
+  useEffect(() => {
+    if (focusedIndex < 0 || !dropdownRef.current) return;
+    const items = dropdownRef.current.querySelectorAll("[role='option']");
+    if (items[focusedIndex]) {
+      items[focusedIndex].scrollIntoView({ block: "nearest" });
+    }
+  }, [focusedIndex]);
+
+  const handleDropdownKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (!spaceSwitcherOpen) {
+        if (e.key === "ArrowDown" || e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          setSpaceSwitcherOpen(true);
+        }
+        return;
+      }
+
+      const itemCount = userSpaces.length + 1; // spaces + "Create new"
+      switch (e.key) {
+        case "Escape":
+          e.preventDefault();
+          setSpaceSwitcherOpen(false);
+          buttonRef.current?.focus();
+          break;
+        case "ArrowDown":
+          e.preventDefault();
+          setFocusedIndex((prev) => (prev + 1) % itemCount);
+          break;
+        case "ArrowUp":
+          e.preventDefault();
+          setFocusedIndex((prev) => (prev - 1 + itemCount) % itemCount);
+          break;
+        case "Enter":
+        case " ":
+          e.preventDefault();
+          if (focusedIndex < userSpaces.length) {
+            const space = userSpaces[focusedIndex];
+            setSpaceSwitcherOpen(false);
+            if (space.slug !== currentSpace.slug) switchSpace(space.slug);
+          } else {
+            setSpaceSwitcherOpen(false);
+            window.location.href = "/new-space";
+          }
+          break;
+      }
+    },
+    [spaceSwitcherOpen, userSpaces, focusedIndex, currentSpace.slug]
+  );
 
   return (
     <aside
@@ -80,10 +151,13 @@ export function Sidebar({ currentSpace, userSpaces }: SidebarProps) {
 
       {/* Space selector */}
       {!collapsed && (
-        <div className="px-3 py-3 border-b border-border relative">
+        <div ref={dropdownRef} className="px-3 py-3 border-b border-border relative">
           <button
+            ref={buttonRef}
             onClick={() => setSpaceSwitcherOpen(!spaceSwitcherOpen)}
+            onKeyDown={handleDropdownKeyDown}
             aria-expanded={spaceSwitcherOpen}
+            aria-haspopup="listbox"
             aria-label="Switch space"
             className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-sm hover:bg-paper-deep transition-colors text-left"
           >
@@ -112,17 +186,22 @@ export function Sidebar({ currentSpace, userSpaces }: SidebarProps) {
 
           {/* Space switcher dropdown */}
           {spaceSwitcherOpen && (
-            <div className="absolute left-3 right-3 top-full mt-1 bg-paper border border-border rounded-xl shadow-lg z-30 py-1">
-              {userSpaces.map((space) => (
+            <div role="listbox" aria-label="Spaces" className="absolute left-3 right-3 top-full mt-1 bg-paper border border-border rounded-xl shadow-lg z-30 py-1">
+              {userSpaces.map((space, i) => (
                 <button
                   key={space.id}
+                  role="option"
+                  aria-selected={space.slug === currentSpace.slug}
                   onClick={async () => {
                     setSpaceSwitcherOpen(false);
                     if (space.slug !== currentSpace.slug) {
                       await switchSpace(space.slug);
                     }
                   }}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-paper-warm transition-colors text-sm"
+                  className={cn(
+                    "w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-paper-warm transition-colors text-sm",
+                    focusedIndex === i && "bg-paper-deep"
+                  )}
                 >
                   <div className="w-5 h-5 rounded bg-canopy-pale flex items-center justify-center shrink-0">
                     <span className="text-[0.5rem] font-bold text-canopy">
@@ -136,14 +215,22 @@ export function Sidebar({ currentSpace, userSpaces }: SidebarProps) {
                 </button>
               ))}
               <div className="border-t border-border mt-1 pt-1">
-                <Link
-                  href="/new-space"
-                  onClick={() => setSpaceSwitcherOpen(false)}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-paper-warm transition-colors text-sm text-bark-muted"
+                <div
+                  role="option"
+                  aria-selected={false}
                 >
-                  <Plus size={14} aria-hidden="true" />
-                  <span>Create new space</span>
-                </Link>
+                  <Link
+                    href="/new-space"
+                    onClick={() => setSpaceSwitcherOpen(false)}
+                    className={cn(
+                      "w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-paper-warm transition-colors text-sm text-bark-muted",
+                      focusedIndex === userSpaces.length && "bg-paper-deep"
+                    )}
+                  >
+                    <Plus size={14} aria-hidden="true" />
+                    <span>Create new space</span>
+                  </Link>
+                </div>
               </div>
             </div>
           )}
