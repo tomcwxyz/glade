@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { Key, Copy, Trash2, Plus, Check, Loader2 } from "lucide-react";
 import { createApiKey, deleteApiKey } from "@/lib/api-key-actions";
 import { inputClass } from "@/lib/utils";
+import { FormError } from "@/components/form-error";
 
 type ApiKey = {
   id: string;
@@ -96,11 +97,7 @@ export function ApiKeys({ keys }: { keys: ApiKey[] }) {
         at <span className="font-medium text-bark">/api/v1/</span>.
       </p>
 
-      {error && (
-        <div className="px-4 py-3 rounded-lg bg-earth/8 border border-earth/20 text-sm text-earth mb-4">
-          {error}
-        </div>
-      )}
+      <FormError message={error} />
 
       {/* Newly created key — show once */}
       {newKey && (
@@ -159,6 +156,7 @@ export function ApiKeys({ keys }: { keys: ApiKey[] }) {
                 name="name"
                 type="text"
                 required
+                aria-required="true"
                 placeholder="e.g. CI/CD pipeline"
                 className={inputClass}
               />

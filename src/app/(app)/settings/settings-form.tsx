@@ -8,6 +8,7 @@ import { updateSpace, deleteSpace, updateSpaceSettings, clearSpaceData } from "@
 import { createCheckoutSession, createCustomerPortalSession } from "@/lib/billing-actions";
 import { inputClass } from "@/lib/utils";
 import type { PlanTier } from "@/lib/plans";
+import { FormError } from "@/components/form-error";
 
 export function SpaceSettingsForm({
   name,
@@ -119,11 +120,7 @@ export function SpaceSettingsForm({
 
   return (
     <div className="space-y-12">
-      {error && (
-        <div className="px-4 py-3 rounded-lg bg-earth/8 border border-earth/20 text-sm text-earth">
-          {error}
-        </div>
-      )}
+      <FormError message={error} />
 
       {billingStatus === "success" && (
         <div className="px-4 py-3 rounded-lg bg-canopy/8 border border-canopy/20 text-sm text-canopy">
@@ -148,6 +145,7 @@ export function SpaceSettingsForm({
             name="name"
             type="text"
             required
+            aria-required="true"
             defaultValue={name}
             disabled={!isAdmin}
             className={inputClass}

@@ -11,6 +11,7 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
+import { FormError } from "@/components/form-error";
 
 interface Tag {
   id: string;
@@ -176,11 +177,7 @@ export function DecisionForm({
 
   return (
     <>
-      {error && (
-        <div className="mb-6 px-4 py-3 rounded-lg bg-earth/8 border border-earth/20 text-sm text-earth">
-          {error}
-        </div>
-      )}
+      <FormError message={error} />
 
       <form onSubmit={handleSubmit} className="space-y-8">
         {/* Title */}
@@ -191,6 +188,7 @@ export function DecisionForm({
             name="title"
             type="text"
             required
+            aria-required="true"
             defaultValue={decision?.title || ""}
             placeholder="What was decided?"
             className={inputClass}
@@ -205,6 +203,7 @@ export function DecisionForm({
               id="method"
               name="method"
               required
+              aria-required="true"
               defaultValue={decision?.method || "consent"}
               className={inputClass}
             >
@@ -242,6 +241,7 @@ export function DecisionForm({
               name="date"
               type="date"
               required
+              aria-required="true"
               defaultValue={
                 toDateInputValue(decision?.date) ||
                 new Date().toISOString().split("T")[0]

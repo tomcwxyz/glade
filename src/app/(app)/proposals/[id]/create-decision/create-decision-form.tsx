@@ -4,6 +4,7 @@ import { useState } from "react";
 import { createDecisionFromProposal } from "@/lib/proposal-actions";
 import { inputClass } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
+import { FormError } from "@/components/form-error";
 
 const METHODS = [
   { value: "consent", label: "Consent" },
@@ -41,11 +42,7 @@ export function CreateDecisionFromProposal({
 
   return (
     <>
-      {error && (
-        <div className="mb-6 px-4 py-3 rounded-lg bg-earth/8 border border-earth/20 text-sm text-earth">
-          {error}
-        </div>
-      )}
+      <FormError message={error} />
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="grid grid-cols-2 gap-6">
@@ -57,6 +54,7 @@ export function CreateDecisionFromProposal({
               id="method"
               name="method"
               required
+              aria-required="true"
               defaultValue={suggestedMethod || "consent"}
               className={inputClass}
             >
@@ -77,6 +75,7 @@ export function CreateDecisionFromProposal({
               name="date"
               type="date"
               required
+              aria-required="true"
               defaultValue={new Date().toISOString().split("T")[0]}
               className={inputClass}
             />

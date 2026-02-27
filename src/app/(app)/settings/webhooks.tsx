@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { Webhook, Plus, Trash2, Copy, Check, Loader2 } from "lucide-react";
 import { createWebhook, deleteWebhook, toggleWebhook } from "@/lib/webhook-actions";
 import { inputClass } from "@/lib/utils";
+import { FormError } from "@/components/form-error";
 
 type WebhookData = {
   id: string;
@@ -120,11 +121,7 @@ export function Webhooks({ hooks }: { hooks: WebhookData[] }) {
         Payloads are signed with HMAC-SHA256.
       </p>
 
-      {error && (
-        <div className="px-4 py-3 rounded-lg bg-earth/8 border border-earth/20 text-sm text-earth mb-4">
-          {error}
-        </div>
-      )}
+      <FormError message={error} />
 
       {/* New secret — show once */}
       {newSecret && (
@@ -180,6 +177,7 @@ export function Webhooks({ hooks }: { hooks: WebhookData[] }) {
                 name="url"
                 type="url"
                 required
+                aria-required="true"
                 placeholder="https://example.com/webhook"
                 className={inputClass}
               />

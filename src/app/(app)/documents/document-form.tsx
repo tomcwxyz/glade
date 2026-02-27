@@ -8,6 +8,7 @@ import { Check, Cloud, CloudOff, Globe, Loader2, Upload } from "lucide-react";
 import Link from "next/link";
 import type { JSONContent } from "@tiptap/react";
 import { markdownToTiptap } from "@/lib/tiptap-utils";
+import { FormError } from "@/components/form-error";
 
 const TYPES = [
   { value: "constitution", label: "Constitution" },
@@ -114,11 +115,7 @@ export function DocumentForm({ document }: { document?: DocumentData }) {
 
   return (
     <>
-      {error && (
-        <div className="mb-6 px-4 py-3 rounded-lg bg-earth/8 border border-earth/20 text-sm text-earth">
-          {error}
-        </div>
-      )}
+      <FormError message={error} />
 
       <form onSubmit={handleSubmit} className="space-y-8">
         <div>
@@ -130,6 +127,7 @@ export function DocumentForm({ document }: { document?: DocumentData }) {
             name="title"
             type="text"
             required
+            aria-required="true"
             defaultValue={document?.title || ""}
             placeholder="Document title"
             className={inputClass}
@@ -145,6 +143,7 @@ export function DocumentForm({ document }: { document?: DocumentData }) {
               id="type"
               name="type"
               required
+              aria-required="true"
               defaultValue={document?.type || "policy"}
               className={inputClass}
             >

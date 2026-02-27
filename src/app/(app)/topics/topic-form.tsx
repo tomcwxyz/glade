@@ -5,6 +5,7 @@ import { createTopic } from "@/lib/topic-actions";
 import { inputClass, textareaClass } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
 import Link from "next/link";
+import { FormError } from "@/components/form-error";
 
 const TYPES = [
   { value: "question", label: "Question", desc: "Something you want the group to explore" },
@@ -35,11 +36,7 @@ export function TopicForm() {
 
   return (
     <>
-      {error && (
-        <div className="mb-6 px-4 py-3 rounded-lg bg-earth/8 border border-earth/20 text-sm text-earth">
-          {error}
-        </div>
-      )}
+      <FormError message={error} />
 
       <form onSubmit={handleSubmit} className="space-y-8">
         <div>
@@ -51,6 +48,7 @@ export function TopicForm() {
             name="title"
             type="text"
             required
+            aria-required="true"
             placeholder="What's on your mind?"
             className={inputClass}
           />

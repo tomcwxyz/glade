@@ -5,6 +5,7 @@ import { signIn } from "next-auth/react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Mail, Lock, Loader2 } from "lucide-react";
+import { FormError } from "@/components/form-error";
 
 export default function SignInPage() {
   return (
@@ -52,13 +53,7 @@ function SignInForm() {
         </p>
       </div>
 
-      {error && (
-        <div className="mb-6 px-4 py-3 rounded-lg bg-earth/8 border border-earth/20 text-sm text-earth">
-          {error === "CredentialsSignin"
-            ? "Invalid email or password"
-            : "Something went wrong. Please try again."}
-        </div>
-      )}
+      <FormError message={error === "CredentialsSignin" ? "Invalid email or password" : error ? "Something went wrong. Please try again." : null} />
 
       {/* Email + password form */}
       <form onSubmit={handleCredentials} className="space-y-4">
@@ -78,6 +73,7 @@ function SignInForm() {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@organisation.org"
               required
+              aria-required="true"
               className="w-full pl-9 pr-4 py-2.5 text-sm bg-paper-warm border border-border rounded-lg placeholder:text-bark-muted/50 focus:outline-none focus:border-canopy focus:ring-1 focus:ring-canopy/20 transition-colors"
             />
           </div>
@@ -99,6 +95,7 @@ function SignInForm() {
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Enter your password"
               required
+              aria-required="true"
               className="w-full pl-9 pr-4 py-2.5 text-sm bg-paper-warm border border-border rounded-lg placeholder:text-bark-muted/50 focus:outline-none focus:border-canopy focus:ring-1 focus:ring-canopy/20 transition-colors"
             />
           </div>

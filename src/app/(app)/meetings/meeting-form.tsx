@@ -5,6 +5,7 @@ import { createMeeting, updateMeeting } from "@/lib/meeting-actions";
 import { inputClass } from "@/lib/utils";
 import { Check, Clock, FileText, Loader2, Plus, X, MessageSquarePlus } from "lucide-react";
 import Link from "next/link";
+import { FormError } from "@/components/form-error";
 
 interface Member {
   id: string;
@@ -192,11 +193,7 @@ export function MeetingForm({
 
   return (
     <>
-      {error && (
-        <div className="mb-6 px-4 py-3 rounded-lg bg-earth/8 border border-earth/20 text-sm text-earth">
-          {error}
-        </div>
-      )}
+      <FormError message={error} />
 
       <form onSubmit={handleSubmit} className="space-y-8">
         {/* Title */}
@@ -209,6 +206,7 @@ export function MeetingForm({
             name="title"
             type="text"
             required
+            aria-required="true"
             defaultValue={meeting?.title || ""}
             placeholder="e.g. Board Meeting — February 2026"
             className={inputClass}
@@ -226,6 +224,7 @@ export function MeetingForm({
               name="date"
               type="date"
               required
+              aria-required="true"
               defaultValue={
                 toDateInputValue(meeting?.date) ||
                 new Date().toISOString().split("T")[0]

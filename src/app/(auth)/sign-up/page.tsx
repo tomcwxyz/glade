@@ -4,6 +4,7 @@ import { useState } from "react";
 import { signUp } from "@/lib/auth-actions";
 import Link from "next/link";
 import { Lock, Mail, User, Loader2 } from "lucide-react";
+import { FormError } from "@/components/form-error";
 
 export default function SignUpPage() {
   const [error, setError] = useState<string | null>(null);
@@ -38,11 +39,7 @@ export default function SignUpPage() {
         </p>
       </div>
 
-      {error && (
-        <div className="mb-6 px-4 py-3 rounded-lg bg-earth/8 border border-earth/20 text-sm text-earth">
-          {error}
-        </div>
-      )}
+      <FormError message={error} />
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
@@ -60,6 +57,7 @@ export default function SignUpPage() {
               type="text"
               placeholder="Your name"
               required
+              aria-required="true"
               className="w-full pl-9 pr-4 py-2.5 text-sm bg-paper-warm border border-border rounded-lg placeholder:text-bark-muted/50 focus:outline-none focus:border-canopy focus:ring-1 focus:ring-canopy/20 transition-colors"
             />
           </div>
@@ -80,6 +78,7 @@ export default function SignUpPage() {
               type="email"
               placeholder="you@organisation.org"
               required
+              aria-required="true"
               className="w-full pl-9 pr-4 py-2.5 text-sm bg-paper-warm border border-border rounded-lg placeholder:text-bark-muted/50 focus:outline-none focus:border-canopy focus:ring-1 focus:ring-canopy/20 transition-colors"
             />
           </div>
@@ -100,6 +99,7 @@ export default function SignUpPage() {
               type="password"
               placeholder="At least 8 characters"
               required
+              aria-required="true"
               minLength={8}
               className="w-full pl-9 pr-4 py-2.5 text-sm bg-paper-warm border border-border rounded-lg placeholder:text-bark-muted/50 focus:outline-none focus:border-canopy focus:ring-1 focus:ring-canopy/20 transition-colors"
             />

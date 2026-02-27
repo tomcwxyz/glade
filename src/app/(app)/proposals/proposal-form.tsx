@@ -5,6 +5,7 @@ import { createProposal, updateProposal } from "@/lib/proposal-actions";
 import { inputClass, textareaClass } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
 import Link from "next/link";
+import { FormError } from "@/components/form-error";
 
 const METHODS = [
   { value: "", label: "No suggestion" },
@@ -50,11 +51,7 @@ export function ProposalForm({ proposal }: { proposal?: ProposalData }) {
 
   return (
     <>
-      {error && (
-        <div className="mb-6 px-4 py-3 rounded-lg bg-earth/8 border border-earth/20 text-sm text-earth">
-          {error}
-        </div>
-      )}
+      <FormError message={error} />
 
       <form onSubmit={handleSubmit} className="space-y-8">
         <div>
@@ -66,6 +63,7 @@ export function ProposalForm({ proposal }: { proposal?: ProposalData }) {
             name="title"
             type="text"
             required
+            aria-required="true"
             defaultValue={proposal?.title || ""}
             placeholder="What are you proposing?"
             className={inputClass}
