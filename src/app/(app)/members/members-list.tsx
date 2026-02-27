@@ -119,6 +119,7 @@ export function MembersList({
                   onChange={(e) => setInviteEmail(e.target.value)}
                   placeholder="email@example.com"
                   required
+                  aria-required="true"
                   className="flex-1 px-4 py-2.5 text-sm bg-paper border border-border rounded-lg placeholder:text-bark-muted/50 focus:outline-none focus:border-canopy focus:ring-1 focus:ring-canopy/20 transition-colors"
                 />
                 <button
