@@ -3,6 +3,8 @@
 import { Sidebar } from "./sidebar";
 import { MobileNav } from "./mobile-nav";
 import { Walkthrough } from "./walkthrough";
+import { SkipLink } from "./skip-link";
+import { LiveRegionProvider } from "./live-region";
 
 export interface SpaceInfo {
   id: string;
@@ -27,13 +29,16 @@ interface AppShellProps {
 
 export function AppShell({ children, currentSpace, userSpaces }: AppShellProps) {
   return (
-    <div className="flex flex-col md:flex-row h-screen overflow-hidden">
-      <MobileNav currentSpace={currentSpace} userSpaces={userSpaces} />
-      <div className="hidden md:flex">
-        <Sidebar currentSpace={currentSpace} userSpaces={userSpaces} />
+    <LiveRegionProvider>
+      <SkipLink />
+      <div className="flex flex-col md:flex-row h-screen overflow-hidden">
+        <MobileNav currentSpace={currentSpace} userSpaces={userSpaces} />
+        <div className="hidden md:flex">
+          <Sidebar currentSpace={currentSpace} userSpaces={userSpaces} />
+        </div>
+        <main id="main-content" className="flex-1 overflow-y-auto" tabIndex={-1}>{children}</main>
+        <Walkthrough />
       </div>
-      <main className="flex-1 overflow-y-auto">{children}</main>
-      <Walkthrough />
-    </div>
+    </LiveRegionProvider>
   );
 }
