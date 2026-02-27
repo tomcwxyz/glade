@@ -31,7 +31,7 @@ export function LiveRegionProvider({ children }: { children: React.ReactNode }) 
   return (
     <LiveRegionContext.Provider value={{ announce }}>
       {children}
-      <div aria-live="polite" aria-atomic="true" className="sr-only">
+      <div aria-live="polite" aria-atomic="true" role="status" className="sr-only">
         {politeMessage}
       </div>
       <div aria-live="assertive" aria-atomic="true" className="sr-only">
