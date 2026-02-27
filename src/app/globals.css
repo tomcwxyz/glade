@@ -16,7 +16,7 @@
 
   --color-bark: oklch(0.25 0.02 55);
   --color-bark-soft: oklch(0.35 0.018 55);
-  --color-bark-muted: oklch(0.50 0.015 55);
+  --color-bark-muted: oklch(0.45 0.015 55);
 
   --color-canopy: oklch(0.38 0.08 155);
   --color-canopy-light: oklch(0.52 0.07 155);
@@ -26,19 +26,19 @@
   --color-amber-light: oklch(0.82 0.10 75);
   --color-amber-pale: oklch(0.93 0.05 80);
 
-  --color-earth: oklch(0.55 0.06 45);
+  --color-earth: oklch(0.45 0.07 45);
   --color-earth-light: oklch(0.72 0.04 50);
 
   --color-moss: oklch(0.62 0.05 140);
   --color-moss-pale: oklch(0.90 0.03 140);
 
-  --color-sky: oklch(0.55 0.08 240);
+  --color-sky: oklch(0.45 0.10 240);
 
   /* Status colors — natural tones */
-  --color-status-decided: oklch(0.55 0.08 240);
+  --color-status-decided: oklch(0.45 0.10 240);
   --color-status-implemented: oklch(0.52 0.07 155);
   --color-status-reviewed: oklch(0.68 0.14 70);
-  --color-status-learned: oklch(0.55 0.06 45);
+  --color-status-learned: oklch(0.45 0.07 45);
 
   /* Semantic */
   --color-border: oklch(0.88 0.01 70);
