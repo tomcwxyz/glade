@@ -1,6 +1,6 @@
 # State
 
-> Last updated: 2026-02-22
+> Last updated: 2026-02-27
 
 ## System State Diagram
 
@@ -18,7 +18,7 @@ stateDiagram-v2
 
 ## Summary
 
-All 5 phases of application code are **feature-complete**. The remaining work is external service configuration (Vercel deploy, Resend email, Sentry, Stripe production setup) and human decisions (licence model, pilot org, accessibility strategy). See PLAN.md [Manual Deployment Steps](#manual-deployment-steps) for step-by-step instructions.
+All 5 phases of application code are **feature-complete**. WCAG 2.1 AA accessibility pass is **complete** (14 commits). The remaining code work is integration tasks (Google Calendar, Microsoft Outlook, Notion import — plan at `docs/plans/2026-02-27-accessibility-and-integrations.md`, Tasks 11–17). External service configuration (Vercel deploy, Resend email, Sentry, Stripe production setup) still pending. See PLAN.md [Manual Deployment Steps](#manual-deployment-steps) for step-by-step instructions.
 
 **Database:** 26 tables (24 original + `api_keys` + `webhooks`). All columns applied to Neon. Drizzle schema.ts is source of truth; generated migrations may lag behind.
 
@@ -111,8 +111,10 @@ All 5 phases of application code are **feature-complete**. The remaining work is
 | Import | ✅ Done | Markdown → Tiptap JSON on document create |
 | SEO + OG images | ✅ Done | Per-page metadata, OG/Twitter cards, JSON-LD, robots, sitemap |
 | LLM-readable docs | ✅ Done | `llms.txt` + `llms-full.txt` |
+| WCAG 2.1 AA accessibility | ✅ Done | Skip link, landmarks, form errors, icon labels, keyboard nav, live announcements, contrast, canvas a11y, reduced motion, eslint-plugin-jsx-a11y |
 | Charity pricing | ⏳ Pending | Needs Stripe coupon/price creation |
-| Calendar integration | ⏳ Pending | Needs external API (Google/Outlook) |
+| Calendar integration | ⏳ Pending | Plan ready (Tasks 11–14), needs OAuth scope extension |
+| Notion import | ⏳ Pending | Plan ready (Tasks 15–16), needs `@notionhq/client` |
 | File storage | ⏳ Pending | Needs Vercel Blob or S3 setup |
 | Error monitoring | ⏳ Pending | Needs Sentry DSN |
 | Performance analytics | ⏳ Pending | Needs Vercel deployment |
@@ -149,8 +151,8 @@ flowchart LR
 
 ## Build Status
 
-- `npm run build` — **passing** (as of 2026-02-22)
-- `npm run lint` — **no errors**
+- `npm run build` — **passing** (as of 2026-02-27)
+- `npm run lint` — **no errors** (warnings only from new jsx-a11y rules)
 
 ## Known Issues
 
