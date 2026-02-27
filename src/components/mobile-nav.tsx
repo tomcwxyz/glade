@@ -71,6 +71,7 @@ export function MobileNav({ currentSpace, userSpaces }: MobileNavProps) {
           onClick={() => setOpen(!open)}
           className="flex items-center justify-center w-10 h-10 rounded-lg text-bark-muted hover:text-bark hover:bg-paper-deep transition-colors"
           aria-label={open ? "Close menu" : "Open menu"}
+          aria-expanded={open}
         >
           {open ? <X size={20} /> : <Menu size={20} />}
         </button>
@@ -78,12 +79,13 @@ export function MobileNav({ currentSpace, userSpaces }: MobileNavProps) {
 
       {/* Dropdown nav */}
       {open && (
-        <nav className="px-3 py-2 border-b border-border bg-paper-warm">
+        <nav aria-label="Main navigation" className="px-3 py-2 border-b border-border bg-paper-warm">
           {/* Space switcher */}
           {userSpaces.length > 1 && (
             <div className="relative mb-1">
               <button
                 onClick={() => setSpaceSwitcherOpen(!spaceSwitcherOpen)}
+                aria-expanded={spaceSwitcherOpen}
                 className="w-full flex items-center gap-2.5 px-3 py-3 rounded-lg text-sm min-h-[44px] transition-colors text-bark-muted hover:text-bark hover:bg-paper-deep"
               >
                 <div className="w-5 h-5 rounded bg-canopy-pale flex items-center justify-center shrink-0">
@@ -152,6 +154,7 @@ export function MobileNav({ currentSpace, userSpaces }: MobileNavProps) {
                   key={item.href}
                   href={item.href}
                   onClick={() => setOpen(false)}
+                  aria-current={isActive ? "page" : undefined}
                   className={cn(
                     "flex items-center gap-2.5 px-3 py-3 rounded-lg text-sm min-h-[44px] transition-colors",
                     isActive
@@ -159,7 +162,7 @@ export function MobileNav({ currentSpace, userSpaces }: MobileNavProps) {
                       : "text-bark-muted hover:text-bark hover:bg-paper-deep"
                   )}
                 >
-                  <Icon size={17} strokeWidth={isActive ? 2.2 : 1.8} />
+                  <Icon size={17} strokeWidth={isActive ? 2.2 : 1.8} aria-hidden="true" />
                   {item.label}
                 </Link>
               );
@@ -177,6 +180,7 @@ export function MobileNav({ currentSpace, userSpaces }: MobileNavProps) {
                   key={item.href}
                   href={item.href}
                   onClick={() => setOpen(false)}
+                  aria-current={isActive ? "page" : undefined}
                   className={cn(
                     "flex items-center gap-2.5 px-3 py-3 rounded-lg text-sm min-h-[44px] transition-colors",
                     isActive
@@ -184,7 +188,7 @@ export function MobileNav({ currentSpace, userSpaces }: MobileNavProps) {
                       : "text-bark-muted hover:text-bark hover:bg-paper-deep"
                   )}
                 >
-                  <Icon size={17} strokeWidth={isActive ? 2.2 : 1.8} />
+                  <Icon size={17} strokeWidth={isActive ? 2.2 : 1.8} aria-hidden="true" />
                   {item.label}
                 </Link>
               );
@@ -195,7 +199,7 @@ export function MobileNav({ currentSpace, userSpaces }: MobileNavProps) {
               onClick={() => setOpen(false)}
               className="flex items-center gap-2.5 px-3 py-3 rounded-lg text-sm min-h-[44px] text-bark-muted hover:text-bark hover:bg-paper-deep transition-colors"
             >
-              <LogOut size={17} strokeWidth={1.8} />
+              <LogOut size={17} strokeWidth={1.8} aria-hidden="true" />
               Sign out
             </Link>
           </div>

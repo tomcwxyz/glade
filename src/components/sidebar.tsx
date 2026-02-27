@@ -55,6 +55,7 @@ export function Sidebar({ currentSpace, userSpaces }: SidebarProps) {
 
   return (
     <aside
+      aria-label="Sidebar"
       className={cn(
         "flex flex-col border-r border-border bg-paper-warm transition-all duration-300 ease-out",
         collapsed ? "w-[60px]" : "w-[240px]"
@@ -82,6 +83,8 @@ export function Sidebar({ currentSpace, userSpaces }: SidebarProps) {
         <div className="px-3 py-3 border-b border-border relative">
           <button
             onClick={() => setSpaceSwitcherOpen(!spaceSwitcherOpen)}
+            aria-expanded={spaceSwitcherOpen}
+            aria-label="Switch space"
             className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-sm hover:bg-paper-deep transition-colors text-left"
           >
             <div className="w-6 h-6 rounded-md bg-canopy-pale flex items-center justify-center shrink-0">
@@ -147,7 +150,7 @@ export function Sidebar({ currentSpace, userSpaces }: SidebarProps) {
       )}
 
       {/* Main navigation */}
-      <nav className="flex-1 px-2 py-3 space-y-0.5">
+      <nav aria-label="Main navigation" className="flex-1 px-2 py-3 space-y-0.5">
         {NAV_ITEMS.map((item) => {
           const isActive =
             pathname === item.href ||
@@ -159,6 +162,7 @@ export function Sidebar({ currentSpace, userSpaces }: SidebarProps) {
               key={item.href}
               href={item.href}
               data-walkthrough={item.walkthrough}
+              aria-current={isActive ? "page" : undefined}
               className={cn(
                 "flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[0.8125rem] transition-colors",
                 isActive
@@ -170,6 +174,7 @@ export function Sidebar({ currentSpace, userSpaces }: SidebarProps) {
                 size={17}
                 strokeWidth={isActive ? 2.2 : 1.8}
                 className="shrink-0"
+                aria-hidden="true"
               />
               {!collapsed && (
                 <span className="truncate">{item.label}</span>
@@ -189,6 +194,7 @@ export function Sidebar({ currentSpace, userSpaces }: SidebarProps) {
             <Link
               key={item.href}
               href={item.href}
+              aria-current={isActive ? "page" : undefined}
               className={cn(
                 "flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[0.8125rem] transition-colors",
                 isActive
@@ -196,7 +202,7 @@ export function Sidebar({ currentSpace, userSpaces }: SidebarProps) {
                   : "text-bark-muted hover:text-bark hover:bg-paper-deep"
               )}
             >
-              <Icon size={17} strokeWidth={1.8} className="shrink-0" />
+              <Icon size={17} strokeWidth={1.8} className="shrink-0" aria-hidden="true" />
               {!collapsed && <span>{item.label}</span>}
             </Link>
           );
@@ -205,15 +211,17 @@ export function Sidebar({ currentSpace, userSpaces }: SidebarProps) {
         {/* Sign out */}
         <Link
           href="/api/auth/signout"
+          aria-current={pathname === "/api/auth/signout" ? "page" : undefined}
           className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[0.8125rem] text-bark-muted hover:text-bark hover:bg-paper-deep transition-colors"
         >
-          <LogOut size={17} strokeWidth={1.8} className="shrink-0" />
+          <LogOut size={17} strokeWidth={1.8} className="shrink-0" aria-hidden="true" />
           {!collapsed && <span>Sign out</span>}
         </Link>
 
         {/* Collapse toggle */}
         <button
           onClick={() => setCollapsed(!collapsed)}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[0.8125rem] text-bark-muted hover:text-bark hover:bg-paper-deep transition-colors w-full"
         >
           <ChevronLeft
