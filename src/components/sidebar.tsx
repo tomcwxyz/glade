@@ -64,7 +64,7 @@ export function Sidebar({ currentSpace, userSpaces }: SidebarProps) {
       {/* Logo */}
       <div className="flex items-center gap-3 px-4 py-5 border-b border-border">
         <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-canopy text-paper shrink-0">
-          <TreePine size={18} strokeWidth={2.5} />
+          <TreePine size={18} strokeWidth={2.5} aria-hidden="true" />
         </div>
         {!collapsed && (
           <div className="overflow-hidden">
@@ -102,6 +102,7 @@ export function Sidebar({ currentSpace, userSpaces }: SidebarProps) {
             </div>
             <ChevronDown
               size={14}
+              aria-hidden="true"
               className={cn(
                 "text-bark-muted shrink-0 transition-transform",
                 spaceSwitcherOpen && "rotate-180"
@@ -130,7 +131,7 @@ export function Sidebar({ currentSpace, userSpaces }: SidebarProps) {
                   </div>
                   <span className="text-bark truncate flex-1">{space.name}</span>
                   {space.slug === currentSpace.slug && (
-                    <Check size={14} className="text-canopy shrink-0" />
+                    <Check size={14} className="text-canopy shrink-0" aria-hidden="true" />
                   )}
                 </button>
               ))}
@@ -140,7 +141,7 @@ export function Sidebar({ currentSpace, userSpaces }: SidebarProps) {
                   onClick={() => setSpaceSwitcherOpen(false)}
                   className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-paper-warm transition-colors text-sm text-bark-muted"
                 >
-                  <Plus size={14} />
+                  <Plus size={14} aria-hidden="true" />
                   <span>Create new space</span>
                 </Link>
               </div>
@@ -211,7 +212,6 @@ export function Sidebar({ currentSpace, userSpaces }: SidebarProps) {
         {/* Sign out */}
         <Link
           href="/api/auth/signout"
-          aria-current={pathname === "/api/auth/signout" ? "page" : undefined}
           className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[0.8125rem] text-bark-muted hover:text-bark hover:bg-paper-deep transition-colors"
         >
           <LogOut size={17} strokeWidth={1.8} className="shrink-0" aria-hidden="true" />
@@ -227,6 +227,7 @@ export function Sidebar({ currentSpace, userSpaces }: SidebarProps) {
           <ChevronLeft
             size={17}
             strokeWidth={1.8}
+            aria-hidden="true"
             className={cn(
               "shrink-0 transition-transform duration-300",
               collapsed && "rotate-180"

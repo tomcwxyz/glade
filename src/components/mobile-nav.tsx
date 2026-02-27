@@ -58,7 +58,7 @@ export function MobileNav({ currentSpace, userSpaces }: MobileNavProps) {
       <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-paper-warm">
         <div className="flex items-center gap-2">
           <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-canopy text-paper shrink-0">
-            <TreePine size={15} strokeWidth={2.5} />
+            <TreePine size={15} strokeWidth={2.5} aria-hidden="true" />
           </div>
           <span
             className="text-sm font-semibold tracking-tight"
@@ -73,7 +73,7 @@ export function MobileNav({ currentSpace, userSpaces }: MobileNavProps) {
           aria-label={open ? "Close menu" : "Open menu"}
           aria-expanded={open}
         >
-          {open ? <X size={20} /> : <Menu size={20} />}
+          {open ? <X size={20} aria-hidden="true" /> : <Menu size={20} aria-hidden="true" />}
         </button>
       </div>
 
@@ -96,6 +96,7 @@ export function MobileNav({ currentSpace, userSpaces }: MobileNavProps) {
                 <span className="flex-1 text-left">Switch space</span>
                 <ChevronDown
                   size={14}
+                  aria-hidden="true"
                   className={cn(
                     "shrink-0 transition-transform",
                     spaceSwitcherOpen && "rotate-180"
@@ -124,7 +125,7 @@ export function MobileNav({ currentSpace, userSpaces }: MobileNavProps) {
                       </div>
                       <span className="text-bark truncate flex-1">{space.name}</span>
                       {space.slug === currentSpace.slug && (
-                        <Check size={14} className="text-canopy shrink-0" />
+                        <Check size={14} className="text-canopy shrink-0" aria-hidden="true" />
                       )}
                     </button>
                   ))}
@@ -133,7 +134,7 @@ export function MobileNav({ currentSpace, userSpaces }: MobileNavProps) {
                     onClick={() => { setSpaceSwitcherOpen(false); setOpen(false); }}
                     className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm min-h-[44px] text-left hover:bg-paper-deep transition-colors text-bark-muted"
                   >
-                    <Plus size={14} />
+                    <Plus size={14} aria-hidden="true" />
                     <span>Create new space</span>
                   </Link>
                 </div>
