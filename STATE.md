@@ -1,6 +1,6 @@
 # State
 
-> Last updated: 2026-02-27
+> Last updated: 2026-03-02
 
 ## System State Diagram
 
@@ -102,7 +102,7 @@ All 5 phases of application code are **feature-complete**. WCAG 2.1 AA accessibi
 | Component | Status | Notes |
 |-----------|--------|-------|
 | Stripe billing | ✅ Done | Schema, checkout, webhooks, portal, feature gates, plan display |
-| Transparency layer | ✅ Done | Public decision log + documents, per-item visibility, embeddable widget |
+| Transparency layer | ✅ Done | Public pages, public-by-default when toggle on, per-item hide, embeddable widget |
 | Onboarding | ✅ Done | Guided flow, interactive walkthrough (7 steps), help docs |
 | REST API (`/api/v1/`) | ✅ Done | 6 endpoints: decisions, decisions/[number], documents, documents/[id], meetings, actions |
 | API key auth | ✅ Done | SHA-256 hashed keys, `glade_` prefix, settings UI, usage tracking |
@@ -151,8 +151,8 @@ flowchart LR
 
 ## Build Status
 
-- `npm run build` — **passing** (as of 2026-02-27)
-- `npm run lint` — **no errors** (warnings only from new jsx-a11y rules)
+- `npm run build` — **passing** (as of 2026-03-02)
+- `npm run lint` — **no errors** (warnings only from jsx-a11y rules)
 
 ## Known Issues
 
