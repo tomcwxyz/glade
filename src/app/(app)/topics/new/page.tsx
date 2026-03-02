@@ -24,7 +24,7 @@ export default async function NewTopicPage() {
         </p>
       </header>
 
-      <TopicForm />
+      <TopicForm publicEnabled={((space.settings as Record<string, unknown>) || {}).publicTopics === true} />
     </div>
   );
 }

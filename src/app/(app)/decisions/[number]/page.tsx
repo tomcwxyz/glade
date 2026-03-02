@@ -14,7 +14,7 @@ import {
   CheckCircle2,
   Circle,
   Clock,
-  Globe,
+  EyeOff,
   ListChecks,
   Pencil,
   TriangleAlert,
@@ -181,10 +181,10 @@ export default async function DecisionDetailPage({
               Decision #{decision.number}
             </span>
             <StatusBadge status={decision.status as DecisionStatus} />
-            {decision.isPublic && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[0.625rem] font-medium bg-canopy/8 text-canopy border border-canopy/20">
-                <Globe size={10} />
-                Public
+            {!decision.isPublic && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[0.625rem] font-medium bg-bark/8 text-bark-muted border border-bark/20">
+                <EyeOff size={10} />
+                Hidden
               </span>
             )}
           </div>

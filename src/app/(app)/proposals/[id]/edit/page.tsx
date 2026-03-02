@@ -33,6 +33,7 @@ export default async function EditProposalPage({
       </header>
 
       <ProposalForm
+        publicEnabled={((space.settings as Record<string, unknown>) || {}).publicProposals === true}
         proposal={{
           id: proposal.id,
           title: proposal.title,

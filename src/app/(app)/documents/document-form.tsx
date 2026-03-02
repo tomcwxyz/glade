@@ -4,7 +4,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { createDocument, updateDocument, autoSaveDocument } from "@/lib/document-actions";
 import { inputClass } from "@/lib/utils";
 import { TiptapEditor } from "@/components/tiptap-editor";
-import { Check, Cloud, CloudOff, Globe, Loader2, Upload } from "lucide-react";
+import { Check, Cloud, CloudOff, EyeOff, Loader2, Upload } from "lucide-react";
 import Link from "next/link";
 import type { JSONContent } from "@tiptap/react";
 import { markdownToTiptap } from "@/lib/tiptap-utils";
@@ -56,7 +56,7 @@ function SaveStatusIndicator({ status }: { status: SaveStatus }) {
   );
 }
 
-export function DocumentForm({ document }: { document?: DocumentData }) {
+export function DocumentForm({ document, publicEnabled }: { document?: DocumentData; publicEnabled?: boolean }) {
   const isEditing = !!document;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -210,18 +210,20 @@ export function DocumentForm({ document }: { document?: DocumentData }) {
           />
         </div>
 
-        <div className="flex items-center gap-3">
-          <label className="flex items-center gap-2.5 cursor-pointer">
-            <input
-              type="checkbox"
-              name="isPublic"
-              defaultChecked={document?.isPublic ?? false}
-              className="w-4 h-4 rounded border-border text-canopy focus:ring-canopy"
-            />
-            <Globe size={14} className="text-bark-muted" />
-            <span className="text-sm text-bark">Make this document publicly visible</span>
-          </label>
-        </div>
+        {publicEnabled && (
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-2.5 cursor-pointer">
+              <input
+                type="checkbox"
+                name="hideFromPublic"
+                defaultChecked={!(document?.isPublic ?? true)}
+                className="w-4 h-4 rounded border-border text-canopy focus:ring-canopy"
+              />
+              <EyeOff size={14} className="text-bark-muted" />
+              <span className="text-sm text-bark">Hide from public page</span>
+            </label>
+          </div>
+        )}
 
         <div className="flex items-center gap-4 pt-4 border-t border-border">
           <button

@@ -46,6 +46,7 @@ export default async function EditDecisionPage({
       <DecisionForm
         tags={allTags}
         members={members.map((m) => ({ id: m.userId, name: m.name || m.email }))}
+        publicEnabled={((space.settings as Record<string, unknown>) || {}).publicDecisionLog === true}
         decision={{
           id: decision.id,
           title: decision.title,

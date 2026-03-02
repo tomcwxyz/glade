@@ -41,6 +41,7 @@ export default async function EditDocumentPage({
       </header>
 
       <DocumentForm
+        publicEnabled={((space.settings as Record<string, unknown>) || {}).publicDocuments === true}
         document={{
           id: doc.id,
           title: doc.title,

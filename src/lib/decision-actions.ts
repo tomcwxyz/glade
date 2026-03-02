@@ -60,7 +60,7 @@ export async function createDecision(formData: FormData) {
       date: new Date(dateStr),
       conditions,
       reviewDate: reviewDateStr ? new Date(reviewDateStr) : null,
-      isPublic: formData.get("isPublic") === "on",
+      isPublic: formData.get("hideFromPublic") !== "on",
       createdBy: user.id,
     })
     .returning({ id: decisions.id, number: decisions.number });
@@ -165,7 +165,7 @@ export async function updateDecision(decisionId: string, formData: FormData) {
       date: new Date(dateStr),
       conditions,
       reviewDate: reviewDateStr ? new Date(reviewDateStr) : null,
-      isPublic: formData.get("isPublic") === "on",
+      isPublic: formData.get("hideFromPublic") !== "on",
       updatedAt: new Date(),
     })
     .where(eq(decisions.id, decisionId));

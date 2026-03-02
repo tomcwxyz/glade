@@ -57,6 +57,7 @@ export default async function NewDecisionPage() {
           <DecisionForm
             tags={tags}
             members={members.map((m) => ({ id: m.userId, name: m.name || m.email }))}
+            publicEnabled={((space.settings as Record<string, unknown>) || {}).publicDecisionLog === true}
           />
         </>
       )}

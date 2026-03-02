@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { createMeeting, updateMeeting } from "@/lib/meeting-actions";
 import { inputClass } from "@/lib/utils";
-import { Check, Clock, FileText, Globe, Loader2, Plus, X, MessageSquarePlus } from "lucide-react";
+import { Check, Clock, FileText, EyeOff, Loader2, Plus, X, MessageSquarePlus } from "lucide-react";
 import Link from "next/link";
 import { FormError } from "@/components/form-error";
 
@@ -83,11 +83,13 @@ export function MeetingForm({
   meeting,
   topics,
   proposals,
+  publicEnabled,
 }: {
   members: Member[];
   meeting?: MeetingData;
   topics?: Topic[];
   proposals?: Proposal[];
+  publicEnabled?: boolean;
 }) {
   const isEditing = !!meeting;
   const [loading, setLoading] = useState(false);
@@ -509,18 +511,20 @@ export function MeetingForm({
         </div>
 
         {/* Public visibility */}
-        <div className="flex items-center gap-3">
-          <label className="flex items-center gap-2.5 cursor-pointer">
-            <input
-              type="checkbox"
-              name="isPublic"
-              defaultChecked={meeting?.isPublic ?? false}
-              className="w-4 h-4 rounded border-border text-canopy focus:ring-canopy"
-            />
-            <Globe size={14} className="text-bark-muted" />
-            <span className="text-sm text-bark">Make this meeting publicly visible</span>
-          </label>
-        </div>
+        {publicEnabled && (
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-2.5 cursor-pointer">
+              <input
+                type="checkbox"
+                name="hideFromPublic"
+                defaultChecked={!(meeting?.isPublic ?? true)}
+                className="w-4 h-4 rounded border-border text-canopy focus:ring-canopy"
+              />
+              <EyeOff size={14} className="text-bark-muted" />
+              <span className="text-sm text-bark">Hide from public page</span>
+            </label>
+          </div>
+        )}
 
         {/* Submit */}
         <div className="flex items-center gap-4 pt-4 border-t border-border">

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { createProposal, updateProposal } from "@/lib/proposal-actions";
 import { inputClass, textareaClass } from "@/lib/utils";
-import { Globe, Loader2 } from "lucide-react";
+import { EyeOff, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { FormError } from "@/components/form-error";
 
@@ -27,7 +27,7 @@ interface ProposalData {
 }
 
 
-export function ProposalForm({ proposal }: { proposal?: ProposalData }) {
+export function ProposalForm({ proposal, publicEnabled }: { proposal?: ProposalData; publicEnabled?: boolean }) {
   const isEditing = !!proposal;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -118,18 +118,20 @@ export function ProposalForm({ proposal }: { proposal?: ProposalData }) {
         </div>
 
         {/* Public visibility */}
-        <div className="flex items-center gap-3">
-          <label className="flex items-center gap-2.5 cursor-pointer">
-            <input
-              type="checkbox"
-              name="isPublic"
-              defaultChecked={proposal?.isPublic ?? false}
-              className="w-4 h-4 rounded border-border text-canopy focus:ring-canopy"
-            />
-            <Globe size={14} className="text-bark-muted" />
-            <span className="text-sm text-bark">Make this proposal publicly visible</span>
-          </label>
-        </div>
+        {publicEnabled && (
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-2.5 cursor-pointer">
+              <input
+                type="checkbox"
+                name="hideFromPublic"
+                defaultChecked={!(proposal?.isPublic ?? true)}
+                className="w-4 h-4 rounded border-border text-canopy focus:ring-canopy"
+              />
+              <EyeOff size={14} className="text-bark-muted" />
+              <span className="text-sm text-bark">Hide from public page</span>
+            </label>
+          </div>
+        )}
 
         <div className="flex items-center gap-4 pt-4 border-t border-border">
           <button

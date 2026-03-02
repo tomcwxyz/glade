@@ -47,6 +47,7 @@ export default async function EditMeetingPage({
         members={members.map((m) => ({ id: m.userId, name: m.name || m.email }))}
         topics={topics}
         proposals={agendaProposals}
+        publicEnabled={((space.settings as Record<string, unknown>) || {}).publicMeetings === true}
         meeting={{
           id: meeting.id,
           title: meeting.title,

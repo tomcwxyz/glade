@@ -24,7 +24,7 @@ export default async function NewDocumentPage() {
         </p>
       </header>
 
-      <DocumentForm />
+      <DocumentForm publicEnabled={((space.settings as Record<string, unknown>) || {}).publicDocuments === true} />
     </div>
   );
 }

@@ -19,7 +19,7 @@ export async function createProposal(formData: FormData) {
   const description = (formData.get("description") as string)?.trim() || null;
   const rationale = (formData.get("rationale") as string)?.trim() || null;
   const suggestedMethod = (formData.get("suggestedMethod") as string) || null;
-  const isPublic = formData.get("isPublic") === "on";
+  const isPublic = formData.get("hideFromPublic") !== "on";
 
   const [proposal] = await db
     .insert(proposals)
@@ -57,7 +57,7 @@ export async function updateProposal(proposalId: string, formData: FormData) {
   const description = (formData.get("description") as string)?.trim() || null;
   const rationale = (formData.get("rationale") as string)?.trim() || null;
   const suggestedMethod = (formData.get("suggestedMethod") as string) || null;
-  const isPublic = formData.get("isPublic") === "on";
+  const isPublic = formData.get("hideFromPublic") !== "on";
 
   await db
     .update(proposals)

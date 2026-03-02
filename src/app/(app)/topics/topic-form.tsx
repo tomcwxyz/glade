@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { createTopic } from "@/lib/topic-actions";
 import { inputClass, textareaClass } from "@/lib/utils";
-import { Globe, Loader2 } from "lucide-react";
+import { EyeOff, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { FormError } from "@/components/form-error";
 
@@ -14,7 +14,7 @@ const TYPES = [
 ] as const;
 
 
-export function TopicForm() {
+export function TopicForm({ publicEnabled }: { publicEnabled?: boolean }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -94,17 +94,19 @@ export function TopicForm() {
         </div>
 
         {/* Public visibility */}
-        <div className="flex items-center gap-3">
-          <label className="flex items-center gap-2.5 cursor-pointer">
-            <input
-              type="checkbox"
-              name="isPublic"
-              className="w-4 h-4 rounded border-border text-canopy focus:ring-canopy"
-            />
-            <Globe size={14} className="text-bark-muted" />
-            <span className="text-sm text-bark">Make this topic publicly visible</span>
-          </label>
-        </div>
+        {publicEnabled && (
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-2.5 cursor-pointer">
+              <input
+                type="checkbox"
+                name="hideFromPublic"
+                className="w-4 h-4 rounded border-border text-canopy focus:ring-canopy"
+              />
+              <EyeOff size={14} className="text-bark-muted" />
+              <span className="text-sm text-bark">Hide from public page</span>
+            </label>
+          </div>
+        )}
 
         <div className="flex items-center gap-4 pt-4 border-t border-border">
           <button

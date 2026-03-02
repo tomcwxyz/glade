@@ -24,7 +24,7 @@ export default async function NewProposalPage() {
         </p>
       </header>
 
-      <ProposalForm />
+      <ProposalForm publicEnabled={((space.settings as Record<string, unknown>) || {}).publicProposals === true} />
     </div>
   );
 }

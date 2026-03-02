@@ -17,7 +17,7 @@ export async function createTopic(formData: FormData) {
   const description = (formData.get("description") as string)?.trim() || null;
   const type = formData.get("type") as string;
   if (!type) return { error: "Topic type is required" };
-  const isPublic = formData.get("isPublic") === "on";
+  const isPublic = formData.get("hideFromPublic") !== "on";
 
   const [topic] = await db
     .insert(topics)
