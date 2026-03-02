@@ -3,6 +3,16 @@ import { getPublicSpace } from "@/lib/queries";
 import Link from "next/link";
 import { TreePine } from "lucide-react";
 
+const NAV_ITEMS = [
+  { key: "publicGlade", href: "glade", label: "Glade" },
+  { key: "publicDecisionLog", href: "decisions", label: "Decisions" },
+  { key: "publicActions", href: "actions", label: "Actions" },
+  { key: "publicMeetings", href: "meetings", label: "Meetings" },
+  { key: "publicDocuments", href: "documents", label: "Documents" },
+  { key: "publicProposals", href: "proposals", label: "Proposals" },
+  { key: "publicTopics", href: "topics", label: "Topics" },
+] as const;
+
 export default async function PublicLayout({
   children,
   params,
@@ -15,11 +25,10 @@ export default async function PublicLayout({
   if (!space) notFound();
 
   const settings = (space.settings as Record<string, unknown>) || {};
-  const hasPublicDecisions = settings.publicDecisionLog === true;
-  const hasPublicDocuments = settings.publicDocuments === true;
 
   // If nothing is public, 404
-  if (!hasPublicDecisions && !hasPublicDocuments) notFound();
+  const hasAnyPublic = NAV_ITEMS.some((item) => settings[item.key] === true);
+  if (!hasAnyPublic) notFound();
 
   return (
     <div className="min-h-screen bg-paper">
@@ -43,23 +52,16 @@ export default async function PublicLayout({
             Public view
           </span>
         </div>
-        <nav className="max-w-4xl mx-auto px-4 sm:px-8 flex gap-1">
-          {hasPublicDecisions && (
+        <nav className="max-w-4xl mx-auto px-4 sm:px-8 flex gap-1 overflow-x-auto">
+          {NAV_ITEMS.filter((item) => settings[item.key] === true).map((item) => (
             <Link
-              href={`/public/${spaceSlug}/decisions`}
-              className="px-3 py-2 text-sm text-bark-muted hover:text-bark transition-colors border-b-2 border-transparent hover:border-canopy/30"
+              key={item.key}
+              href={`/public/${spaceSlug}/${item.href}`}
+              className="px-3 py-2 text-sm text-bark-muted hover:text-bark transition-colors border-b-2 border-transparent hover:border-canopy/30 whitespace-nowrap"
             >
-              Decisions
+              {item.label}
             </Link>
-          )}
-          {hasPublicDocuments && (
-            <Link
-              href={`/public/${spaceSlug}/documents`}
-              className="px-3 py-2 text-sm text-bark-muted hover:text-bark transition-colors border-b-2 border-transparent hover:border-canopy/30"
-            >
-              Documents
-            </Link>
-          )}
+          ))}
         </nav>
       </header>
       <main>{children}</main>

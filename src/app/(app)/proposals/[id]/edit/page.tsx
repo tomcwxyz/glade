@@ -39,6 +39,7 @@ export default async function EditProposalPage({
           description: proposal.description,
           rationale: proposal.rationale,
           suggestedMethod: proposal.suggestedMethod,
+          isPublic: proposal.isPublic,
         }}
       />
     </div>

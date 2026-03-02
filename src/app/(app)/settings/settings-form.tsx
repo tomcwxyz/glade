@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useSearchParams } from "next/navigation";
-import { Loader2, TriangleAlert, Sparkles, CreditCard, ArrowUpRight, Globe, RotateCcw, Calendar } from "lucide-react";
+import { Loader2, TriangleAlert, Sparkles, CreditCard, ArrowUpRight, Globe, RotateCcw, Calendar, Copy, Check, Link as LinkIcon } from "lucide-react";
 import { resetWalkthrough } from "@/components/walkthrough";
 import { updateSpace, deleteSpace, updateSpaceSettings, clearSpaceData } from "@/lib/space-actions";
 import { createCheckoutSession, createCustomerPortalSession } from "@/lib/billing-actions";
@@ -17,8 +17,13 @@ export function SpaceSettingsForm({
   isAdmin,
   aiAvailable,
   aiEnabled,
+  publicGlade,
   publicDecisionLog,
+  publicActions,
+  publicMeetings,
   publicDocuments,
+  publicProposals,
+  publicTopics,
   votePassThreshold,
   planTier,
   planName,
@@ -36,8 +41,13 @@ export function SpaceSettingsForm({
   isAdmin: boolean;
   aiAvailable: boolean;
   aiEnabled: boolean;
+  publicGlade: boolean;
   publicDecisionLog: boolean;
+  publicActions: boolean;
+  publicMeetings: boolean;
   publicDocuments: boolean;
+  publicProposals: boolean;
+  publicTopics: boolean;
   votePassThreshold: number;
   planTier: PlanTier;
   planName: string;
@@ -57,6 +67,7 @@ export function SpaceSettingsForm({
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [clearConfirmText, setClearConfirmText] = useState("");
+  const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -386,62 +397,96 @@ export function SpaceSettingsForm({
           </p>
 
           <div className="space-y-4">
-            <label className="flex items-center gap-3 cursor-pointer">
-              <button
-                type="button"
-                role="switch"
-                aria-checked={publicDecisionLog}
-                onClick={() => {
-                  startTransition(async () => {
-                    const result = await updateSpaceSettings({ publicDecisionLog: !publicDecisionLog });
-                    if (result?.error) setError(result.error);
-                  });
-                }}
-                disabled={isPending}
-                className={`relative w-10 h-5.5 rounded-full transition-colors ${
-                  publicDecisionLog ? "bg-canopy" : "bg-paper-deep border border-border"
-                }`}
-              >
-                <span
-                  className={`absolute top-0.5 left-0.5 w-4.5 h-4.5 rounded-full bg-paper shadow transition-transform ${
-                    publicDecisionLog ? "translate-x-[18px]" : ""
+            {([
+              { key: "publicGlade", checked: publicGlade, label: "Public glade", desc: "The visual decision canvas, viewable by anyone" },
+              { key: "publicDecisionLog", checked: publicDecisionLog, label: "Public decision log", desc: "Anyone can view your decisions without signing in" },
+              { key: "publicActions", checked: publicActions, label: "Public actions", desc: "Outstanding and completed actions" },
+              { key: "publicMeetings", checked: publicMeetings, label: "Public meeting records", desc: "Meeting agendas, attendees, and notes" },
+              { key: "publicDocuments", checked: publicDocuments, label: "Public governance documents", desc: "Published documents visible to the public" },
+              { key: "publicProposals", checked: publicProposals, label: "Public proposals", desc: "Proposals open for discussion" },
+              { key: "publicTopics", checked: publicTopics, label: "Public topics", desc: "Questions, tensions, and suggestions" },
+            ] as const).map((toggle) => (
+              <label key={toggle.key} className="flex items-center gap-3 cursor-pointer">
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={toggle.checked}
+                  onClick={() => {
+                    startTransition(async () => {
+                      const result = await updateSpaceSettings({ [toggle.key]: !toggle.checked });
+                      if (result?.error) setError(result.error);
+                    });
+                  }}
+                  disabled={isPending}
+                  className={`relative w-10 h-5.5 rounded-full transition-colors ${
+                    toggle.checked ? "bg-canopy" : "bg-paper-deep border border-border"
                   }`}
-                />
-              </button>
-              <div>
-                <span className="text-sm text-bark block">Public decision log</span>
-                <span className="text-xs text-bark-muted">Anyone can view your decisions without signing in</span>
-              </div>
-            </label>
-
-            <label className="flex items-center gap-3 cursor-pointer">
-              <button
-                type="button"
-                role="switch"
-                aria-checked={publicDocuments}
-                onClick={() => {
-                  startTransition(async () => {
-                    const result = await updateSpaceSettings({ publicDocuments: !publicDocuments });
-                    if (result?.error) setError(result.error);
-                  });
-                }}
-                disabled={isPending}
-                className={`relative w-10 h-5.5 rounded-full transition-colors ${
-                  publicDocuments ? "bg-canopy" : "bg-paper-deep border border-border"
-                }`}
-              >
-                <span
-                  className={`absolute top-0.5 left-0.5 w-4.5 h-4.5 rounded-full bg-paper shadow transition-transform ${
-                    publicDocuments ? "translate-x-[18px]" : ""
-                  }`}
-                />
-              </button>
-              <div>
-                <span className="text-sm text-bark block">Public governance documents</span>
-                <span className="text-xs text-bark-muted">Published documents visible to the public</span>
-              </div>
-            </label>
+                >
+                  <span
+                    className={`absolute top-0.5 left-0.5 w-4.5 h-4.5 rounded-full bg-paper shadow transition-transform ${
+                      toggle.checked ? "translate-x-[18px]" : ""
+                    }`}
+                  />
+                </button>
+                <div>
+                  <span className="text-sm text-bark block">{toggle.label}</span>
+                  <span className="text-xs text-bark-muted">{toggle.desc}</span>
+                </div>
+              </label>
+            ))}
           </div>
+
+          {(publicGlade || publicDecisionLog || publicActions || publicMeetings || publicDocuments || publicProposals || publicTopics) && (
+            <div className="mt-5 pt-5 border-t border-border">
+              <div className="flex items-center gap-2 mb-3">
+                <LinkIcon size={14} className="text-canopy" />
+                <h3 className="text-sm font-medium text-bark">Public links</h3>
+              </div>
+              <p className="text-xs text-bark-muted mb-3">
+                Share these links to give anyone read-only access.
+              </p>
+              <div className="space-y-1.5">
+                {([
+                  { enabled: true, path: "", label: "Public home" },
+                  { enabled: publicGlade, path: "/glade", label: "Glade" },
+                  { enabled: publicDecisionLog, path: "/decisions", label: "Decisions" },
+                  { enabled: publicActions, path: "/actions", label: "Actions" },
+                  { enabled: publicMeetings, path: "/meetings", label: "Meetings" },
+                  { enabled: publicDocuments, path: "/documents", label: "Documents" },
+                  { enabled: publicProposals, path: "/proposals", label: "Proposals" },
+                  { enabled: publicTopics, path: "/topics", label: "Topics" },
+                ] as const).filter((link) => link.enabled).map((link) => {
+                  const fullUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/public/${slug}${link.path}`;
+                  const isCopied = copiedUrl === fullUrl;
+                  return (
+                    <div
+                      key={link.path}
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg bg-paper-deep border border-border group"
+                    >
+                      <span className="text-xs font-medium text-bark min-w-[5.5rem]">
+                        {link.label}
+                      </span>
+                      <code className="flex-1 text-xs text-bark-muted truncate select-all">
+                        /public/{slug}{link.path}
+                      </code>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard.writeText(fullUrl);
+                          setCopiedUrl(fullUrl);
+                          setTimeout(() => setCopiedUrl(null), 2000);
+                        }}
+                        className="shrink-0 p-1 rounded text-bark-muted hover:text-canopy transition-colors"
+                        aria-label={`Copy ${link.label} link`}
+                      >
+                        {isCopied ? <Check size={13} className="text-canopy" /> : <Copy size={13} />}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {publicDecisionLog && (
             <div className="mt-5 pt-5 border-t border-border">

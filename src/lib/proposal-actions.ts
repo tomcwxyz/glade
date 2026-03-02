@@ -19,6 +19,7 @@ export async function createProposal(formData: FormData) {
   const description = (formData.get("description") as string)?.trim() || null;
   const rationale = (formData.get("rationale") as string)?.trim() || null;
   const suggestedMethod = (formData.get("suggestedMethod") as string) || null;
+  const isPublic = formData.get("isPublic") === "on";
 
   const [proposal] = await db
     .insert(proposals)
@@ -29,6 +30,7 @@ export async function createProposal(formData: FormData) {
       rationale,
       suggestedMethod: suggestedMethod as "consent" | "majority_vote" | "advice_process" | "delegation" | "consensus" | "lazy_consensus" | null,
       status: "draft",
+      isPublic,
       createdBy: user.id,
     })
     .returning({ id: proposals.id });
@@ -55,6 +57,7 @@ export async function updateProposal(proposalId: string, formData: FormData) {
   const description = (formData.get("description") as string)?.trim() || null;
   const rationale = (formData.get("rationale") as string)?.trim() || null;
   const suggestedMethod = (formData.get("suggestedMethod") as string) || null;
+  const isPublic = formData.get("isPublic") === "on";
 
   await db
     .update(proposals)
@@ -63,6 +66,7 @@ export async function updateProposal(proposalId: string, formData: FormData) {
       description,
       rationale,
       suggestedMethod: suggestedMethod as "consent" | "majority_vote" | "advice_process" | "delegation" | "consensus" | "lazy_consensus" | null,
+      isPublic,
       updatedAt: new Date(),
     })
     .where(eq(proposals.id, proposalId));

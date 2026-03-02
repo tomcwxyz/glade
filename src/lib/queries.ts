@@ -913,6 +913,194 @@ export async function getPublicDocuments(spaceId: string) {
     .orderBy(desc(documents.updatedAt));
 }
 
+export async function getPublicActions(spaceId: string) {
+  return db
+    .select({
+      id: actions.id,
+      description: actions.description,
+      ownerName: actions.ownerName,
+      status: actions.status,
+      dueDate: actions.dueDate,
+      decisionTitle: decisions.title,
+      decisionNumber: decisions.number,
+    })
+    .from(actions)
+    .innerJoin(decisions, eq(decisions.id, actions.decisionId))
+    .where(and(eq(actions.spaceId, spaceId), eq(actions.isPublic, true)))
+    .orderBy(desc(actions.createdAt));
+}
+
+export async function getPublicMeetings(spaceId: string) {
+  const rows = await db
+    .select({
+      id: meetings.id,
+      title: meetings.title,
+      date: meetings.date,
+      type: meetings.type,
+      status: meetings.status,
+    })
+    .from(meetings)
+    .where(and(eq(meetings.spaceId, spaceId), eq(meetings.isPublic, true)))
+    .orderBy(desc(meetings.date));
+
+  const ids = rows.map((m) => m.id);
+  if (ids.length === 0) return [];
+
+  const attendeeCounts = await db
+    .select({ meetingId: meetingAttendees.meetingId, count: count() })
+    .from(meetingAttendees)
+    .where(inArray(meetingAttendees.meetingId, ids))
+    .groupBy(meetingAttendees.meetingId);
+
+  const decisionCounts = await db
+    .select({ meetingId: meetingDecisions.meetingId, count: count() })
+    .from(meetingDecisions)
+    .where(inArray(meetingDecisions.meetingId, ids))
+    .groupBy(meetingDecisions.meetingId);
+
+  return rows.map((m) => ({
+    ...m,
+    attendeeCount: attendeeCounts.find((a) => a.meetingId === m.id)?.count ?? 0,
+    decisionCount: decisionCounts.find((d) => d.meetingId === m.id)?.count ?? 0,
+  }));
+}
+
+export async function getPublicProposals(spaceId: string) {
+  const rows = await db
+    .select({
+      id: proposals.id,
+      title: proposals.title,
+      status: proposals.status,
+      suggestedMethod: proposals.suggestedMethod,
+      createdBy: proposals.createdBy,
+      createdAt: proposals.createdAt,
+    })
+    .from(proposals)
+    .where(and(eq(proposals.spaceId, spaceId), eq(proposals.isPublic, true)))
+    .orderBy(desc(proposals.createdAt));
+
+  const creatorIds = rows.map((p) => p.createdBy).filter(Boolean) as string[];
+  if (creatorIds.length === 0) return rows.map((p) => ({ ...p, authorName: null }));
+
+  const creators = await db
+    .select({ id: users.id, name: users.name })
+    .from(users)
+    .where(inArray(users.id, creatorIds));
+
+  return rows.map((p) => ({
+    ...p,
+    authorName: creators.find((c) => c.id === p.createdBy)?.name ?? null,
+  }));
+}
+
+export async function getPublicTopics(spaceId: string) {
+  const rows = await db
+    .select({
+      id: topics.id,
+      title: topics.title,
+      type: topics.type,
+      createdBy: topics.createdBy,
+      createdAt: topics.createdAt,
+    })
+    .from(topics)
+    .where(and(eq(topics.spaceId, spaceId), eq(topics.isPublic, true)))
+    .orderBy(desc(topics.createdAt));
+
+  const creatorIds = rows.map((t) => t.createdBy).filter(Boolean) as string[];
+  if (creatorIds.length === 0) return rows.map((t) => ({ ...t, creatorName: null }));
+
+  const creators = await db
+    .select({ id: users.id, name: users.name })
+    .from(users)
+    .where(inArray(users.id, creatorIds));
+
+  return rows.map((t) => ({
+    ...t,
+    creatorName: creators.find((c) => c.id === t.createdBy)?.name ?? null,
+  }));
+}
+
+export async function getPublicGladeDecisions(spaceId: string) {
+  const rows = await db
+    .select({
+      id: decisions.id,
+      number: decisions.number,
+      title: decisions.title,
+      description: decisions.description,
+      rationale: decisions.rationale,
+      method: decisions.method,
+      outcome: decisions.outcome,
+      status: decisions.status,
+      participants: decisions.participants,
+      date: decisions.date,
+      reviewDate: decisions.reviewDate,
+    })
+    .from(decisions)
+    .where(and(eq(decisions.spaceId, spaceId), eq(decisions.isPublic, true)))
+    .orderBy(desc(decisions.date), desc(decisions.number));
+
+  const ids = rows.map((d) => d.id);
+  if (ids.length === 0) return [];
+
+  const [allTags, allActions, allLinks] = await Promise.all([
+    db
+      .select({ decisionId: decisionTags.decisionId, name: tags.name })
+      .from(decisionTags)
+      .innerJoin(tags, eq(tags.id, decisionTags.tagId))
+      .where(inArray(decisionTags.decisionId, ids)),
+    db
+      .select({
+        decisionId: actions.decisionId,
+        status: actions.status,
+      })
+      .from(actions)
+      .where(inArray(actions.decisionId, ids)),
+    db
+      .select({
+        fromDecisionId: decisionLinks.fromDecisionId,
+        toDecisionId: decisionLinks.toDecisionId,
+        linkType: decisionLinks.linkType,
+      })
+      .from(decisionLinks)
+      .where(
+        sql`${decisionLinks.fromDecisionId} = ANY(${ids}) OR ${decisionLinks.toDecisionId} = ANY(${ids})`
+      ),
+  ]);
+
+  return rows.map((d) => {
+    const dActions = allActions.filter((a) => a.decisionId === d.id);
+    const linkedDecisions = allLinks
+      .filter((l) => l.fromDecisionId === d.id || l.toDecisionId === d.id)
+      .map((l) => {
+        const isForward = l.fromDecisionId === d.id;
+        const otherId = isForward ? l.toDecisionId : l.fromDecisionId;
+        const other = rows.find((r) => r.id === otherId);
+        return other
+          ? { id: otherId, number: other.number, title: other.title, relation: l.linkType, direction: isForward ? "forward" as const : "reverse" as const }
+          : null;
+      })
+      .filter(Boolean) as { id: string; number: number; title: string; relation: string; direction: "forward" | "reverse" }[];
+
+    return {
+      id: d.id,
+      number: d.number,
+      title: d.title,
+      description: d.description || "",
+      rationale: d.rationale || "",
+      method: d.method,
+      outcome: d.outcome || "",
+      status: d.status,
+      participants: (d.participants as string[]) || [],
+      date: d.date.toISOString(),
+      tags: allTags.filter((t) => t.decisionId === d.id).map((t) => t.name),
+      reviewDate: d.reviewDate?.toISOString() || null,
+      actionsCount: dActions.length,
+      actionsComplete: dActions.filter((a) => a.status === "complete").length,
+      linkedDecisions,
+    };
+  });
+}
+
 export async function getGovernanceHealthStats(spaceId: string) {
   const [participantRows, methodRows, revisionRows, docRows, proposalRows, memberCount] =
     await Promise.all([

@@ -1,6 +1,16 @@
 import { redirect } from "next/navigation";
 import { getPublicSpace } from "@/lib/queries";
 
+const REDIRECT_PRIORITY = [
+  { key: "publicGlade", path: "glade" },
+  { key: "publicDecisionLog", path: "decisions" },
+  { key: "publicDocuments", path: "documents" },
+  { key: "publicActions", path: "actions" },
+  { key: "publicMeetings", path: "meetings" },
+  { key: "publicProposals", path: "proposals" },
+  { key: "publicTopics", path: "topics" },
+] as const;
+
 export default async function PublicSpacePage({
   params,
 }: {
@@ -12,12 +22,10 @@ export default async function PublicSpacePage({
 
   const settings = (space.settings as Record<string, unknown>) || {};
 
-  // Redirect to the first available public section
-  if (settings.publicDecisionLog === true) {
-    redirect(`/public/${spaceSlug}/decisions`);
-  }
-  if (settings.publicDocuments === true) {
-    redirect(`/public/${spaceSlug}/documents`);
+  for (const { key, path } of REDIRECT_PRIORITY) {
+    if (settings[key] === true) {
+      redirect(`/public/${spaceSlug}/${path}`);
+    }
   }
 
   return null;

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { createMeeting, updateMeeting } from "@/lib/meeting-actions";
 import { inputClass } from "@/lib/utils";
-import { Check, Clock, FileText, Loader2, Plus, X, MessageSquarePlus } from "lucide-react";
+import { Check, Clock, FileText, Globe, Loader2, Plus, X, MessageSquarePlus } from "lucide-react";
 import Link from "next/link";
 import { FormError } from "@/components/form-error";
 
@@ -41,6 +41,7 @@ interface MeetingData {
   type: string | null;
   status: string;
   notes: string | null;
+  isPublic: boolean;
   attendeeIds: string[];
   agendaItems: AgendaItem[];
 }
@@ -505,6 +506,20 @@ export function MeetingForm({
               </div>
             ))}
           </div>
+        </div>
+
+        {/* Public visibility */}
+        <div className="flex items-center gap-3">
+          <label className="flex items-center gap-2.5 cursor-pointer">
+            <input
+              type="checkbox"
+              name="isPublic"
+              defaultChecked={meeting?.isPublic ?? false}
+              className="w-4 h-4 rounded border-border text-canopy focus:ring-canopy"
+            />
+            <Globe size={14} className="text-bark-muted" />
+            <span className="text-sm text-bark">Make this meeting publicly visible</span>
+          </label>
         </div>
 
         {/* Submit */}

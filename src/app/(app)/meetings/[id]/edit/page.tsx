@@ -54,6 +54,7 @@ export default async function EditMeetingPage({
           type: meeting.type,
           status: meeting.status,
           notes: meeting.notes,
+          isPublic: meeting.isPublic,
           attendeeIds: meeting.attendees.map((a) => a.id),
           agendaItems: meeting.agendaItems.map((a) => ({
             title: a.title,

@@ -26,6 +26,7 @@ export async function createMeeting(formData: FormData) {
   const type = (formData.get("type") as string)?.trim() || null;
   const status = ((formData.get("status") as string)?.trim() || "draft") as MeetingStatus;
   const notes = (formData.get("notes") as string)?.trim() || null;
+  const isPublic = formData.get("isPublic") === "on";
   const attendeeIdsRaw = formData.get("attendeeIds") as string;
 
   const attendeeIds = attendeeIdsRaw
@@ -41,6 +42,7 @@ export async function createMeeting(formData: FormData) {
       type,
       status,
       notes,
+      isPublic,
       createdBy: user.id,
     })
     .returning({ id: meetings.id });
@@ -115,6 +117,7 @@ export async function updateMeeting(meetingId: string, formData: FormData) {
   const type = (formData.get("type") as string)?.trim() || null;
   const status = ((formData.get("status") as string)?.trim() || "draft") as MeetingStatus;
   const notes = (formData.get("notes") as string)?.trim() || null;
+  const isPublic = formData.get("isPublic") === "on";
   const attendeeIdsRaw = formData.get("attendeeIds") as string;
 
   const attendeeIds = attendeeIdsRaw
@@ -129,6 +132,7 @@ export async function updateMeeting(meetingId: string, formData: FormData) {
       type,
       status,
       notes,
+      isPublic,
       updatedAt: new Date(),
     })
     .where(eq(meetings.id, meetingId));

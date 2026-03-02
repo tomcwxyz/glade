@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { createTopic } from "@/lib/topic-actions";
 import { inputClass, textareaClass } from "@/lib/utils";
-import { Loader2 } from "lucide-react";
+import { Globe, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { FormError } from "@/components/form-error";
 
@@ -91,6 +91,19 @@ export function TopicForm() {
             placeholder="Any additional context…"
             className={textareaClass}
           />
+        </div>
+
+        {/* Public visibility */}
+        <div className="flex items-center gap-3">
+          <label className="flex items-center gap-2.5 cursor-pointer">
+            <input
+              type="checkbox"
+              name="isPublic"
+              className="w-4 h-4 rounded border-border text-canopy focus:ring-canopy"
+            />
+            <Globe size={14} className="text-bark-muted" />
+            <span className="text-sm text-bark">Make this topic publicly visible</span>
+          </label>
         </div>
 
         <div className="flex items-center gap-4 pt-4 border-t border-border">

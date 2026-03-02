@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { createProposal, updateProposal } from "@/lib/proposal-actions";
 import { inputClass, textareaClass } from "@/lib/utils";
-import { Loader2 } from "lucide-react";
+import { Globe, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { FormError } from "@/components/form-error";
 
@@ -23,6 +23,7 @@ interface ProposalData {
   description: string | null;
   rationale: string | null;
   suggestedMethod: string | null;
+  isPublic: boolean;
 }
 
 
@@ -114,6 +115,20 @@ export function ProposalForm({ proposal }: { proposal?: ProposalData }) {
               </option>
             ))}
           </select>
+        </div>
+
+        {/* Public visibility */}
+        <div className="flex items-center gap-3">
+          <label className="flex items-center gap-2.5 cursor-pointer">
+            <input
+              type="checkbox"
+              name="isPublic"
+              defaultChecked={proposal?.isPublic ?? false}
+              className="w-4 h-4 rounded border-border text-canopy focus:ring-canopy"
+            />
+            <Globe size={14} className="text-bark-muted" />
+            <span className="text-sm text-bark">Make this proposal publicly visible</span>
+          </label>
         </div>
 
         <div className="flex items-center gap-4 pt-4 border-t border-border">

@@ -53,8 +53,13 @@ export default async function SettingsPage() {
         isAdmin={isAdmin}
         aiAvailable={isAiAvailable()}
         aiEnabled={isAiEnabled(space.settings)}
+        publicGlade={((space.settings as Record<string, unknown>) || {}).publicGlade === true}
         publicDecisionLog={((space.settings as Record<string, unknown>) || {}).publicDecisionLog === true}
+        publicActions={((space.settings as Record<string, unknown>) || {}).publicActions === true}
+        publicMeetings={((space.settings as Record<string, unknown>) || {}).publicMeetings === true}
         publicDocuments={((space.settings as Record<string, unknown>) || {}).publicDocuments === true}
+        publicProposals={((space.settings as Record<string, unknown>) || {}).publicProposals === true}
+        publicTopics={((space.settings as Record<string, unknown>) || {}).publicTopics === true}
         votePassThreshold={typeof ((space.settings as Record<string, unknown>) || {}).votePassThreshold === "number" ? ((space.settings as Record<string, unknown>).votePassThreshold as number) : 0.5}
         planTier={planTier}
         planName={PLAN_DISPLAY[planTier].name}

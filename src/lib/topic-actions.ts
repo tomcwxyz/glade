@@ -17,6 +17,7 @@ export async function createTopic(formData: FormData) {
   const description = (formData.get("description") as string)?.trim() || null;
   const type = formData.get("type") as string;
   if (!type) return { error: "Topic type is required" };
+  const isPublic = formData.get("isPublic") === "on";
 
   const [topic] = await db
     .insert(topics)
@@ -25,6 +26,7 @@ export async function createTopic(formData: FormData) {
       title,
       description,
       type: type as "question" | "tension" | "agenda_suggestion",
+      isPublic,
       createdBy: user.id,
     })
     .returning({ id: topics.id });

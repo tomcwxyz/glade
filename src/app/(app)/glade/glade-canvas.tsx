@@ -690,6 +690,7 @@ function Tooltip({
   containerHeight,
   onClose,
   onNavigate,
+  readOnly = false,
 }: {
   node: TreeNode;
   pixelX: number;
@@ -699,6 +700,7 @@ function Tooltip({
   containerHeight: number;
   onClose: () => void;
   onNavigate: () => void;
+  readOnly?: boolean;
 }) {
   const d = node.decision;
   const tooltipW = 320;
@@ -775,12 +777,14 @@ function Tooltip({
         </div>
       </div>
 
-      <button
-        onClick={onNavigate}
-        className="w-full px-5 py-3 text-sm text-canopy hover:bg-canopy-pale/50 border-t border-border text-left font-medium transition-colors"
-      >
-        View full decision →
-      </button>
+      {!readOnly && (
+        <button
+          onClick={onNavigate}
+          className="w-full px-5 py-3 text-sm text-canopy hover:bg-canopy-pale/50 border-t border-border text-left font-medium transition-colors"
+        >
+          View full decision →
+        </button>
+      )}
     </div>
   );
 }
@@ -951,7 +955,7 @@ function useZoomPan(fullW: number, fullH: number, svgRef: React.RefObject<SVGSVG
 
 // --- Main Canvas ---
 
-export function GladeCanvas({ decisions }: { decisions: Decision[] }) {
+export function GladeCanvas({ decisions, readOnly = false }: { decisions: Decision[]; readOnly?: boolean }) {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hoveredRootIndex, setHoveredRootIndex] = useState<number | null>(null);
@@ -1865,8 +1869,9 @@ export function GladeCanvas({ decisions }: { decisions: Decision[] }) {
             containerHeight={ch}
             onClose={() => setSelectedId(null)}
             onNavigate={() =>
-              router.push(`/decisions/${selectedNode.decision.number}`)
+              !readOnly && router.push(`/decisions/${selectedNode.decision.number}`)
             }
+            readOnly={readOnly}
           />
         );
       })()}
