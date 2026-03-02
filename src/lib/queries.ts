@@ -24,7 +24,7 @@ import {
   apiKeys,
   webhooks,
 } from "@/db/schema";
-import { eq, and, desc, asc, count, sql, inArray } from "drizzle-orm";
+import { eq, and, or, desc, asc, count, sql, inArray } from "drizzle-orm";
 
 // ============================================================
 // Decisions
@@ -1063,7 +1063,7 @@ export async function getPublicGladeDecisions(spaceId: string) {
       })
       .from(decisionLinks)
       .where(
-        sql`${decisionLinks.fromDecisionId} = ANY(${ids}) OR ${decisionLinks.toDecisionId} = ANY(${ids})`
+        or(inArray(decisionLinks.fromDecisionId, ids), inArray(decisionLinks.toDecisionId, ids))
       ),
   ]);
 
