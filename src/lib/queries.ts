@@ -9,6 +9,9 @@ import {
   meetingAgendaItems,
   meetingAttendees,
   meetingDecisions,
+  meetingActions,
+  meetingDocuments,
+  meetingProposals,
   spaceMembers,
   users,
   documents,
@@ -318,24 +321,59 @@ export async function getMeetingById(spaceId: string, meetingId: string) {
     .where(eq(meetingAgendaItems.meetingId, m.id))
     .orderBy(meetingAgendaItems.sortOrder);
 
-  const decisionRows = await db
-    .select({
-      id: decisions.id,
-      number: decisions.number,
-      title: decisions.title,
-      status: decisions.status,
-      method: decisions.method,
-      outcome: decisions.outcome,
-    })
-    .from(meetingDecisions)
-    .innerJoin(decisions, eq(decisions.id, meetingDecisions.decisionId))
-    .where(eq(meetingDecisions.meetingId, m.id));
+  const [decisionRows, actionRows, documentRows, proposalRows] = await Promise.all([
+    db
+      .select({
+        id: decisions.id,
+        number: decisions.number,
+        title: decisions.title,
+        status: decisions.status,
+        method: decisions.method,
+        outcome: decisions.outcome,
+      })
+      .from(meetingDecisions)
+      .innerJoin(decisions, eq(decisions.id, meetingDecisions.decisionId))
+      .where(eq(meetingDecisions.meetingId, m.id)),
+    db
+      .select({
+        id: actions.id,
+        description: actions.description,
+        status: actions.status,
+        ownerName: actions.ownerName,
+        dueDate: actions.dueDate,
+      })
+      .from(meetingActions)
+      .innerJoin(actions, eq(actions.id, meetingActions.actionId))
+      .where(eq(meetingActions.meetingId, m.id)),
+    db
+      .select({
+        id: documents.id,
+        title: documents.title,
+        type: documents.type,
+        status: documents.status,
+      })
+      .from(meetingDocuments)
+      .innerJoin(documents, eq(documents.id, meetingDocuments.documentId))
+      .where(eq(meetingDocuments.meetingId, m.id)),
+    db
+      .select({
+        id: proposals.id,
+        title: proposals.title,
+        status: proposals.status,
+      })
+      .from(meetingProposals)
+      .innerJoin(proposals, eq(proposals.id, meetingProposals.proposalId))
+      .where(eq(meetingProposals.meetingId, m.id)),
+  ]);
 
   return {
     ...m,
     attendees: attendeeRows,
     agendaItems: agendaRows,
     decisions: decisionRows,
+    actions: actionRows,
+    documents: documentRows,
+    proposals: proposalRows,
   };
 }
 
@@ -473,6 +511,30 @@ export async function getMeetingsList(spaceId: string) {
     .orderBy(desc(meetings.date));
 }
 
+export async function getActionsList(spaceId: string) {
+  return db
+    .select({ id: actions.id, description: actions.description })
+    .from(actions)
+    .where(eq(actions.spaceId, spaceId))
+    .orderBy(desc(actions.createdAt));
+}
+
+export async function getDocumentsList(spaceId: string) {
+  return db
+    .select({ id: documents.id, title: documents.title })
+    .from(documents)
+    .where(eq(documents.spaceId, spaceId))
+    .orderBy(documents.title);
+}
+
+export async function getProposalsList(spaceId: string) {
+  return db
+    .select({ id: proposals.id, title: proposals.title })
+    .from(proposals)
+    .where(eq(proposals.spaceId, spaceId))
+    .orderBy(desc(proposals.createdAt));
+}
+
 // ============================================================
 // Decision links (with IDs for deletion)
 // ============================================================
@@ -517,6 +579,42 @@ export async function getDecisionMeetings(decisionId: string) {
     .from(meetingDecisions)
     .innerJoin(meetings, eq(meetings.id, meetingDecisions.meetingId))
     .where(eq(meetingDecisions.decisionId, decisionId));
+}
+
+export async function getActionMeetings(actionId: string) {
+  return db
+    .select({
+      meetingId: meetings.id,
+      title: meetings.title,
+      date: meetings.date,
+    })
+    .from(meetingActions)
+    .innerJoin(meetings, eq(meetings.id, meetingActions.meetingId))
+    .where(eq(meetingActions.actionId, actionId));
+}
+
+export async function getDocumentMeetings(documentId: string) {
+  return db
+    .select({
+      meetingId: meetings.id,
+      title: meetings.title,
+      date: meetings.date,
+    })
+    .from(meetingDocuments)
+    .innerJoin(meetings, eq(meetings.id, meetingDocuments.meetingId))
+    .where(eq(meetingDocuments.documentId, documentId));
+}
+
+export async function getProposalMeetings(proposalId: string) {
+  return db
+    .select({
+      meetingId: meetings.id,
+      title: meetings.title,
+      date: meetings.date,
+    })
+    .from(meetingProposals)
+    .innerJoin(meetings, eq(meetings.id, meetingProposals.meetingId))
+    .where(eq(meetingProposals.proposalId, proposalId));
 }
 
 // ============================================================
