@@ -24,6 +24,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { StatusAdvance } from "./status-advance";
+import { DeleteDecision } from "./delete-decision";
+import { DeleteAction } from "./delete-action";
 import { DecisionLinksEditor } from "./decision-links-editor";
 import { ReviewQuestions } from "./review-questions";
 import { DocumentSuggestions } from "./document-suggestions";
@@ -92,6 +94,9 @@ function ActionRow({ action }: { action: { id: string; description: string; owne
             Due {action.dueDate ? formatDate(action.dueDate.toISOString()) : "N/A"}
           </span>
         </div>
+      </div>
+      <div className="mt-0.5 shrink-0">
+        <DeleteAction actionId={action.id} />
       </div>
     </div>
   );
@@ -197,6 +202,7 @@ export default async function DecisionDetailPage({
               <Pencil size={14} />
               Edit
             </Link>
+            <DeleteDecision decisionId={decision.id} decisionNumber={decision.number} />
           </div>
         </div>
 

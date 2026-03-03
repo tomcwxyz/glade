@@ -1,13 +1,14 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { eq, and } from "drizzle-orm";
+import { eq, and, count } from "drizzle-orm";
 import { db } from "@/db";
-import { decisions, decisionLinks, decisionTags, tags, actions, meetingDecisions } from "@/db/schema";
+import { decisions, decisionLinks, decisionTags, tags, actions, meetingDecisions, proposals, documentVersions, insights } from "@/db/schema";
 import { getCurrentSpace, requireUser } from "@/lib/space";
 import { getNextDecisionNumber } from "@/lib/queries";
 import { canAddDecision } from "@/lib/billing";
 import { fireWebhooks } from "@/lib/webhooks";
+import { logDeletion } from "@/lib/audit";
 
 export async function createDecision(formData: FormData) {
   const user = await requireUser();
@@ -289,4 +290,62 @@ export async function unlinkDecisionFromMeeting(
         eq(meetingDecisions.meetingId, meetingId)
       )
     );
+}
+
+export async function deleteDecision(decisionId: string) {
+  const user = await requireUser();
+  const space = await getCurrentSpace();
+  if (!space) return { error: "No space selected" };
+
+  // Fetch decision for audit snapshot
+  const [decision] = await db
+    .select({
+      id: decisions.id,
+      number: decisions.number,
+      title: decisions.title,
+      status: decisions.status,
+      method: decisions.method,
+      date: decisions.date,
+    })
+    .from(decisions)
+    .where(and(eq(decisions.id, decisionId), eq(decisions.spaceId, space.id)))
+    .limit(1);
+
+  if (!decision) return { error: "Decision not found" };
+
+  // Count actions for snapshot
+  const [actionCount] = await db
+    .select({ count: count() })
+    .from(actions)
+    .where(eq(actions.decisionId, decisionId));
+
+  // Nullify non-cascading FK references
+  await Promise.all([
+    db.update(proposals).set({ decidedAsDecisionId: null }).where(eq(proposals.decidedAsDecisionId, decisionId)),
+    db.update(documentVersions).set({ decisionId: null }).where(eq(documentVersions.decisionId, decisionId)),
+    db.update(insights).set({ relatedDecisionId: null }).where(eq(insights.relatedDecisionId, decisionId)),
+  ]);
+
+  // Audit log
+  await logDeletion(
+    space.id,
+    "decision",
+    decision.title,
+    {
+      number: decision.number,
+      status: decision.status,
+      method: decision.method,
+      date: decision.date.toISOString(),
+      actionCount: actionCount?.count ?? 0,
+    },
+    user.id ?? null,
+    user.name ?? null
+  );
+
+  // Delete — cascades handle actions, decision_tags, decision_links, meeting_decisions, document_section_links
+  await db
+    .delete(decisions)
+    .where(and(eq(decisions.id, decisionId), eq(decisions.spaceId, space.id)));
+
+  redirect("/decisions");
 }

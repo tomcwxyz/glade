@@ -626,6 +626,25 @@ export const apiKeys = pgTable(
   ]
 );
 
+// --- Audit Log ---
+
+export const auditLog = pgTable(
+  "audit_log",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    spaceId: uuid("space_id")
+      .notNull()
+      .references(() => spaces.id, { onDelete: "cascade" }),
+    entityType: varchar("entity_type", { length: 50 }).notNull(),
+    entityTitle: varchar("entity_title", { length: 500 }).notNull(),
+    entityMeta: jsonb("entity_meta").$type<Record<string, unknown>>(),
+    deletedBy: uuid("deleted_by").references(() => users.id, { onDelete: "set null" }),
+    deletedByName: varchar("deleted_by_name", { length: 255 }),
+    deletedAt: timestamp("deleted_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (al) => [index("audit_log_space_idx").on(al.spaceId)]
+);
+
 // ============================================================
 // Relations
 // ============================================================

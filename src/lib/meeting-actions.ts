@@ -9,6 +9,7 @@ import { meetings, meetingAgendaItems, meetingAttendees } from "@/db/schema";
 import { getCurrentSpace, requireUser } from "@/lib/space";
 import { createInitialState } from "@/lib/meeting-state";
 import { canUseLiveMeetings } from "@/lib/billing";
+import { logDeletion } from "@/lib/audit";
 
 type MeetingStatus = "draft" | "scheduled" | "in_progress" | "completed";
 
@@ -227,6 +228,48 @@ export async function revokeShareLink(meetingId: string) {
 
   revalidatePath(`/meetings/${meetingId}`);
   return { success: true };
+}
+
+export async function deleteMeeting(meetingId: string) {
+  const user = await requireUser();
+  const space = await getCurrentSpace();
+  if (!space) return { error: "No space selected" };
+
+  // Fetch meeting for audit snapshot
+  const [meeting] = await db
+    .select({
+      id: meetings.id,
+      title: meetings.title,
+      date: meetings.date,
+      type: meetings.type,
+      status: meetings.status,
+    })
+    .from(meetings)
+    .where(and(eq(meetings.id, meetingId), eq(meetings.spaceId, space.id)))
+    .limit(1);
+
+  if (!meeting) return { error: "Meeting not found" };
+
+  // Audit log
+  await logDeletion(
+    space.id,
+    "meeting",
+    meeting.title,
+    {
+      date: meeting.date.toISOString(),
+      type: meeting.type,
+      status: meeting.status,
+    },
+    user.id ?? null,
+    user.name ?? null
+  );
+
+  // Delete — cascades handle attendees, agenda_items, meeting_decisions
+  await db
+    .delete(meetings)
+    .where(and(eq(meetings.id, meetingId), eq(meetings.spaceId, space.id)));
+
+  redirect("/meetings");
 }
 
 export async function startMeeting(meetingId: string) {

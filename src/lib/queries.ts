@@ -23,6 +23,7 @@ import {
   subscriptions,
   apiKeys,
   webhooks,
+  auditLog,
 } from "@/db/schema";
 import { eq, and, or, desc, asc, count, sql, inArray } from "drizzle-orm";
 
@@ -1220,4 +1221,24 @@ export async function getWebhooks(spaceId: string) {
     .from(webhooks)
     .where(eq(webhooks.spaceId, spaceId))
     .orderBy(desc(webhooks.createdAt));
+}
+
+// ============================================================
+// Audit Log
+// ============================================================
+
+export async function getAuditLog(spaceId: string) {
+  return db
+    .select({
+      id: auditLog.id,
+      entityType: auditLog.entityType,
+      entityTitle: auditLog.entityTitle,
+      entityMeta: auditLog.entityMeta,
+      deletedByName: auditLog.deletedByName,
+      deletedAt: auditLog.deletedAt,
+    })
+    .from(auditLog)
+    .where(eq(auditLog.spaceId, spaceId))
+    .orderBy(desc(auditLog.deletedAt))
+    .limit(50);
 }

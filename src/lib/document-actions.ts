@@ -7,6 +7,7 @@ import { db } from "@/db";
 import { documents, documentVersions, documentSectionLinks } from "@/db/schema";
 import { getCurrentSpace, requireUser } from "@/lib/space";
 import { getDocumentVersionAtDate } from "@/lib/queries";
+import { logDeletion } from "@/lib/audit";
 
 export async function createDocument(formData: FormData) {
   const user = await requireUser();
@@ -202,8 +203,37 @@ export async function autoSaveDocument(documentId: string, content: unknown) {
 }
 
 export async function deleteDocument(documentId: string) {
+  const user = await requireUser();
   const space = await getCurrentSpace();
   if (!space) return { error: "No space selected" };
+
+  // Fetch for audit snapshot
+  const [doc] = await db
+    .select({
+      id: documents.id,
+      title: documents.title,
+      type: documents.type,
+      status: documents.status,
+      currentVersion: documents.currentVersion,
+    })
+    .from(documents)
+    .where(and(eq(documents.id, documentId), eq(documents.spaceId, space.id)))
+    .limit(1);
+
+  if (!doc) return { error: "Document not found" };
+
+  await logDeletion(
+    space.id,
+    "document",
+    doc.title,
+    {
+      type: doc.type,
+      status: doc.status,
+      currentVersion: doc.currentVersion,
+    },
+    user.id ?? null,
+    user.name ?? null
+  );
 
   await db
     .delete(documents)

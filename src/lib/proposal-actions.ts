@@ -7,6 +7,7 @@ import { db } from "@/db";
 import { proposals, proposalComments, proposalReferences, decisions } from "@/db/schema";
 import { getNextDecisionNumber } from "@/lib/queries";
 import { getCurrentSpace, requireUser } from "@/lib/space";
+import { logDeletion } from "@/lib/audit";
 
 export async function createProposal(formData: FormData) {
   const user = await requireUser();
@@ -230,8 +231,35 @@ export async function removeProposalReference(referenceId: string) {
 }
 
 export async function deleteProposal(proposalId: string) {
+  const user = await requireUser();
   const space = await getCurrentSpace();
   if (!space) return { error: "No space selected" };
+
+  // Fetch for audit snapshot
+  const [proposal] = await db
+    .select({
+      id: proposals.id,
+      title: proposals.title,
+      status: proposals.status,
+      suggestedMethod: proposals.suggestedMethod,
+    })
+    .from(proposals)
+    .where(and(eq(proposals.id, proposalId), eq(proposals.spaceId, space.id)))
+    .limit(1);
+
+  if (!proposal) return { error: "Proposal not found" };
+
+  await logDeletion(
+    space.id,
+    "proposal",
+    proposal.title,
+    {
+      status: proposal.status,
+      suggestedMethod: proposal.suggestedMethod,
+    },
+    user.id ?? null,
+    user.name ?? null
+  );
 
   await db
     .delete(proposals)

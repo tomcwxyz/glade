@@ -16,6 +16,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { ShareAgendaButton } from "./share-agenda-button";
+import { DeleteMeeting } from "./delete-meeting";
 
 const TYPE_LABELS: Record<string, string> = {
   board: "Board Meeting",
@@ -140,6 +141,7 @@ export default async function MeetingDetailPage({
               <Pencil size={14} />
               Edit
             </Link>
+            <DeleteMeeting meetingId={meeting.id} />
           </div>
         </div>
       </header>
