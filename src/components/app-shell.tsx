@@ -25,16 +25,17 @@ interface AppShellProps {
   children: React.ReactNode;
   currentSpace: SpaceInfo;
   userSpaces: UserSpace[];
+  isSuperAdmin?: boolean;
 }
 
-export function AppShell({ children, currentSpace, userSpaces }: AppShellProps) {
+export function AppShell({ children, currentSpace, userSpaces, isSuperAdmin }: AppShellProps) {
   return (
     <LiveRegionProvider>
       <SkipLink />
       <div className="flex flex-col md:flex-row h-screen overflow-hidden">
         <MobileNav currentSpace={currentSpace} userSpaces={userSpaces} />
         <div className="hidden md:flex">
-          <Sidebar currentSpace={currentSpace} userSpaces={userSpaces} />
+          <Sidebar currentSpace={currentSpace} userSpaces={userSpaces} isSuperAdmin={isSuperAdmin} />
         </div>
         <main id="main-content" className="flex-1 overflow-y-auto" tabIndex={-1}>{children}</main>
         <Walkthrough />

@@ -1370,6 +1370,52 @@ export async function getGovernanceHealthStats(spaceId: string) {
 }
 
 // ============================================================
+// Admin
+// ============================================================
+
+export async function getAllSpacesWithPlans() {
+  const rows = await db
+    .select({
+      id: spaces.id,
+      name: spaces.name,
+      slug: spaces.slug,
+      createdAt: spaces.createdAt,
+      planTier: subscriptions.planTier,
+      subscriptionStatus: subscriptions.status,
+      subscriptionId: subscriptions.id,
+      stripeCustomerId: subscriptions.stripeCustomerId,
+    })
+    .from(spaces)
+    .leftJoin(subscriptions, eq(subscriptions.spaceId, spaces.id))
+    .orderBy(spaces.name);
+  return rows;
+}
+
+export async function getAllUsers() {
+  const rows = await db
+    .select({
+      id: users.id,
+      name: users.name,
+      email: users.email,
+      createdAt: users.createdAt,
+    })
+    .from(users)
+    .orderBy(users.name);
+  return rows;
+}
+
+export async function getSpaceMemberCounts() {
+  const rows = await db
+    .select({
+      spaceId: spaceMembers.spaceId,
+      count: sql<number>`count(*)::int`,
+    })
+    .from(spaceMembers)
+    .groupBy(spaceMembers.spaceId);
+  return Object.fromEntries(rows.map((r) => [r.spaceId, r.count]));
+}
+
+// ============================================================
 // API Keys
 // ============================================================
 

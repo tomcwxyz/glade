@@ -8,6 +8,12 @@ import { db } from "@/db";
 import { users, accounts, sessions, verificationTokens } from "@/db/schema";
 import { authConfig } from "./auth.config";
 
+export function isSuperAdmin(email: string | null | undefined): boolean {
+  if (!email || !process.env.SUPER_ADMIN_EMAILS) return false;
+  const allowed = process.env.SUPER_ADMIN_EMAILS.split(",").map((e) => e.trim().toLowerCase());
+  return allowed.includes(email.toLowerCase());
+}
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
   adapter: DrizzleAdapter(db, {

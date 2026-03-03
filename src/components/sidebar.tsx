@@ -22,6 +22,7 @@ import {
   MessageSquare,
   Plus,
   Settings,
+  Shield,
   TreePine,
   Users,
 } from "lucide-react";
@@ -46,9 +47,10 @@ const BOTTOM_ITEMS = [
 interface SidebarProps {
   currentSpace: SpaceInfo;
   userSpaces: UserSpace[];
+  isSuperAdmin?: boolean;
 }
 
-export function Sidebar({ currentSpace, userSpaces }: SidebarProps) {
+export function Sidebar({ currentSpace, userSpaces, isSuperAdmin }: SidebarProps) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [spaceSwitcherOpen, setSpaceSwitcherOpen] = useState(false);
@@ -295,6 +297,23 @@ export function Sidebar({ currentSpace, userSpaces }: SidebarProps) {
             </Link>
           );
         })}
+
+        {/* Admin (super admins only) */}
+        {isSuperAdmin && (
+          <Link
+            href="/admin"
+            aria-current={pathname === "/admin" ? "page" : undefined}
+            className={cn(
+              "flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[0.8125rem] transition-colors",
+              pathname === "/admin"
+                ? "bg-canopy-pale text-canopy font-medium"
+                : "text-bark-muted hover:text-bark hover:bg-paper-deep"
+            )}
+          >
+            <Shield size={17} strokeWidth={1.8} className="shrink-0" aria-hidden="true" />
+            {!collapsed && <span>Admin</span>}
+          </Link>
+        )}
 
         {/* Sign out */}
         <Link

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
-import { getCurrentSpace, getUserSpaces, getSpaceMemberCount } from "@/lib/space";
+import { getCurrentSpace, getUserSpaces, getSpaceMemberCount, requireUser } from "@/lib/space";
+import { isSuperAdmin } from "@/lib/auth";
 
 export default async function AppLayout({
   children,
@@ -14,13 +15,17 @@ export default async function AppLayout({
     redirect("/new-space");
   }
 
-  const userSpaces = await getUserSpaces();
-  const memberCount = await getSpaceMemberCount(space.id);
+  const [userSpaces, memberCount, user] = await Promise.all([
+    getUserSpaces(),
+    getSpaceMemberCount(space.id),
+    requireUser(),
+  ]);
 
   return (
     <AppShell
       currentSpace={{ ...space, memberCount }}
       userSpaces={userSpaces}
+      isSuperAdmin={isSuperAdmin(user.email)}
     >
       {children}
     </AppShell>
