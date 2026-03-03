@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { getCurrentSpace } from "@/lib/space";
-import { getActions } from "@/lib/queries";
+import { getActions, getDecisionsList, getTopics, getProposals, getSpaceMembers } from "@/lib/queries";
 import { formatDate } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Actions" };
@@ -8,6 +8,7 @@ import { CheckCircle2, Circle, Clock, ListChecks, TriangleAlert } from "lucide-r
 import Link from "next/link";
 import { EmptyState } from "@/components/empty-state";
 import { ActionToggle } from "./action-toggle";
+import { AddActionWithParent } from "@/components/add-action-with-parent";
 
 const STATUS_CONFIG = {
   overdue: { icon: TriangleAlert, label: "Overdue", color: "text-earth", bg: "bg-earth/8" },
@@ -20,7 +21,33 @@ export default async function ActionsPage() {
   const space = await getCurrentSpace();
   if (!space) return null;
 
-  const actions = await getActions(space.id);
+  const [actions, allDecisions, allTopics, allProposals, members] = await Promise.all([
+    getActions(space.id),
+    getDecisionsList(space.id),
+    getTopics(space.id),
+    getProposals(space.id),
+    getSpaceMembers(space.id),
+  ]);
+
+  const parents = [
+    ...allDecisions.map((d) => ({
+      type: "decision" as const,
+      id: d.id,
+      label: `#${d.number} ${d.title}`,
+    })),
+    ...allTopics.map((t) => ({
+      type: "topic" as const,
+      id: t.id,
+      label: t.title,
+    })),
+    ...allProposals.map((p) => ({
+      type: "proposal" as const,
+      id: p.id,
+      label: p.title,
+    })),
+  ];
+
+  const memberNames = members.map((m) => m.name).filter(Boolean) as string[];
 
   if (actions.length === 0) {
     return (
@@ -33,12 +60,20 @@ export default async function ActionsPage() {
             Actions
           </h1>
         </header>
-        <EmptyState
-          icon={ListChecks}
-          title="No actions yet"
-          description="Actions can be added to decisions, topics, or proposals. Create follow-up tasks and assign them to team members."
-          action={{ label: "Log a decision", href: "/decisions/new" }}
-        />
+        {parents.length > 0 ? (
+          <div className="space-y-6">
+            <p className="text-bark-muted text-sm">
+              No actions yet. Add one to a decision, topic, or proposal.
+            </p>
+            <AddActionWithParent parents={parents} memberNames={memberNames} />
+          </div>
+        ) : (
+          <EmptyState
+            icon={ListChecks}
+            title="No actions yet"
+            description="Actions can be added to decisions, topics, or proposals. Create one of those first, then add follow-up tasks."
+          />
+        )}
       </div>
     );
   }
@@ -67,7 +102,6 @@ export default async function ActionsPage() {
       <div className="space-y-1">
         {sorted.map((action) => {
           const config = STATUS_CONFIG[action.status];
-          const Icon = config.icon;
 
           return (
             <div
@@ -105,6 +139,12 @@ export default async function ActionsPage() {
           );
         })}
       </div>
+
+      {parents.length > 0 && (
+        <div className="mt-8">
+          <AddActionWithParent parents={parents} memberNames={memberNames} />
+        </div>
+      )}
     </div>
   );
 }
