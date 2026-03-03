@@ -1,6 +1,7 @@
 import NextAuth from "next-auth";
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
 import Credentials from "next-auth/providers/credentials";
+import Resend from "next-auth/providers/resend";
 import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
@@ -17,6 +18,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   }),
   providers: [
     ...authConfig.providers,
+
+    // Email magic link (Node-only — requires DB adapter for verification tokens)
+    ...(process.env.AUTH_RESEND_KEY
+      ? [
+          Resend({
+            from: "Glade <noreply@glade.app>",
+          }),
+        ]
+      : []),
 
     // Email + password (Node.js only — not available in Edge middleware)
     Credentials({

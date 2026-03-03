@@ -50,11 +50,11 @@ export default async function Image() {
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              color: "#f5f0ea",
-              fontSize: "24px",
             }}
           >
-            ✦
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+              <path d="M12 2 L8 10 L4 18 L12 15 L20 18 L16 10 Z" fill="#f5f0ea" />
+            </svg>
           </div>
         </div>
 
