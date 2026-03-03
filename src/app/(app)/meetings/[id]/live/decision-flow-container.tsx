@@ -152,19 +152,32 @@ export function DecisionFlowContainer({
       {flow.proposalText && (
         <p className="text-sm text-bark-muted mb-4">{flow.proposalText}</p>
       )}
-      {isFacilitator && flow.stage === "present" && (
-        <button
-          type="button"
-          onClick={() => handleAdvanceStage("record")}
-          className="px-4 py-2 text-sm bg-canopy text-paper rounded-lg font-medium hover:bg-canopy-light transition-colors"
-        >
-          Proceed to record
-        </button>
-      )}
       {isFacilitator && flow.stage === "record" && (
-        <p className="text-xs text-bark-muted">
+        <p className="text-xs text-bark-muted mb-4">
           Use the &quot;Record decision&quot; button above to finalise.
         </p>
+      )}
+      {isFacilitator && (
+        <div className="flex items-center gap-2">
+          {flow.stage === "record" && (
+            <button
+              type="button"
+              onClick={() => handleAdvanceStage("present")}
+              className="flex items-center gap-1.5 px-3 py-2 text-sm text-bark-muted border border-border rounded-lg hover:bg-paper-deep transition-colors"
+            >
+              Previous
+            </button>
+          )}
+          {flow.stage === "present" && (
+            <button
+              type="button"
+              onClick={() => handleAdvanceStage("record")}
+              className="px-4 py-2 text-sm bg-canopy text-paper rounded-lg font-medium hover:bg-canopy-light transition-colors"
+            >
+              Proceed to record
+            </button>
+          )}
+        </div>
       )}
     </div>
   );

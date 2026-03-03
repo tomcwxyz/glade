@@ -1,7 +1,7 @@
 "use client";
 
 import type { MeetingSessionState, DecisionFlow } from "@/lib/meeting-state";
-import { ChevronRight, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { ChevronRight, ChevronLeft, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useLiveRegion } from "@/components/live-region";
 
@@ -63,6 +63,12 @@ export function ConsentFlow({
         onAdvanceStage(next.key);
       }
     }
+  }
+
+  function prevStage() {
+    if (currentStageIndex <= 0) return;
+    const prev = CONSENT_STAGES[currentStageIndex - 1];
+    if (prev) onAdvanceStage(prev.key);
   }
 
   return (
@@ -186,16 +192,30 @@ export function ConsentFlow({
         </div>
       )}
 
-      {/* Facilitator advance button */}
-      {isFacilitator && flow.stage !== "decide" && (
-        <button
-          type="button"
-          onClick={nextStage}
-          className="flex items-center gap-1.5 px-4 py-2 text-sm bg-canopy text-paper rounded-lg font-medium hover:bg-canopy-light transition-colors"
-        >
-          Next stage
-          <ChevronRight size={14} />
-        </button>
+      {/* Facilitator navigation */}
+      {isFacilitator && (
+        <div className="flex items-center gap-2">
+          {currentStageIndex > 0 && (
+            <button
+              type="button"
+              onClick={prevStage}
+              className="flex items-center gap-1.5 px-3 py-2 text-sm text-bark-muted border border-border rounded-lg hover:bg-paper-deep transition-colors"
+            >
+              <ChevronLeft size={14} />
+              Previous
+            </button>
+          )}
+          {flow.stage !== "decide" && (
+            <button
+              type="button"
+              onClick={nextStage}
+              className="flex items-center gap-1.5 px-4 py-2 text-sm bg-canopy text-paper rounded-lg font-medium hover:bg-canopy-light transition-colors"
+            >
+              Next stage
+              <ChevronRight size={14} />
+            </button>
+          )}
+        </div>
       )}
     </div>
   );

@@ -12,6 +12,14 @@ const METHOD_OPTIONS = [
   { value: "consensus", label: "Consensus" },
 ];
 
+const FLOW_METHODS = [
+  { value: "consent", label: "Consent", description: "Present, clarify, react, object, integrate, decide" },
+  { value: "majority_vote", label: "Majority Vote", description: "Present, vote, review results" },
+  { value: "advice_process", label: "Advice Process", description: "Gather advice, then decide" },
+  { value: "lazy_consensus", label: "Lazy Consensus", description: "Present, proceed unless objected" },
+  { value: "delegation", label: "Delegation", description: "Delegate authority to decide" },
+];
+
 export function DecisionControls({
   onRecord,
   onStartFlow,
@@ -20,6 +28,7 @@ export function DecisionControls({
   onStartFlow: (method: string) => void;
 }) {
   const [showForm, setShowForm] = useState(false);
+  const [showFlowPicker, setShowFlowPicker] = useState(false);
   const [title, setTitle] = useState("");
   const [method, setMethod] = useState("consent");
   const [outcome, setOutcome] = useState("");
@@ -49,6 +58,40 @@ export function DecisionControls({
     );
   }
 
+  if (showFlowPicker) {
+    return (
+      <div className="p-4 bg-paper-warm rounded-xl border border-border space-y-3">
+        <h3 className="text-sm font-medium text-bark flex items-center gap-1.5">
+          <CircleDot size={14} className="text-canopy" />
+          Choose decision method
+        </h3>
+        <div className="space-y-1.5">
+          {FLOW_METHODS.map((m) => (
+            <button
+              key={m.value}
+              type="button"
+              onClick={() => {
+                setShowFlowPicker(false);
+                onStartFlow(m.value);
+              }}
+              className="w-full text-left px-3 py-2.5 rounded-lg border border-border hover:bg-paper hover:border-canopy/30 transition-colors"
+            >
+              <span className="text-sm font-medium text-bark">{m.label}</span>
+              <span className="block text-xs text-bark-muted mt-0.5">{m.description}</span>
+            </button>
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={() => setShowFlowPicker(false)}
+          className="px-3 py-2 text-sm text-bark-muted hover:text-bark transition-colors"
+        >
+          Cancel
+        </button>
+      </div>
+    );
+  }
+
   if (!showForm) {
     return (
       <div className="flex items-center gap-2">
@@ -62,7 +105,7 @@ export function DecisionControls({
         </button>
         <button
           type="button"
-          onClick={() => onStartFlow("consent")}
+          onClick={() => setShowFlowPicker(true)}
           className="flex items-center gap-1.5 px-3 py-2 text-sm bg-canopy text-paper rounded-lg font-medium hover:bg-canopy-light transition-colors"
         >
           <CircleDot size={14} />

@@ -1,7 +1,7 @@
 "use client";
 
 import type { MeetingSessionState, DecisionFlow } from "@/lib/meeting-state";
-import { ChevronRight, MessageSquare } from "lucide-react";
+import { ChevronRight, ChevronLeft, MessageSquare } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useLiveRegion } from "@/components/live-region";
 
@@ -179,26 +179,36 @@ export function AdviceFlow({
         </div>
       )}
 
-      {/* Facilitator advance buttons */}
-      {isFacilitator && flow.stage === "present" && (
-        <button
-          type="button"
-          onClick={() => onAdvanceStage("consult")}
-          className="flex items-center gap-1.5 px-4 py-2 text-sm bg-canopy text-paper rounded-lg font-medium hover:bg-canopy-light transition-colors"
-        >
-          Open for advice
-          <ChevronRight size={14} />
-        </button>
-      )}
-      {isFacilitator && flow.stage === "consult" && (
-        <button
-          type="button"
-          onClick={() => onAdvanceStage("review")}
-          className="flex items-center gap-1.5 px-4 py-2 text-sm bg-canopy text-paper rounded-lg font-medium hover:bg-canopy-light transition-colors"
-        >
-          Close consultation
-          <ChevronRight size={14} />
-        </button>
+      {/* Facilitator navigation */}
+      {isFacilitator && (
+        <div className="flex items-center gap-2">
+          {currentStageIndex > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                const prev = ADVICE_STAGES[currentStageIndex - 1];
+                if (prev) onAdvanceStage(prev.key);
+              }}
+              className="flex items-center gap-1.5 px-3 py-2 text-sm text-bark-muted border border-border rounded-lg hover:bg-paper-deep transition-colors"
+            >
+              <ChevronLeft size={14} />
+              Previous
+            </button>
+          )}
+          {flow.stage !== "review" && (
+            <button
+              type="button"
+              onClick={() => {
+                const next = ADVICE_STAGES[currentStageIndex + 1];
+                if (next) onAdvanceStage(next.key);
+              }}
+              className="flex items-center gap-1.5 px-4 py-2 text-sm bg-canopy text-paper rounded-lg font-medium hover:bg-canopy-light transition-colors"
+            >
+              Next stage
+              <ChevronRight size={14} />
+            </button>
+          )}
+        </div>
       )}
     </div>
   );
