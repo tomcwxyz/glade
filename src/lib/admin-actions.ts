@@ -36,5 +36,6 @@ export async function setSpacePlan(spaceId: string, planTier: PlanTier) {
   }
 
   revalidatePath("/admin");
+  revalidatePath("/", "layout");
   return { success: true };
 }

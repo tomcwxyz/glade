@@ -545,7 +545,9 @@ export async function extractFromTranscript(
   );
 
   try {
-    const parsed = JSON.parse(response);
+    // Strip markdown code fences if present (e.g. ```json ... ```)
+    const cleaned = response.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
+    const parsed = JSON.parse(cleaned);
     return {
       decisions: parsed.decisions || [],
       actions: parsed.actions || [],
