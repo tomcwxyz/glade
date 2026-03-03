@@ -14,7 +14,7 @@ export default async function NewMeetingPage() {
   ]);
 
   const agendaProposals = allProposals
-    .filter((p) => p.status === "open_for_discussion" || p.status === "ready_for_decision")
+    .filter((p) => p.status === "draft" || p.status === "open_for_discussion" || p.status === "ready_for_decision")
     .map((p) => ({ id: p.id, title: p.title, status: p.status }));
 
   return (

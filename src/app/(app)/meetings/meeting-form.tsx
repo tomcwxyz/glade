@@ -107,7 +107,7 @@ export function MeetingForm({
 
   const availableTopics = (topics || []).filter((t) => !addedTopicIds.has(t.id));
   const availableProposals = (proposals || []).filter(
-    (p) => p.status === "open_for_discussion" || p.status === "ready_for_decision"
+    (p) => p.status === "draft" || p.status === "open_for_discussion" || p.status === "ready_for_decision"
   );
 
   function toggleAttendee(id: string) {
@@ -368,45 +368,51 @@ export function MeetingForm({
               )}
             </div>
             <div className="flex items-center gap-2">
-              {availableProposals.length > 0 && (
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowProposalPicker(!showProposalPicker);
-                      setShowTopicPicker(false);
-                    }}
-                    className="flex items-center gap-1 text-xs text-canopy hover:text-canopy-light transition-colors"
-                  >
-                    <FileText size={14} />
-                    Add proposal
-                  </button>
-                  {showProposalPicker && (
-                    <div className="absolute right-0 top-full mt-1 w-72 bg-paper border border-border rounded-lg shadow-lg z-10 py-1 max-h-60 overflow-y-auto">
-                      {availableProposals.map((proposal) => (
-                        <button
-                          key={proposal.id}
-                          type="button"
-                          onClick={() => {
-                            addProposalAsAgendaItem(proposal);
-                            setShowProposalPicker(false);
-                          }}
-                          className="w-full text-left px-3 py-2 hover:bg-paper-warm transition-colors"
-                        >
-                          <span className="text-sm text-bark block truncate">
-                            {proposal.title}
-                          </span>
-                          <span className="text-xs text-bark-muted">
-                            {proposal.status === "ready_for_decision"
-                              ? "Ready for decision"
-                              : "Open for discussion"}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (availableProposals.length === 0) return;
+                    setShowProposalPicker(!showProposalPicker);
+                    setShowTopicPicker(false);
+                  }}
+                  disabled={availableProposals.length === 0}
+                  className={`flex items-center gap-1 text-xs transition-colors ${
+                    availableProposals.length === 0
+                      ? "text-bark-muted/50 cursor-not-allowed"
+                      : "text-canopy hover:text-canopy-light"
+                  }`}
+                >
+                  <FileText size={14} />
+                  Add proposal
+                </button>
+                {showProposalPicker && availableProposals.length > 0 && (
+                  <div className="absolute right-0 top-full mt-1 w-72 bg-paper border border-border rounded-lg shadow-lg z-10 py-1 max-h-60 overflow-y-auto">
+                    {availableProposals.map((proposal) => (
+                      <button
+                        key={proposal.id}
+                        type="button"
+                        onClick={() => {
+                          addProposalAsAgendaItem(proposal);
+                          setShowProposalPicker(false);
+                        }}
+                        className="w-full text-left px-3 py-2 hover:bg-paper-warm transition-colors"
+                      >
+                        <span className="text-sm text-bark block truncate">
+                          {proposal.title}
+                        </span>
+                        <span className="text-xs text-bark-muted">
+                          {proposal.status === "ready_for_decision"
+                            ? "Ready for decision"
+                            : proposal.status === "open_for_discussion"
+                            ? "Open for discussion"
+                            : "Draft"}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
               {availableTopics.length > 0 && (
                 <div className="relative">
                   <button
