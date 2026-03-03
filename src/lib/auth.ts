@@ -23,7 +23,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     ...(process.env.AUTH_RESEND_KEY
       ? [
           Resend({
-            from: "Glade <noreply@glade.app>",
+            from: "Glade <noreply@ourglade.app>",
           }),
         ]
       : []),
