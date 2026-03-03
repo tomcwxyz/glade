@@ -4,6 +4,9 @@ import { notFound, redirect } from "next/navigation";
 import { FacilitatorView } from "./facilitator-view";
 import { ParticipantView } from "./participant-view";
 import { initializeMeetingState } from "@/lib/meeting-actions";
+import { db } from "@/db";
+import { proposals } from "@/db/schema";
+import { inArray } from "drizzle-orm";
 
 export default async function LiveMeetingPage({
   params,
@@ -34,6 +37,31 @@ export default async function LiveMeetingPage({
     description: item.description,
     type: item.type,
     durationMinutes: item.durationMinutes,
+    proposalId: item.proposalId || null,
+  }));
+
+  // Fetch proposal details for proposal-backed agenda items
+  const proposalIds = agendaItems
+    .map((a) => a.proposalId)
+    .filter((id): id is string => id !== null);
+
+  let proposalMap: Record<string, { description: string | null; rationale: string | null; suggestedMethod: string | null }> = {};
+  if (proposalIds.length > 0) {
+    const proposalRows = await db
+      .select({
+        id: proposals.id,
+        description: proposals.description,
+        rationale: proposals.rationale,
+        suggestedMethod: proposals.suggestedMethod,
+      })
+      .from(proposals)
+      .where(inArray(proposals.id, proposalIds));
+    proposalMap = Object.fromEntries(proposalRows.map((p) => [p.id, p]));
+  }
+
+  const agendaWithProposals = agendaItems.map((item) => ({
+    ...item,
+    proposal: item.proposalId ? proposalMap[item.proposalId] || null : null,
   }));
 
   if (isFacilitator) {
@@ -41,7 +69,7 @@ export default async function LiveMeetingPage({
       <FacilitatorView
         meetingId={meeting.id}
         meetingTitle={meeting.title}
-        agendaItems={agendaItems}
+        agendaItems={agendaWithProposals}
         voteThreshold={voteThreshold}
       />
     );
@@ -51,7 +79,7 @@ export default async function LiveMeetingPage({
     <ParticipantView
       meetingId={meeting.id}
       meetingTitle={meeting.title}
-      agendaItems={agendaItems}
+      agendaItems={agendaWithProposals}
       voteThreshold={voteThreshold}
     />
   );

@@ -29,6 +29,12 @@ interface AgendaItem {
   description: string | null;
   type: string;
   durationMinutes: number | null;
+  proposalId: string | null;
+  proposal: {
+    description: string | null;
+    rationale: string | null;
+    suggestedMethod: string | null;
+  } | null;
 }
 
 export function ParticipantView({
@@ -261,6 +267,8 @@ export function ParticipantView({
                 mutate={mutate}
                 isFacilitator={false}
                 voteThreshold={voteThreshold}
+                agendaItems={agendaItems}
+                currentAgendaItemIndex={state.currentAgendaItemIndex}
               />
             ) : (
               <ParticipantInteractions

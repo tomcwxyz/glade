@@ -43,6 +43,12 @@ interface AgendaItem {
   description: string | null;
   type: string;
   durationMinutes: number | null;
+  proposalId: string | null;
+  proposal: {
+    description: string | null;
+    rationale: string | null;
+    suggestedMethod: string | null;
+  } | null;
 }
 
 export function FacilitatorView({
@@ -108,14 +114,15 @@ export function FacilitatorView({
 
   const handleRecordDecision = useCallback(
     async (title: string, method: string, outcome?: string) => {
-      const result = await recordMeetingDecision(meetingId, title, method, outcome);
+      const currentPropId = agendaItems[state?.currentAgendaItemIndex ?? 0]?.proposalId;
+      const result = await recordMeetingDecision(meetingId, title, method, outcome, currentPropId || undefined);
       if ("decisionId" in result) {
         // Advance with the decision linked
         const advResult = await advanceAgendaItem(meetingId, outcome, result.decisionId);
         if ("state" in advResult && advResult.state) mutate(advResult.state);
       }
     },
-    [meetingId, mutate]
+    [meetingId, mutate, agendaItems, state?.currentAgendaItemIndex]
   );
 
   const handleEndMeeting = useCallback(async () => {
@@ -132,6 +139,26 @@ export function FacilitatorView({
       announce(`Now discussing: ${currentAgendaItemTitle}`);
     }
   }, [currentAgendaItemId, currentAgendaItemTitle, announce]);
+
+  // Auto-start decision flow for proposal-backed agenda items
+  const currentProposal = currentAgendaItem?.proposal;
+  const currentProposalId = currentAgendaItem?.proposalId;
+  const isInDecisionFlow = state?.phase === "decision_flow";
+
+  useEffect(() => {
+    if (!currentProposalId || !currentProposal || !currentAgendaItem || isInDecisionFlow) return;
+    if (currentAgendaItem.type !== "for_decision") return;
+
+    // Build proposal text for the flow
+    const proposalText = [currentAgendaItem.title, currentProposal.description]
+      .filter(Boolean)
+      .join("\n\n");
+    const method = currentProposal.suggestedMethod || "consent";
+
+    beginDecisionFlow(meetingId, method, proposalText).then((result) => {
+      if ("state" in result && result.state) mutate(result.state);
+    });
+  }, [currentProposalId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (loading || !state) {
     return (
@@ -289,6 +316,12 @@ export function FacilitatorView({
                   {currentItem.description}
                 </p>
               )}
+              {currentItem.proposal?.rationale && (
+                <div className="mt-3 p-3 bg-paper-warm rounded-lg border border-border">
+                  <p className="text-xs font-medium text-bark-muted mb-1">Rationale</p>
+                  <p className="text-sm text-bark-muted leading-relaxed">{currentItem.proposal.rationale}</p>
+                </div>
+              )}
             </div>
 
             {/* Timer */}
@@ -334,6 +367,8 @@ export function FacilitatorView({
                 mutate={mutate}
                 isFacilitator
                 voteThreshold={voteThreshold}
+                agendaItems={agendaItems}
+                currentAgendaItemIndex={state.currentAgendaItemIndex}
               />
             ) : (
               <div className="space-y-4">
