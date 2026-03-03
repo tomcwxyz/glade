@@ -505,6 +505,7 @@ export async function getMeetingsList(spaceId: string) {
       id: meetings.id,
       title: meetings.title,
       date: meetings.date,
+      status: meetings.status,
     })
     .from(meetings)
     .where(eq(meetings.spaceId, spaceId))

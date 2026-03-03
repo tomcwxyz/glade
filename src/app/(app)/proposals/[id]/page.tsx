@@ -11,6 +11,7 @@ import { ProposalReferences } from "./proposal-references";
 import { ActionList } from "@/components/action-list";
 import { AddAction } from "@/components/add-action";
 import { MeetingLinks } from "@/components/meeting-links";
+import { AddToAgenda } from "./add-to-agenda";
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   draft: { label: "Draft", color: "bg-paper-deep text-bark-muted" },
@@ -48,6 +49,10 @@ export default async function ProposalDetailPage({
     getMeetingsList(space.id),
   ]);
   const memberNames = members.map((m) => m.name).filter(Boolean) as string[];
+
+  const upcomingMeetings = allMeetings
+    .filter((m) => m.status === "draft" || m.status === "scheduled" || m.status === "in_progress")
+    .map((m) => ({ id: m.id, title: m.title, date: m.date.toISOString() }));
 
   const config = STATUS_CONFIG[proposal.status] || STATUS_CONFIG.draft;
 
@@ -115,6 +120,7 @@ export default async function ProposalDetailPage({
               <Edit size={14} />
               Edit
             </Link>
+            <AddToAgenda proposalId={proposal.id} meetings={upcomingMeetings} />
           </div>
         </div>
       </header>
