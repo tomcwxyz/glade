@@ -5,7 +5,10 @@ import { formatDate } from "@/lib/utils";
 import {
   Calendar,
   CheckCircle2,
+  CheckSquare,
   CircleDot,
+  FileText,
+  Lightbulb,
   Printer,
   SkipForward,
   Users,
@@ -109,6 +112,14 @@ export default async function MeetingSummaryPage({
               </div>
               <div className="text-xs text-bark-muted">items skipped</div>
             </div>
+            {meeting.actions.length > 0 && (
+              <div>
+                <div className="text-xl font-light text-bark" style={{ fontFamily: "var(--font-display)" }}>
+                  {meeting.actions.length}
+                </div>
+                <div className="text-xs text-bark-muted">actions assigned</div>
+              </div>
+            )}
             <div>
               <div className="text-xl font-light text-bark" style={{ fontFamily: "var(--font-display)" }}>
                 {meeting.attendees.length}
@@ -139,6 +150,75 @@ export default async function MeetingSummaryPage({
                     />
                     <span className="text-sm text-bark group-hover:text-canopy transition-colors flex-1">
                       {decision.title}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Actions assigned */}
+          {meeting.actions.length > 0 && (
+            <section>
+              <h2 className="text-xs uppercase tracking-wider text-bark-muted font-medium flex items-center gap-2 mb-4">
+                <CheckSquare size={13} />
+                Actions assigned
+              </h2>
+              <div className="space-y-2">
+                {meeting.actions.map((action) => (
+                  <div
+                    key={action.id}
+                    className="flex items-center gap-3 py-3 px-3 -mx-3 border-b border-border last:border-b-0"
+                  >
+                    <span className="text-sm text-bark flex-1">{action.description}</span>
+                    {action.ownerName && (
+                      <span className="text-xs text-bark-muted">{action.ownerName}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Documents referenced */}
+          {meeting.documents.length > 0 && (
+            <section>
+              <h2 className="text-xs uppercase tracking-wider text-bark-muted font-medium flex items-center gap-2 mb-4">
+                <FileText size={13} />
+                Documents referenced
+              </h2>
+              <div className="space-y-2">
+                {meeting.documents.map((doc) => (
+                  <Link
+                    key={doc.id}
+                    href={`/documents/${doc.id}`}
+                    className="flex items-center gap-3 py-3 px-3 -mx-3 rounded-lg hover:bg-paper-warm transition-colors group border-b border-border last:border-b-0"
+                  >
+                    <span className="text-sm text-bark group-hover:text-canopy transition-colors flex-1">
+                      {doc.title}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Proposals discussed */}
+          {meeting.proposals.length > 0 && (
+            <section>
+              <h2 className="text-xs uppercase tracking-wider text-bark-muted font-medium flex items-center gap-2 mb-4">
+                <Lightbulb size={13} />
+                Proposals discussed
+              </h2>
+              <div className="space-y-2">
+                {meeting.proposals.map((proposal) => (
+                  <Link
+                    key={proposal.id}
+                    href={`/proposals/${proposal.id}`}
+                    className="flex items-center gap-3 py-3 px-3 -mx-3 rounded-lg hover:bg-paper-warm transition-colors group border-b border-border last:border-b-0"
+                  >
+                    <span className="text-sm text-bark group-hover:text-canopy transition-colors flex-1">
+                      {proposal.title}
                     </span>
                   </Link>
                 ))}
