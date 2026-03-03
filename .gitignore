@@ -35,6 +35,9 @@ yarn-error.log*
 # claude code local files
 .claude/*.local.*
 
+# worktrees
+.worktrees/
+
 # vercel
 .vercel
 
