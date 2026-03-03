@@ -36,7 +36,7 @@ export default async function ActionsPage() {
         <EmptyState
           icon={ListChecks}
           title="No actions yet"
-          description="Actions are created when you log decisions. Each decision can have follow-up tasks assigned to team members."
+          description="Actions can be added to decisions, topics, or proposals. Create follow-up tasks and assign them to team members."
           action={{ label: "Log a decision", href: "/decisions/new" }}
         />
       </div>
@@ -80,18 +80,22 @@ export default async function ActionsPage() {
                   {action.description}
                 </p>
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1.5 text-xs text-bark-muted">
-                  <span>{action.ownerName}</span>
-                  <span className="text-border-strong">·</span>
+                  {action.ownerName && <span>{action.ownerName}</span>}
+                  {action.ownerName && <span className="text-border-strong">·</span>}
                   <Link
-                    href={`/decisions/${action.decisionNumber}`}
+                    href={action.parentHref}
                     className="hover:text-canopy transition-colors truncate"
                   >
-                    #{action.decisionNumber} {action.decisionTitle}
+                    {action.parentTitle}
                   </Link>
-                  <span className="text-border-strong">·</span>
-                  <span className={action.status === "overdue" ? "text-earth font-medium" : ""}>
-                    {formatDate(action.dueDate?.toISOString() ?? "")}
-                  </span>
+                  {action.dueDate && (
+                    <>
+                      <span className="text-border-strong">·</span>
+                      <span className={action.status === "overdue" ? "text-earth font-medium" : ""}>
+                        {formatDate(action.dueDate?.toISOString() ?? "")}
+                      </span>
+                    </>
+                  )}
                   <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full ${config.bg} ${config.color}`}>
                     {config.label}
                   </span>

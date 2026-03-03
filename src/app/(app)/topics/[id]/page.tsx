@@ -1,11 +1,13 @@
 import { getCurrentSpace } from "@/lib/space";
-import { getTopicById } from "@/lib/queries";
+import { getTopicById, getActionsByTopic, getSpaceMembers } from "@/lib/queries";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { Clock, HelpCircle, Zap, CalendarPlus } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { PromoteTopicButton } from "./promote-topic-button";
+import { ActionList } from "@/components/action-list";
+import { AddAction } from "@/components/add-action";
 
 const TYPE_CONFIG: Record<string, { label: string; icon: typeof HelpCircle; color: string }> = {
   question: { label: "Question", icon: HelpCircle, color: "text-sky" },
@@ -24,6 +26,12 @@ export default async function TopicDetailPage({
 
   const topic = await getTopicById(space.id, id);
   if (!topic) notFound();
+
+  const [topicActions, members] = await Promise.all([
+    getActionsByTopic(topic.id),
+    getSpaceMembers(space.id),
+  ]);
+  const memberNames = members.map((m) => m.name).filter(Boolean) as string[];
 
   const config = TYPE_CONFIG[topic.type] || TYPE_CONFIG.question;
   const Icon = config.icon;
@@ -82,6 +90,12 @@ export default async function TopicDetailPage({
           </p>
         </div>
       )}
+
+      {/* Actions */}
+      <div className="mt-8 space-y-4">
+        <ActionList actions={topicActions} />
+        <AddAction parentType="topic" parentId={topic.id} memberNames={memberNames} />
+      </div>
 
       {promoted && topic.promotedToProposalId && (
         <div className="mt-6 px-4 py-3 rounded-lg bg-canopy-pale/30 border border-canopy/20">

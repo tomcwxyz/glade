@@ -377,8 +377,11 @@ export const actions = pgTable(
       .notNull()
       .references(() => spaces.id, { onDelete: "cascade" }),
     decisionId: uuid("decision_id")
-      .notNull()
       .references(() => decisions.id, { onDelete: "cascade" }),
+    topicId: uuid("topic_id")
+      .references(() => topics.id, { onDelete: "cascade" }),
+    proposalId: uuid("proposal_id")
+      .references(() => proposals.id, { onDelete: "cascade" }),
     description: text("description").notNull(),
     ownerId: uuid("owner_id").references(() => users.id),
     ownerName: varchar("owner_name", { length: 255 }),
@@ -735,6 +738,8 @@ export const meetingDecisionsRelations = relations(meetingDecisions, ({ one }) =
 export const actionsRelations = relations(actions, ({ one }) => ({
   space: one(spaces, { fields: [actions.spaceId], references: [spaces.id] }),
   decision: one(decisions, { fields: [actions.decisionId], references: [decisions.id] }),
+  topic: one(topics, { fields: [actions.topicId], references: [topics.id] }),
+  proposal: one(proposals, { fields: [actions.proposalId], references: [proposals.id] }),
   owner: one(users, { fields: [actions.ownerId], references: [users.id] }),
 }));
 

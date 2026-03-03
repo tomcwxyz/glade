@@ -3,9 +3,55 @@
 import { eq, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
-import { actions, decisions } from "@/db/schema";
+import { actions, decisions, topics, proposals } from "@/db/schema";
 import { getCurrentSpace, requireUser } from "@/lib/space";
 import { logDeletion } from "@/lib/audit";
+
+export async function createAction(
+  parentType: "decision" | "topic" | "proposal",
+  parentId: string,
+  description: string,
+  ownerName?: string,
+  dueDate?: string
+) {
+  await requireUser();
+  const space = await getCurrentSpace();
+  if (!space) return { error: "No space selected" };
+
+  if (!description.trim()) return { error: "Description is required" };
+
+  // Validate parent exists in current space
+  if (parentType === "decision") {
+    const [d] = await db.select({ id: decisions.id }).from(decisions)
+      .where(and(eq(decisions.id, parentId), eq(decisions.spaceId, space.id))).limit(1);
+    if (!d) return { error: "Decision not found" };
+  } else if (parentType === "topic") {
+    const [t] = await db.select({ id: topics.id }).from(topics)
+      .where(and(eq(topics.id, parentId), eq(topics.spaceId, space.id))).limit(1);
+    if (!t) return { error: "Topic not found" };
+  } else {
+    const [p] = await db.select({ id: proposals.id }).from(proposals)
+      .where(and(eq(proposals.id, parentId), eq(proposals.spaceId, space.id))).limit(1);
+    if (!p) return { error: "Proposal not found" };
+  }
+
+  await db.insert(actions).values({
+    spaceId: space.id,
+    decisionId: parentType === "decision" ? parentId : null,
+    topicId: parentType === "topic" ? parentId : null,
+    proposalId: parentType === "proposal" ? parentId : null,
+    description: description.trim(),
+    ownerName: ownerName?.trim() || null,
+    dueDate: dueDate ? new Date(dueDate) : null,
+    status: "open",
+  });
+
+  revalidatePath("/actions");
+  if (parentType === "decision") revalidatePath("/decisions");
+  if (parentType === "topic") revalidatePath(`/topics/${parentId}`);
+  if (parentType === "proposal") revalidatePath(`/proposals/${parentId}`);
+  revalidatePath("/dashboard");
+}
 
 export async function updateActionStatus(
   actionId: string,
@@ -41,7 +87,7 @@ export async function deleteAction(actionId: string) {
   const space = await getCurrentSpace();
   if (!space) return { error: "No space selected" };
 
-  // Fetch action with linked decision number for audit snapshot
+  // Fetch action with linked parent for audit snapshot
   const [action] = await db
     .select({
       id: actions.id,
@@ -49,14 +95,30 @@ export async function deleteAction(actionId: string) {
       ownerName: actions.ownerName,
       status: actions.status,
       decisionId: actions.decisionId,
+      topicId: actions.topicId,
+      proposalId: actions.proposalId,
       decisionNumber: decisions.number,
+      topicTitle: topics.title,
+      proposalTitle: proposals.title,
     })
     .from(actions)
-    .innerJoin(decisions, eq(actions.decisionId, decisions.id))
+    .leftJoin(decisions, eq(actions.decisionId, decisions.id))
+    .leftJoin(topics, eq(actions.topicId, topics.id))
+    .leftJoin(proposals, eq(actions.proposalId, proposals.id))
     .where(and(eq(actions.id, actionId), eq(actions.spaceId, space.id)))
     .limit(1);
 
   if (!action) return { error: "Action not found" };
+
+  // Determine parent context for audit
+  const parentType = action.decisionId ? "decision" : action.topicId ? "topic" : action.proposalId ? "proposal" : null;
+  const parentTitle = action.decisionNumber
+    ? `Decision #${action.decisionNumber}`
+    : action.topicTitle
+      ? `Topic: ${action.topicTitle}`
+      : action.proposalTitle
+        ? `Proposal: ${action.proposalTitle}`
+        : null;
 
   // Audit log
   await logDeletion(
@@ -66,6 +128,8 @@ export async function deleteAction(actionId: string) {
     {
       ownerName: action.ownerName,
       status: action.status,
+      parentType,
+      parentTitle,
       decisionNumber: action.decisionNumber,
     },
     user.id ?? null,
@@ -78,5 +142,7 @@ export async function deleteAction(actionId: string) {
 
   revalidatePath("/actions");
   revalidatePath("/decisions");
+  revalidatePath("/topics");
+  revalidatePath("/proposals");
   revalidatePath("/dashboard");
 }

@@ -84,6 +84,7 @@ export async function getDecisions(spaceId: string) {
 
   const actionMap = new Map<string, { total: number; complete: number }>();
   for (const a of allActions) {
+    if (!a.decisionId) continue;
     const entry = actionMap.get(a.decisionId) || { total: 0, complete: 0 };
     entry.total++;
     if (a.status === "complete") entry.complete++;
@@ -188,12 +189,66 @@ export async function getActions(spaceId: string) {
       status: actions.status,
       decisionNumber: decisions.number,
       decisionTitle: decisions.title,
+      decisionId: actions.decisionId,
+      topicId: actions.topicId,
+      proposalId: actions.proposalId,
+      topicTitle: topics.title,
+      proposalTitle: proposals.title,
     })
     .from(actions)
-    .innerJoin(decisions, eq(decisions.id, actions.decisionId))
+    .leftJoin(decisions, eq(decisions.id, actions.decisionId))
+    .leftJoin(topics, eq(topics.id, actions.topicId))
+    .leftJoin(proposals, eq(proposals.id, actions.proposalId))
     .where(eq(actions.spaceId, spaceId));
 
-  return rows;
+  return rows.map((r) => {
+    let parentType: "decision" | "topic" | "proposal" = "decision";
+    let parentTitle = "";
+    let parentHref = "";
+
+    if (r.decisionId && r.decisionNumber != null) {
+      parentType = "decision";
+      parentTitle = `#${r.decisionNumber} ${r.decisionTitle}`;
+      parentHref = `/decisions/${r.decisionNumber}`;
+    } else if (r.topicId) {
+      parentType = "topic";
+      parentTitle = `Topic: ${r.topicTitle}`;
+      parentHref = `/topics/${r.topicId}`;
+    } else if (r.proposalId) {
+      parentType = "proposal";
+      parentTitle = `Proposal: ${r.proposalTitle}`;
+      parentHref = `/proposals/${r.proposalId}`;
+    }
+
+    return {
+      id: r.id,
+      description: r.description,
+      ownerName: r.ownerName,
+      dueDate: r.dueDate,
+      status: r.status,
+      decisionNumber: r.decisionNumber,
+      decisionTitle: r.decisionTitle,
+      parentType,
+      parentTitle,
+      parentHref,
+    };
+  });
+}
+
+export async function getActionsByTopic(topicId: string) {
+  return db
+    .select()
+    .from(actions)
+    .where(eq(actions.topicId, topicId))
+    .orderBy(desc(actions.createdAt));
+}
+
+export async function getActionsByProposal(proposalId: string) {
+  return db
+    .select()
+    .from(actions)
+    .where(eq(actions.proposalId, proposalId))
+    .orderBy(desc(actions.createdAt));
 }
 
 // ============================================================
@@ -915,7 +970,7 @@ export async function getPublicDocuments(spaceId: string) {
 }
 
 export async function getPublicActions(spaceId: string) {
-  return db
+  const rows = await db
     .select({
       id: actions.id,
       description: actions.description,
@@ -924,11 +979,39 @@ export async function getPublicActions(spaceId: string) {
       dueDate: actions.dueDate,
       decisionTitle: decisions.title,
       decisionNumber: decisions.number,
+      topicTitle: topics.title,
+      proposalTitle: proposals.title,
+      decisionId: actions.decisionId,
+      topicId: actions.topicId,
+      proposalId: actions.proposalId,
     })
     .from(actions)
-    .innerJoin(decisions, eq(decisions.id, actions.decisionId))
+    .leftJoin(decisions, eq(decisions.id, actions.decisionId))
+    .leftJoin(topics, eq(topics.id, actions.topicId))
+    .leftJoin(proposals, eq(proposals.id, actions.proposalId))
     .where(and(eq(actions.spaceId, spaceId), eq(actions.isPublic, true)))
     .orderBy(desc(actions.createdAt));
+
+  return rows.map((r) => {
+    const parentType = r.decisionId ? "decision" : r.topicId ? "topic" : "proposal";
+    const parentTitle = r.decisionId
+      ? `#${r.decisionNumber} ${r.decisionTitle}`
+      : r.topicId
+        ? `Topic: ${r.topicTitle}`
+        : `Proposal: ${r.proposalTitle}`;
+
+    return {
+      id: r.id,
+      description: r.description,
+      ownerName: r.ownerName,
+      status: r.status,
+      dueDate: r.dueDate,
+      decisionTitle: r.decisionTitle,
+      decisionNumber: r.decisionNumber,
+      parentType,
+      parentTitle,
+    };
+  });
 }
 
 export async function getPublicMeetings(spaceId: string) {

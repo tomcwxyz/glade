@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq, and, desc } from "drizzle-orm";
 import { db } from "@/db";
-import { actions, decisions } from "@/db/schema";
+import { actions, decisions, topics, proposals } from "@/db/schema";
 import { authenticateApiKey } from "@/lib/api-auth";
 
 export async function GET(request: NextRequest) {
@@ -33,14 +33,41 @@ export async function GET(request: NextRequest) {
       ownerName: actions.ownerName,
       decisionTitle: decisions.title,
       decisionNumber: decisions.number,
+      topicTitle: topics.title,
+      proposalTitle: proposals.title,
+      decisionId: actions.decisionId,
+      topicId: actions.topicId,
+      proposalId: actions.proposalId,
     })
     .from(actions)
-    .innerJoin(decisions, eq(decisions.id, actions.decisionId))
+    .leftJoin(decisions, eq(decisions.id, actions.decisionId))
+    .leftJoin(topics, eq(topics.id, actions.topicId))
+    .leftJoin(proposals, eq(proposals.id, actions.proposalId))
     .where(and(...conditions))
     .orderBy(desc(actions.createdAt));
 
+  const data = rows.map((r) => ({
+    id: r.id,
+    description: r.description,
+    status: r.status,
+    dueDate: r.dueDate,
+    ownerName: r.ownerName,
+    // Backwards-compatible fields (now nullable)
+    decisionTitle: r.decisionTitle,
+    decisionNumber: r.decisionNumber,
+    // New fields
+    parentType: r.decisionId ? "decision" : r.topicId ? "topic" : r.proposalId ? "proposal" : null,
+    parentTitle: r.decisionId
+      ? r.decisionTitle
+      : r.topicId
+        ? r.topicTitle
+        : r.proposalId
+          ? r.proposalTitle
+          : null,
+  }));
+
   return NextResponse.json(
-    { data: rows },
+    { data },
     { headers: { "Cache-Control": "no-store" } }
   );
 }

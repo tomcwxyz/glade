@@ -1,5 +1,5 @@
 import { getCurrentSpace } from "@/lib/space";
-import { getProposalById } from "@/lib/queries";
+import { getProposalById, getActionsByProposal, getSpaceMembers } from "@/lib/queries";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/breadcrumbs";
@@ -8,6 +8,8 @@ import { formatDate, formatDateRelative } from "@/lib/utils";
 import { ProposalStatusAdvance } from "./proposal-status-advance";
 import { ProposalDiscussion } from "./proposal-discussion";
 import { ProposalReferences } from "./proposal-references";
+import { ActionList } from "@/components/action-list";
+import { AddAction } from "@/components/add-action";
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   draft: { label: "Draft", color: "bg-paper-deep text-bark-muted" },
@@ -37,6 +39,12 @@ export default async function ProposalDetailPage({
 
   const proposal = await getProposalById(space.id, id);
   if (!proposal) notFound();
+
+  const [proposalActions, members] = await Promise.all([
+    getActionsByProposal(proposal.id),
+    getSpaceMembers(space.id),
+  ]);
+  const memberNames = members.map((m) => m.name).filter(Boolean) as string[];
 
   const config = STATUS_CONFIG[proposal.status] || STATUS_CONFIG.draft;
 
@@ -143,6 +151,12 @@ export default async function ProposalDetailPage({
           proposalId={proposal.id}
           references={proposal.references}
         />
+      </div>
+
+      {/* Actions */}
+      <div className="mb-10 space-y-4">
+        <ActionList actions={proposalActions} />
+        <AddAction parentType="proposal" parentId={proposal.id} memberNames={memberNames} />
       </div>
 
       {/* Decision link */}
