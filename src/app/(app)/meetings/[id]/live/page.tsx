@@ -3,7 +3,7 @@ import { getMeetingById } from "@/lib/queries";
 import { notFound, redirect } from "next/navigation";
 import { FacilitatorView } from "./facilitator-view";
 import { ParticipantView } from "./participant-view";
-import { startMeeting } from "@/lib/meeting-actions";
+import { initializeMeetingState } from "@/lib/meeting-actions";
 
 export default async function LiveMeetingPage({
   params,
@@ -20,7 +20,7 @@ export default async function LiveMeetingPage({
 
   // If meeting hasn't started yet, or is in_progress but missing session state, initialise it
   if (meeting.status === "draft" || meeting.status === "scheduled" || !meeting.sessionState) {
-    await startMeeting(meeting.id);
+    await initializeMeetingState(meeting.id, space.id, user.id, user.name || "Facilitator");
     redirect(`/meetings/${meeting.id}/live`);
   }
 

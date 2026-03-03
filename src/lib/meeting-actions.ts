@@ -286,6 +286,31 @@ export async function deleteMeeting(meetingId: string) {
   redirect("/meetings");
 }
 
+// Direct DB update for initializing meeting state — safe to call during render
+// (no revalidatePath). Used by the live page when a meeting needs state initialized.
+export async function initializeMeetingState(
+  meetingId: string,
+  spaceId: string,
+  userId: string,
+  userName: string
+) {
+  const allowed = await canUseLiveMeetings(spaceId);
+  if (!allowed) return { error: "Live meetings require a Canopy plan." };
+
+  const initialState = createInitialState(userId, userName);
+
+  await db
+    .update(meetings)
+    .set({
+      status: "in_progress",
+      sessionState: initialState,
+      updatedAt: new Date(),
+    })
+    .where(eq(meetings.id, meetingId));
+
+  return { success: true };
+}
+
 export async function startMeeting(meetingId: string) {
   const user = await requireUser();
   const space = await getCurrentSpace();
