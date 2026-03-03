@@ -367,6 +367,45 @@ export const meetingDecisions = pgTable(
   (md) => [primaryKey({ columns: [md.meetingId, md.decisionId] })]
 );
 
+export const meetingActions = pgTable(
+  "meeting_actions",
+  {
+    meetingId: uuid("meeting_id")
+      .notNull()
+      .references(() => meetings.id, { onDelete: "cascade" }),
+    actionId: uuid("action_id")
+      .notNull()
+      .references(() => actions.id, { onDelete: "cascade" }),
+  },
+  (ma) => [primaryKey({ columns: [ma.meetingId, ma.actionId] })]
+);
+
+export const meetingDocuments = pgTable(
+  "meeting_documents",
+  {
+    meetingId: uuid("meeting_id")
+      .notNull()
+      .references(() => meetings.id, { onDelete: "cascade" }),
+    documentId: uuid("document_id")
+      .notNull()
+      .references(() => documents.id, { onDelete: "cascade" }),
+  },
+  (md) => [primaryKey({ columns: [md.meetingId, md.documentId] })]
+);
+
+export const meetingProposals = pgTable(
+  "meeting_proposals",
+  {
+    meetingId: uuid("meeting_id")
+      .notNull()
+      .references(() => meetings.id, { onDelete: "cascade" }),
+    proposalId: uuid("proposal_id")
+      .notNull()
+      .references(() => proposals.id, { onDelete: "cascade" }),
+  },
+  (mp) => [primaryKey({ columns: [mp.meetingId, mp.proposalId] })]
+);
+
 // --- Actions ---
 
 export const actions = pgTable(
@@ -717,6 +756,9 @@ export const meetingsRelations = relations(meetings, ({ one, many }) => ({
   attendees: many(meetingAttendees),
   agendaItems: many(meetingAgendaItems),
   decisions: many(meetingDecisions),
+  actions: many(meetingActions),
+  documents: many(meetingDocuments),
+  proposals: many(meetingProposals),
 }));
 
 export const meetingAttendeesRelations = relations(meetingAttendees, ({ one }) => ({
@@ -733,6 +775,21 @@ export const meetingAgendaItemsRelations = relations(meetingAgendaItems, ({ one 
 export const meetingDecisionsRelations = relations(meetingDecisions, ({ one }) => ({
   meeting: one(meetings, { fields: [meetingDecisions.meetingId], references: [meetings.id] }),
   decision: one(decisions, { fields: [meetingDecisions.decisionId], references: [decisions.id] }),
+}));
+
+export const meetingActionsRelations = relations(meetingActions, ({ one }) => ({
+  meeting: one(meetings, { fields: [meetingActions.meetingId], references: [meetings.id] }),
+  action: one(actions, { fields: [meetingActions.actionId], references: [actions.id] }),
+}));
+
+export const meetingDocumentsRelations = relations(meetingDocuments, ({ one }) => ({
+  meeting: one(meetings, { fields: [meetingDocuments.meetingId], references: [meetings.id] }),
+  document: one(documents, { fields: [meetingDocuments.documentId], references: [documents.id] }),
+}));
+
+export const meetingProposalsRelations = relations(meetingProposals, ({ one }) => ({
+  meeting: one(meetings, { fields: [meetingProposals.meetingId], references: [meetings.id] }),
+  proposal: one(proposals, { fields: [meetingProposals.proposalId], references: [proposals.id] }),
 }));
 
 export const actionsRelations = relations(actions, ({ one }) => ({
