@@ -14,6 +14,7 @@ import {
   decisions,
   actions,
   topics,
+  proposals,
 } from "@/db/schema";
 import { getCurrentSpace, requireUser } from "@/lib/space";
 import { createInitialState } from "@/lib/meeting-state";
@@ -475,4 +476,58 @@ export async function importTranscript(data: {
   revalidatePath(`/meetings/${meetingId}`);
 
   return { meetingId };
+}
+
+export async function addProposalToAgenda(proposalId: string, meetingId: string) {
+  await requireUser();
+  const space = await getCurrentSpace();
+  if (!space) return { error: "No space selected" };
+
+  // Verify meeting belongs to space
+  const [meeting] = await db
+    .select({ id: meetings.id })
+    .from(meetings)
+    .where(and(eq(meetings.id, meetingId), eq(meetings.spaceId, space.id)))
+    .limit(1);
+  if (!meeting) return { error: "Meeting not found" };
+
+  // Get proposal title
+  const [proposal] = await db
+    .select({ id: proposals.id, title: proposals.title })
+    .from(proposals)
+    .where(and(eq(proposals.id, proposalId), eq(proposals.spaceId, space.id)))
+    .limit(1);
+  if (!proposal) return { error: "Proposal not found" };
+
+  // Check not already on agenda
+  const [existing] = await db
+    .select({ id: meetingAgendaItems.id })
+    .from(meetingAgendaItems)
+    .where(
+      and(
+        eq(meetingAgendaItems.meetingId, meetingId),
+        eq(meetingAgendaItems.proposalId, proposalId)
+      )
+    )
+    .limit(1);
+  if (existing) return { error: "Proposal is already on this meeting's agenda" };
+
+  // Get current max sort order
+  const agendaRows = await db
+    .select({ sortOrder: meetingAgendaItems.sortOrder })
+    .from(meetingAgendaItems)
+    .where(eq(meetingAgendaItems.meetingId, meetingId));
+  const maxSort = agendaRows.length > 0 ? Math.max(...agendaRows.map((r) => r.sortOrder)) : -1;
+
+  await db.insert(meetingAgendaItems).values({
+    meetingId,
+    title: proposal.title,
+    type: "for_decision",
+    sortOrder: maxSort + 1,
+    proposalId: proposal.id,
+  });
+
+  revalidatePath(`/meetings/${meetingId}`);
+  revalidatePath(`/proposals/${proposalId}`);
+  return { success: true };
 }
