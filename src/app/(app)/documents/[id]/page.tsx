@@ -1,5 +1,5 @@
 import { getCurrentSpace } from "@/lib/space";
-import { getDocumentById, getDecisionsList } from "@/lib/queries";
+import { getDocumentById, getDecisionsList, getDocumentMeetings, getMeetingsList } from "@/lib/queries";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/breadcrumbs";
@@ -8,6 +8,7 @@ import { formatDate } from "@/lib/utils";
 import { DocumentStatusActions } from "./document-status-actions";
 import { DocumentWithTrail } from "./document-with-trail";
 import { SectionLinkManager } from "./section-link-manager";
+import { MeetingLinks } from "@/components/meeting-links";
 
 const TYPE_LABELS: Record<string, string> = {
   constitution: "Constitution",
@@ -27,9 +28,11 @@ export default async function DocumentDetailPage({
   const space = await getCurrentSpace();
   if (!space) return null;
 
-  const [doc, allDecisions] = await Promise.all([
+  const [doc, allDecisions, documentMeetings, allMeetings] = await Promise.all([
     getDocumentById(space.id, id),
     getDecisionsList(space.id),
+    getDocumentMeetings(id),
+    getMeetingsList(space.id),
   ]);
   if (!doc) notFound();
 
@@ -138,6 +141,22 @@ export default async function DocumentDetailPage({
           decisions={allDecisions}
         />
       )}
+
+      {/* Meeting links */}
+      <div className="mt-10">
+        <MeetingLinks
+          entityType="document"
+          entityId={doc.id}
+          linkedMeetings={documentMeetings.map((m) => ({
+            ...m,
+            date: m.date.toISOString(),
+          }))}
+          allMeetings={allMeetings.map((m) => ({
+            ...m,
+            date: m.date.toISOString(),
+          }))}
+        />
+      </div>
     </div>
   );
 }

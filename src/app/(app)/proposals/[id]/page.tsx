@@ -1,5 +1,5 @@
 import { getCurrentSpace } from "@/lib/space";
-import { getProposalById, getActionsByProposal, getSpaceMembers } from "@/lib/queries";
+import { getProposalById, getActionsByProposal, getSpaceMembers, getProposalMeetings, getMeetingsList } from "@/lib/queries";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/breadcrumbs";
@@ -10,6 +10,7 @@ import { ProposalDiscussion } from "./proposal-discussion";
 import { ProposalReferences } from "./proposal-references";
 import { ActionList } from "@/components/action-list";
 import { AddAction } from "@/components/add-action";
+import { MeetingLinks } from "@/components/meeting-links";
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   draft: { label: "Draft", color: "bg-paper-deep text-bark-muted" },
@@ -40,9 +41,11 @@ export default async function ProposalDetailPage({
   const proposal = await getProposalById(space.id, id);
   if (!proposal) notFound();
 
-  const [proposalActions, members] = await Promise.all([
+  const [proposalActions, members, proposalMeetings, allMeetings] = await Promise.all([
     getActionsByProposal(proposal.id),
     getSpaceMembers(space.id),
+    getProposalMeetings(proposal.id),
+    getMeetingsList(space.id),
   ]);
   const memberNames = members.map((m) => m.name).filter(Boolean) as string[];
 
@@ -187,6 +190,22 @@ export default async function ProposalDetailPage({
           </p>
         </div>
       )}
+
+      {/* Meeting links */}
+      <div className="mb-10">
+        <MeetingLinks
+          entityType="proposal"
+          entityId={proposal.id}
+          linkedMeetings={proposalMeetings.map((m) => ({
+            ...m,
+            date: m.date.toISOString(),
+          }))}
+          allMeetings={allMeetings.map((m) => ({
+            ...m,
+            date: m.date.toISOString(),
+          }))}
+        />
+      </div>
 
       {/* Discussion */}
       <ProposalDiscussion
