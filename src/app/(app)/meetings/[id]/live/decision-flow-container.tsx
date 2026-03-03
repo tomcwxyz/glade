@@ -22,12 +22,16 @@ export function DecisionFlowContainer({
   mutate,
   isFacilitator,
   voteThreshold,
+  agendaItems,
+  currentAgendaItemIndex,
 }: {
   meetingId: string;
   state: MeetingSessionState;
   mutate: (s: MeetingSessionState) => void;
   isFacilitator: boolean;
   voteThreshold?: number;
+  agendaItems?: { proposalId: string | null }[];
+  currentAgendaItemIndex?: number;
 }) {
   const handleAdvanceStage = useCallback(
     async (nextStage: string) => {
@@ -39,13 +43,14 @@ export function DecisionFlowContainer({
 
   const handleRecordAndAdvance = useCallback(
     async (title: string, method: string, outcome?: string) => {
-      const result = await recordMeetingDecision(meetingId, title, method, outcome);
+      const currentProposalId = agendaItems?.[currentAgendaItemIndex ?? 0]?.proposalId;
+      const result = await recordMeetingDecision(meetingId, title, method, outcome, currentProposalId || undefined);
       if ("decisionId" in result) {
         const advResult = await advanceAgendaItem(meetingId, outcome, result.decisionId);
         if ("state" in advResult && advResult.state) mutate(advResult.state);
       }
     },
-    [meetingId, mutate]
+    [meetingId, mutate, agendaItems, currentAgendaItemIndex]
   );
 
   const handleSubmitResponse = useCallback(

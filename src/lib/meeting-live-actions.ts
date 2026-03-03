@@ -10,6 +10,7 @@ import {
   meetingActions,
   actions,
   meetingAgendaItems,
+  proposals,
 } from "@/db/schema";
 import { getCurrentSpace, requireUser } from "@/lib/space";
 import { getNextDecisionNumber } from "@/lib/queries";
@@ -267,7 +268,8 @@ export async function recordMeetingDecision(
   meetingId: string,
   title: string,
   method: string,
-  outcome?: string
+  outcome?: string,
+  proposalId?: string
 ) {
   return withMeetingState(meetingId, async ({ user, space }) => {
     const nextNumber = await getNextDecisionNumber(space.id);
@@ -290,6 +292,19 @@ export async function recordMeetingDecision(
       meetingId,
       decisionId: decision.id,
     });
+
+    // If this decision came from a proposal, link and update the proposal
+    if (proposalId) {
+      await db
+        .update(proposals)
+        .set({
+          decidedAsDecisionId: decision.id,
+          status: "decided",
+          updatedAt: new Date(),
+        })
+        .where(eq(proposals.id, proposalId));
+      revalidatePath("/proposals");
+    }
 
     revalidatePath(`/meetings/${meetingId}`);
     revalidatePath("/decisions");
