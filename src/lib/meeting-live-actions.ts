@@ -7,6 +7,7 @@ import {
   meetings,
   decisions,
   meetingDecisions,
+  meetingActions,
   actions,
   meetingAgendaItems,
 } from "@/db/schema";
@@ -304,13 +305,21 @@ export async function recordMeetingAction(
   dueDate?: string
 ) {
   return withMeetingState(meetingId, async ({ space }) => {
-    await db.insert(actions).values({
-      spaceId: space.id,
-      decisionId,
-      description,
-      ownerName: ownerName || null,
-      dueDate: dueDate ? new Date(dueDate) : null,
-      status: "open",
+    const [newAction] = await db
+      .insert(actions)
+      .values({
+        spaceId: space.id,
+        decisionId,
+        description,
+        ownerName: ownerName || null,
+        dueDate: dueDate ? new Date(dueDate) : null,
+        status: "open",
+      })
+      .returning({ id: actions.id });
+
+    await db.insert(meetingActions).values({
+      meetingId,
+      actionId: newAction.id,
     });
 
     revalidatePath(`/meetings/${meetingId}`);
