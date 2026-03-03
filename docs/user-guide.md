@@ -96,6 +96,10 @@ You can link decisions together with three relationship types:
 
 The decision list supports full-text search across titles, descriptions, and outcomes. Use the filter panel to narrow by status, method, tags, participants, or date range.
 
+### Deleting a decision
+
+Delete a decision from its detail page. Deletions are logged to the audit trail.
+
 ### Exporting
 
 Click **Export to CSV** on the decision list to download all decisions as a spreadsheet.
@@ -104,9 +108,9 @@ Click **Export to CSV** on the decision list to download all decisions as a spre
 
 ## Actions
 
-Actions are follow-up tasks that flow from decisions. They cannot be created on their own — every action is attached to a specific decision.
+Actions are follow-up tasks that flow from governance work. They can be attached to decisions, proposals, or topics — wherever a next step is identified.
 
-When logging a decision, add actions with a description, owner, and due date. Actions appear on the decision detail page and on the actions list.
+Add actions from a decision, proposal, or topic detail page, or create them directly from the **Actions** page. Each action has a description, owner, and optional due date.
 
 ### Action statuses
 
@@ -132,10 +136,11 @@ From the meetings list, create a meeting with:
 
 - **Title** and **date**
 - **Type** — Board, Team, AGM, EGM, Committee, Working Group, or Other
+- **Facilitator** — assign a specific member to run the meeting (defaults to the meeting creator)
 - **Notes** — free text for any pre-meeting notes
 - **Agenda items** — each with a title, type (For Decision, For Discussion, or For Information), estimated duration, and optional description
 
-You can pull existing proposals or topics directly into the agenda.
+You can pull existing proposals or topics directly into the agenda. The proposal picker includes draft proposals as well as those open for discussion or ready for decision.
 
 ### Sharing the agenda
 
@@ -154,15 +159,28 @@ When you start a meeting, the facilitator sees a full control panel:
 
 ### Decision flows
 
-For agenda items marked "For Decision", the facilitator can start a formal decision flow:
+For agenda items marked "For Decision", the facilitator can choose a decision method and start a formal decision flow:
 
 - **Consent** — a six-stage process (present, clarify, react, object, integrate, decide). Participants share reactions and raise objections. If no objections, the integration stage is skipped automatically.
 - **Majority vote** — participants cast for, against, or abstain votes. Results are tallied against the space's pass threshold (configurable in Settings).
 - **Advice process** — participants submit advice as free text. The facilitator reviews all advice before recording the decision.
 - **Delegation** — for delegating authority with defined scope and constraints.
+- **Lazy consensus** — present the proposal, then record unless objections arise.
 - **Temperature check** — a quick pulse to gauge sentiment before a formal process.
 
+The facilitator can navigate back between stages within a flow if needed.
+
+**Proposal-backed agenda items** get special treatment: when the facilitator reaches an agenda item that was added from a proposal, the decision flow starts automatically using the proposal's suggested method. The proposal's rationale is displayed for context. When the decision is recorded, the proposal is automatically marked as "Decided" and linked to the new decision record.
+
 When a flow completes, the facilitator records the decision directly from the meeting — it appears immediately in the decision log.
+
+### Linking entities to meetings
+
+From a meeting's detail page, you can link related decisions, documents, and proposals to the meeting record. This creates a cross-reference that appears on both the meeting and the linked item. Actions created during live meeting decision flows are linked automatically.
+
+### Importing transcripts
+
+If you have a meeting transcript (from a recording service, for example), you can import it into Glade. Paste the transcript text, and AI extracts decisions, actions, and topics from the conversation. Review and edit the extracted items, then import them into a new meeting or add them to an existing one.
 
 ### After the meeting
 
@@ -170,10 +188,15 @@ When the meeting ends, the **summary page** shows:
 
 - Stats: decisions made, items covered, items skipped, attendees
 - Links to all decisions recorded during the meeting
+- Linked documents, proposals, and actions
 - Agenda outcomes — which items were completed, skipped, or not reached
 - An AI-generated narrative summary (if AI features are enabled)
 
 Use the **Print** button to generate a print-friendly version suitable for saving as PDF minutes.
+
+### Deleting a meeting
+
+Delete a meeting from its detail page. The deletion is logged to the audit trail with a snapshot of the meeting's details.
 
 ---
 
@@ -227,9 +250,15 @@ Each proposal has a threaded discussion section. Team members can post comments 
 
 Attach supporting URLs and links to a proposal for context.
 
+### Adding proposals to meeting agendas
+
+From a proposal's detail page, click **Add to agenda** to place it on an upcoming meeting's agenda as a "For Decision" item. You can also pull proposals into agendas from the meeting form when creating or editing a meeting.
+
+During the meeting, proposal-backed agenda items automatically start a decision flow using the proposal's suggested method, and the proposal is linked to the resulting decision when recorded.
+
 ### From proposal to decision
 
-When a proposal is marked "Decided", Glade prompts you to create a formal decision record. The decision is pre-filled from the proposal and the two are linked. You can also pull proposals directly into meeting agendas as "For Decision" items.
+When a proposal is marked "Decided", Glade prompts you to create a formal decision record. The decision is pre-filled from the proposal and the two are linked.
 
 ---
 
@@ -382,6 +411,10 @@ Access settings from the sidebar. Editing is restricted to admins.
 
 - Set up outbound webhooks that fire when decisions are created, updated, or change status
 - Payloads are signed for verification by the receiving system
+
+### Audit log
+
+The Settings page includes an audit log showing all deletions across the space — what was removed, when, and by whom. Each entry includes a snapshot of the deleted item's key details.
 
 ### Danger zone
 
