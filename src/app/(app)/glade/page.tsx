@@ -51,9 +51,11 @@ export default async function GladePage() {
     );
   }
 
+  const stableNow = Date.now();
+
   return (
     <div className="h-full flex flex-col overflow-hidden">
-      <GladeCanvas decisions={serialized} />
+      <GladeCanvas decisions={serialized} now={stableNow} />
     </div>
   );
 }

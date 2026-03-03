@@ -32,7 +32,7 @@ All 5 phases of application code are **feature-complete**. WCAG 2.1 AA accessibi
 | ESLint + project structure | ✅ Done | `src/app`, `src/lib`, `src/components`, `src/db` |
 | UI component foundation | ✅ Done | Custom design system, lucide-react, clsx, Fraunces + DM Sans |
 | Design system (globals.css) | ✅ Done | Forest palette (oklch), fluid type scale, status colours |
-| NextAuth (Auth.js v5) | ✅ Done | Credentials + magic link + Google + Microsoft OAuth. Edge-compatible middleware. |
+| NextAuth (Auth.js v5) | ✅ Done | Credentials + magic link + Google + Microsoft OAuth. Edge-compatible middleware. All sign-in methods working. |
 | Neon PostgreSQL + Drizzle ORM | ✅ Done | Connected, schema pushed, migrations generated |
 | Database schema (26 tables) | ✅ Done | Auth + spaces, decisions, meetings, actions, tags, links, documents, proposals, topics, insights, subscriptions, api_keys, webhooks |
 | Sign-in / sign-up pages | ✅ Done | Styled in Glade design system, all auth methods |
@@ -156,7 +156,6 @@ flowchart LR
 
 ## Known Issues
 
-- **Credentials auth** — NextAuth returns `error=Configuration` when signing in with email/password. Google OAuth works.
 - **Drizzle migration drift** — schema.ts (26 tables) is ahead of generated migrations. DB has all columns via direct SQL. Run `db:generate` to reconcile.
 - **Untracked files** — Several `glade-*.png` screenshots and `.playwright-mcp/` logs in working dir. Safe to gitignore or delete.
 

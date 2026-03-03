@@ -457,7 +457,7 @@ function generateRootPaths(conn: RootConnection): string[] {
 }
 
 // Build rich connection objects from node data
-function getRootConnections(nodes: TreeNode[]): RootConnection[] {
+function getRootConnections(nodes: TreeNode[], stableNow: number): RootConnection[] {
   const connections: RootConnection[] = [];
   const seen = new Set<string>();
 
@@ -489,8 +489,8 @@ function getRootConnections(nodes: TreeNode[]): RootConnection[] {
         )
       );
       const monthsOld =
-        (Date.now() - olderDate.getTime()) / (1000 * 60 * 60 * 24 * 30);
-      const ageFactor = Math.min(1, monthsOld / 12);
+        (stableNow - olderDate.getTime()) / (1000 * 60 * 60 * 24 * 30);
+      const ageFactor = Math.round(Math.min(1, monthsOld / 12) * 100) / 100;
 
       connections.push({
         from,
@@ -955,7 +955,7 @@ function useZoomPan(fullW: number, fullH: number, svgRef: React.RefObject<SVGSVG
 
 // --- Main Canvas ---
 
-export function GladeCanvas({ decisions, readOnly = false }: { decisions: Decision[]; readOnly?: boolean }) {
+export function GladeCanvas({ decisions, readOnly = false, now }: { decisions: Decision[]; readOnly?: boolean; now?: number }) {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hoveredRootIndex, setHoveredRootIndex] = useState<number | null>(null);
@@ -995,7 +995,9 @@ export function GladeCanvas({ decisions, readOnly = false }: { decisions: Decisi
   }, [rawResetZoom, announce]);
 
   const nodes = useMemo(() => layoutNodes(decisions, W, H), [decisions]);
-  const connections = useMemo(() => getRootConnections(nodes), [nodes]);
+  // Use a stable timestamp for age calculations to avoid SSR/client hydration mismatch
+  const [stableNow] = useState(() => now ?? Date.now());
+  const connections = useMemo(() => getRootConnections(nodes, stableNow), [nodes, stableNow]);
 
   // Pre-generate all root paths
   const rootPaths = useMemo(
@@ -1282,7 +1284,7 @@ export function GladeCanvas({ decisions, readOnly = false }: { decisions: Decisi
           if (isHighlighted) return null;
 
           const scaledWidth =
-            style.strokeWidth * (0.8 + conn.ageFactor * 0.4);
+            Math.round(style.strokeWidth * (0.8 + conn.ageFactor * 0.4) * 100) / 100;
           const opacity = hasActiveHighlight ? 0.04 : style.opacity;
 
           return rootPaths[ci].map((d, pi) => (
@@ -1314,7 +1316,7 @@ export function GladeCanvas({ decisions, readOnly = false }: { decisions: Decisi
           if (!isHighlighted) return null;
 
           const scaledWidth =
-            style.strokeWidth * (0.8 + conn.ageFactor * 0.4) * 1.3;
+            Math.round(style.strokeWidth * (0.8 + conn.ageFactor * 0.4) * 1.3 * 100) / 100;
 
           return rootPaths[ci].map((d, pi) => (
             <path
@@ -1414,8 +1416,8 @@ export function GladeCanvas({ decisions, readOnly = false }: { decisions: Decisi
                 {/* Flower head — 4-5 petals */}
                 {[0, 1, 2, 3, 4].map((p) => {
                   const a = (p / 5) * Math.PI * 2;
-                  const px = Math.cos(a) * 2.5;
-                  const py = -11 + Math.sin(a) * 2.5;
+                  const px = Math.round(Math.cos(a) * 2500) / 1000;
+                  const py = Math.round((-11 + Math.sin(a) * 2.5) * 1000) / 1000;
                   const petalColor = item.variant < 0.33
                     ? "oklch(0.78 0.12 60)"   // buttercup yellow
                     : item.variant < 0.66

@@ -26,15 +26,16 @@ export default async function PublicGladePage({
   if (settings.publicGlade !== true) notFound();
 
   const decisions = await getPublicGladeDecisions(space.id);
+  const stableNow = Date.now();
 
   return (
-    <div className="w-full">
+    <div className="h-[calc(100vh-8rem)] flex flex-col overflow-hidden">
       {decisions.length === 0 ? (
         <div className="text-center py-16">
           <p className="text-bark-muted">No public decisions to display on the canvas.</p>
         </div>
       ) : (
-        <GladeCanvas decisions={decisions} readOnly />
+        <GladeCanvas decisions={decisions} readOnly now={stableNow} />
       )}
     </div>
   );
