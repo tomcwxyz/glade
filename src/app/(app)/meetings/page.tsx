@@ -1,17 +1,24 @@
 import type { Metadata } from "next";
 import { formatDate } from "@/lib/utils";
-import { BookOpen, Calendar, Plus, Users } from "lucide-react";
+import { BookOpen, Calendar, FileUp, Plus, Users } from "lucide-react";
 
 export const metadata: Metadata = { title: "Meetings" };
 import Link from "next/link";
 import { getCurrentSpace } from "@/lib/space";
 import { getMeetings } from "@/lib/queries";
+import { canUseAi } from "@/lib/billing";
+import { isAiEnabled } from "@/lib/ai";
 import { EmptyState } from "@/components/empty-state";
 
 export default async function MeetingsPage() {
   const space = await getCurrentSpace();
   if (!space) return null;
-  const meetings = await getMeetings(space.id);
+  const [meetings, aiCanUse] = await Promise.all([
+    getMeetings(space.id),
+    canUseAi(space.id),
+  ]);
+  const aiAvailable = aiCanUse && isAiEnabled(space.settings);
+
   if (meetings.length === 0) {
     return (
       <div className="max-w-4xl mx-auto px-4 sm:px-8 py-6 sm:py-10">
@@ -47,13 +54,24 @@ export default async function MeetingsPage() {
             {meetings.length} meetings recorded
           </p>
         </div>
-        <Link
-          href="/meetings/new"
-          className="flex items-center gap-2 px-4 py-2.5 bg-canopy text-paper rounded-lg text-sm font-medium hover:bg-canopy-light transition-colors self-start sm:self-auto shrink-0"
-        >
-          <Plus size={16} />
-          New meeting
-        </Link>
+        <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
+          {aiAvailable && (
+            <Link
+              href="/meetings/import"
+              className="flex items-center gap-2 px-4 py-2.5 bg-paper-deep border border-border rounded-lg text-sm font-medium text-bark-muted hover:text-bark hover:bg-paper-warm transition-colors"
+            >
+              <FileUp size={16} />
+              Import transcript
+            </Link>
+          )}
+          <Link
+            href="/meetings/new"
+            className="flex items-center gap-2 px-4 py-2.5 bg-canopy text-paper rounded-lg text-sm font-medium hover:bg-canopy-light transition-colors"
+          >
+            <Plus size={16} />
+            New meeting
+          </Link>
+        </div>
       </header>
 
       <div className="space-y-3">

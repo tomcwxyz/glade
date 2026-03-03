@@ -5,11 +5,21 @@ import { revalidatePath } from "next/cache";
 import { eq, and } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { db } from "@/db";
-import { meetings, meetingAgendaItems, meetingAttendees } from "@/db/schema";
+import {
+  meetings,
+  meetingAgendaItems,
+  meetingAttendees,
+  meetingDecisions,
+  meetingActions,
+  decisions,
+  actions,
+  topics,
+} from "@/db/schema";
 import { getCurrentSpace, requireUser } from "@/lib/space";
 import { createInitialState } from "@/lib/meeting-state";
 import { canUseLiveMeetings } from "@/lib/billing";
 import { logDeletion } from "@/lib/audit";
+import { getNextDecisionNumber } from "@/lib/queries";
 
 type MeetingStatus = "draft" | "scheduled" | "in_progress" | "completed";
 
@@ -304,4 +314,136 @@ export async function startMeeting(meetingId: string) {
 
   revalidatePath(`/meetings/${meetingId}`);
   return { success: true };
+}
+
+export async function importTranscript(data: {
+  mode: "new" | "existing";
+  meetingId?: string;
+  title?: string;
+  date?: string;
+  type?: string;
+  transcript: string;
+  saveNotesFromSummary?: boolean;
+  summary?: string;
+  decisions: {
+    title: string;
+    description: string;
+    method: string;
+    outcome: string;
+  }[];
+  actions: {
+    description: string;
+    ownerName: string | null;
+    dueDate: string | null;
+  }[];
+  topics: {
+    title: string;
+    description: string;
+    type: string;
+  }[];
+}) {
+  const user = await requireUser();
+  const space = await getCurrentSpace();
+  if (!space) return { error: "No space selected" };
+
+  let meetingId: string;
+
+  if (data.mode === "new") {
+    const [meeting] = await db
+      .insert(meetings)
+      .values({
+        spaceId: space.id,
+        title: data.title || "Imported meeting",
+        date: data.date ? new Date(data.date) : new Date(),
+        type: data.type || "other",
+        status: "completed",
+        notes: data.saveNotesFromSummary ? data.summary || null : null,
+        transcript: data.transcript,
+        createdBy: user.id,
+        isPublic: true,
+      })
+      .returning({ id: meetings.id });
+    meetingId = meeting.id;
+  } else {
+    if (!data.meetingId) return { error: "No meeting ID" };
+    meetingId = data.meetingId;
+    await db
+      .update(meetings)
+      .set({
+        transcript: data.transcript,
+        ...(data.saveNotesFromSummary && data.summary
+          ? { notes: data.summary }
+          : {}),
+        updatedAt: new Date(),
+      })
+      .where(and(eq(meetings.id, meetingId), eq(meetings.spaceId, space.id)));
+  }
+
+  // Create decisions and link to meeting
+  for (const d of data.decisions) {
+    const nextNumber = await getNextDecisionNumber(space.id);
+    const [decision] = await db
+      .insert(decisions)
+      .values({
+        spaceId: space.id,
+        number: nextNumber,
+        title: d.title,
+        description: d.description,
+        method: d.method as
+          | "consent"
+          | "majority_vote"
+          | "advice_process"
+          | "delegation"
+          | "consensus"
+          | "lazy_consensus",
+        outcome: d.outcome,
+        status: "decided",
+        date: new Date(),
+        createdBy: user.id,
+      })
+      .returning({ id: decisions.id });
+
+    await db.insert(meetingDecisions).values({
+      meetingId,
+      decisionId: decision.id,
+    });
+  }
+
+  // Create actions and link to meeting
+  for (const a of data.actions) {
+    const [action] = await db
+      .insert(actions)
+      .values({
+        spaceId: space.id,
+        description: a.description,
+        ownerName: a.ownerName,
+        dueDate: a.dueDate ? new Date(a.dueDate) : null,
+        status: "open",
+      })
+      .returning({ id: actions.id });
+
+    await db.insert(meetingActions).values({
+      meetingId,
+      actionId: action.id,
+    });
+  }
+
+  // Create topics
+  for (const t of data.topics) {
+    await db.insert(topics).values({
+      spaceId: space.id,
+      title: t.title,
+      description: t.description,
+      type: t.type as "question" | "tension" | "agenda_suggestion",
+      createdBy: user.id,
+    });
+  }
+
+  revalidatePath("/meetings");
+  revalidatePath("/decisions");
+  revalidatePath("/actions");
+  revalidatePath("/topics");
+  revalidatePath(`/meetings/${meetingId}`);
+
+  return { meetingId };
 }

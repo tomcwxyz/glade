@@ -314,6 +314,7 @@ export const meetings = pgTable(
     createdBy: uuid("created_by").references(() => users.id),
     shareToken: varchar("share_token", { length: 64 }).unique(),
     sessionState: jsonb("session_state"),
+    transcript: text("transcript"),
     isPublic: boolean("is_public").default(true).notNull(),
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),

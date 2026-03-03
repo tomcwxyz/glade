@@ -16,8 +16,9 @@ import {
   staleDocumentPrompt,
   draftDocumentUpdatePrompt,
   governanceDigestPrompt,
+  transcriptExtractionPrompt,
 } from "@/lib/ai-prompts";
-import { getDecisions, getDocuments, getDecisionByNumber, getActions, getDocumentById } from "@/lib/queries";
+import { getDecisions, getDocuments, getDecisionByNumber, getActions, getDocumentById, getMeetingById } from "@/lib/queries";
 import { tiptapToText } from "@/lib/tiptap-utils";
 
 async function checkAiEnabled() {
@@ -490,4 +491,68 @@ export async function generateGovernanceDigest() {
 
   revalidatePath("/dashboard");
   return { content: response };
+}
+
+export type ExtractedDecision = {
+  title: string;
+  description: string;
+  method: string;
+  outcome: string;
+};
+
+export type ExtractedAction = {
+  description: string;
+  ownerName: string | null;
+  dueDate: string | null;
+};
+
+export type ExtractedTopic = {
+  title: string;
+  description: string;
+  type: string;
+};
+
+export type TranscriptExtraction = {
+  decisions: ExtractedDecision[];
+  actions: ExtractedAction[];
+  topics: ExtractedTopic[];
+  summary: string;
+};
+
+export async function extractFromTranscript(
+  transcript: string,
+  meetingId?: string
+): Promise<TranscriptExtraction | { error: string }> {
+  const { error, space } = await checkAiEnabled();
+  if (error || !space) return { error: error || "No space" };
+
+  let meetingContext: string | undefined;
+  if (meetingId) {
+    const meeting = await getMeetingById(space.id, meetingId);
+    if (meeting) {
+      meetingContext = JSON.stringify({
+        title: meeting.title,
+        date: meeting.date.toISOString(),
+        attendees: meeting.attendees.map((a) => a.name),
+      });
+    }
+  }
+
+  const response = await generateText(
+    SYSTEM_PROMPT,
+    transcriptExtractionPrompt(transcript, meetingContext),
+    { maxTokens: 4096 }
+  );
+
+  try {
+    const parsed = JSON.parse(response);
+    return {
+      decisions: parsed.decisions || [],
+      actions: parsed.actions || [],
+      topics: parsed.topics || [],
+      summary: parsed.summary || "",
+    };
+  } catch {
+    return { error: "Failed to parse AI response. Please try again." };
+  }
 }

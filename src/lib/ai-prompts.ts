@@ -149,3 +149,36 @@ ${decisionsJson}
 Governance documents:
 ${documentsJson}`;
 }
+
+export function transcriptExtractionPrompt(
+  transcript: string,
+  meetingContext?: string
+): string {
+  return `Analyse this meeting transcript or notes and extract governance items.
+
+Return ONLY valid JSON in this exact format:
+{
+  "decisions": [
+    { "title": "Short decision title", "description": "What was decided and why", "method": "consent|majority_vote|advice_process|delegation|consensus|lazy_consensus", "outcome": "The agreed outcome" }
+  ],
+  "actions": [
+    { "description": "What needs to be done", "ownerName": "Person responsible or null", "dueDate": "YYYY-MM-DD or null" }
+  ],
+  "topics": [
+    { "title": "Topic title", "description": "Brief description", "type": "question|tension|agenda_suggestion" }
+  ],
+  "summary": "A 2-3 sentence summary of the meeting"
+}
+
+Rules:
+- Only extract items that are clearly stated in the transcript. Do not infer or speculate.
+- For decisions: only include items where a clear decision was made (not just discussed).
+- For actions: only include items where someone was asked or agreed to do something specific.
+- For topics: include unresolved questions, tensions raised, or items suggested for future agendas.
+- If a field value is unknown, use null (for ownerName, dueDate) or omit the item entirely.
+- For decision method, choose the closest match. If unclear, use "consensus".
+- Return empty arrays if no items of that type are found.
+${meetingContext ? `\nMeeting context:\n${meetingContext}\n` : ""}
+Transcript:
+${transcript}`;
+}

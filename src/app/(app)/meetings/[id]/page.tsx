@@ -6,7 +6,8 @@ import {
   getDocumentsList,
   getProposalsList,
 } from "@/lib/queries";
-import { canUseLiveMeetings } from "@/lib/billing";
+import { canUseLiveMeetings, canUseAi } from "@/lib/billing";
+import { isAiEnabled } from "@/lib/ai";
 import { formatDate } from "@/lib/utils";
 import {
   BookOpen,
@@ -14,6 +15,7 @@ import {
   CheckSquare,
   CircleDot,
   FileText,
+  FileUp,
   Lightbulb,
   MessageSquare,
   Pencil,
@@ -60,14 +62,16 @@ export default async function MeetingDetailPage({
   if (!space) return null;
   const meeting = await getMeetingById(space.id, id);
   if (!meeting) return notFound();
-  const [liveMeetingsAllowed, allDecisions, allActions, allDocuments, allProposals] =
+  const [liveMeetingsAllowed, aiCanUse, allDecisions, allActions, allDocuments, allProposals] =
     await Promise.all([
       canUseLiveMeetings(space.id),
+      canUseAi(space.id),
       getDecisionsList(space.id),
       getActionsList(space.id),
       getDocumentsList(space.id),
       getProposalsList(space.id),
     ]);
+  const aiAvailable = aiCanUse && isAiEnabled(space.settings);
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-8 py-6 sm:py-10">
@@ -141,6 +145,15 @@ export default async function MeetingDetailPage({
                 className="flex items-center gap-1.5 px-3 py-2 text-sm bg-paper-deep border border-border rounded-lg text-bark-muted hover:text-bark hover:bg-paper-warm transition-colors"
               >
                 View summary
+              </Link>
+            )}
+            {aiAvailable && (
+              <Link
+                href={`/meetings/${meeting.id}/import`}
+                className="flex items-center gap-1.5 px-3 py-2 text-sm bg-paper-deep border border-border rounded-lg text-bark-muted hover:text-bark hover:bg-paper-warm transition-colors"
+              >
+                <FileUp size={14} />
+                Import transcript
               </Link>
             )}
             <Link
