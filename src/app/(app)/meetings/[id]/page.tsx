@@ -1,12 +1,20 @@
 import { getCurrentSpace } from "@/lib/space";
-import { getMeetingById } from "@/lib/queries";
+import {
+  getMeetingById,
+  getDecisionsList,
+  getActionsList,
+  getDocumentsList,
+  getProposalsList,
+} from "@/lib/queries";
 import { canUseLiveMeetings } from "@/lib/billing";
 import { formatDate } from "@/lib/utils";
 import {
   BookOpen,
   Calendar,
+  CheckSquare,
   CircleDot,
   FileText,
+  Lightbulb,
   MessageSquare,
   Pencil,
   Play,
@@ -17,6 +25,7 @@ import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { ShareAgendaButton } from "./share-agenda-button";
 import { DeleteMeeting } from "./delete-meeting";
+import { MeetingLinksEditor } from "./meeting-links-editor";
 
 const TYPE_LABELS: Record<string, string> = {
   board: "Board Meeting",
@@ -41,13 +50,6 @@ const MEETING_STATUS_CONFIG: Record<string, { label: string; color: string }> = 
   completed: { label: "Completed", color: "bg-canopy-pale text-canopy" },
 };
 
-const STATUS_COLORS: Record<string, string> = {
-  decided: "bg-status-decided",
-  implemented: "bg-status-implemented",
-  reviewed: "bg-status-reviewed",
-  learned: "bg-status-learned",
-};
-
 export default async function MeetingDetailPage({
   params,
 }: {
@@ -58,7 +60,14 @@ export default async function MeetingDetailPage({
   if (!space) return null;
   const meeting = await getMeetingById(space.id, id);
   if (!meeting) return notFound();
-  const liveMeetingsAllowed = await canUseLiveMeetings(space.id);
+  const [liveMeetingsAllowed, allDecisions, allActions, allDocuments, allProposals] =
+    await Promise.all([
+      canUseLiveMeetings(space.id),
+      getDecisionsList(space.id),
+      getActionsList(space.id),
+      getDocumentsList(space.id),
+      getProposalsList(space.id),
+    ]);
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-8 py-6 sm:py-10">
@@ -209,34 +218,18 @@ export default async function MeetingDetailPage({
             </section>
           )}
 
-          {/* Linked decisions */}
-          {meeting.decisions.length > 0 && (
-            <section>
-              <h2 className="text-xs uppercase tracking-wider text-bark-muted font-medium flex items-center gap-2 mb-4">
-                <CircleDot size={13} />
-                Decisions made ({meeting.decisions.length})
-              </h2>
-              <div className="space-y-2">
-                {meeting.decisions.map((decision) => (
-                  <Link
-                    key={decision.id}
-                    href={`/decisions/${decision.number}`}
-                    className="flex items-center gap-3 py-3 px-3 -mx-3 rounded-lg hover:bg-paper-warm transition-colors group border-b border-border last:border-b-0"
-                  >
-                    <span className="text-xs text-bark-muted font-medium tabular-nums">
-                      #{decision.number}
-                    </span>
-                    <span
-                      className={`w-2 h-2 rounded-full ${STATUS_COLORS[decision.status] || "bg-bark-muted"}`}
-                    />
-                    <span className="text-sm text-bark group-hover:text-canopy transition-colors flex-1">
-                      {decision.title}
-                    </span>
-                  </Link>
-                ))}
-              </div>
-            </section>
-          )}
+          {/* Linked entities */}
+          <MeetingLinksEditor
+            meetingId={meeting.id}
+            decisions={meeting.decisions}
+            actions={meeting.actions}
+            documents={meeting.documents}
+            proposals={meeting.proposals}
+            allDecisions={allDecisions}
+            allActions={allActions}
+            allDocuments={allDocuments}
+            allProposals={allProposals}
+          />
         </div>
 
         {/* Right sidebar */}
@@ -283,6 +276,27 @@ export default async function MeetingDetailPage({
                   Decisions
                 </span>
                 <span className="font-medium text-bark">{meeting.decisions.length}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-bark-muted flex items-center gap-1.5">
+                  <CheckSquare size={13} />
+                  Actions
+                </span>
+                <span className="font-medium text-bark">{meeting.actions.length}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-bark-muted flex items-center gap-1.5">
+                  <FileText size={13} />
+                  Documents
+                </span>
+                <span className="font-medium text-bark">{meeting.documents.length}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-bark-muted flex items-center gap-1.5">
+                  <Lightbulb size={13} />
+                  Proposals
+                </span>
+                <span className="font-medium text-bark">{meeting.proposals.length}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
                 <span className="text-bark-muted flex items-center gap-1.5">
