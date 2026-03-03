@@ -18,8 +18,8 @@ export default async function LiveMeetingPage({
   const meeting = await getMeetingById(space.id, id);
   if (!meeting) return notFound();
 
-  // If meeting hasn't started yet, initialise session state
-  if (meeting.status === "draft" || meeting.status === "scheduled") {
+  // If meeting hasn't started yet, or is in_progress but missing session state, initialise it
+  if (meeting.status === "draft" || meeting.status === "scheduled" || !meeting.sessionState) {
     await startMeeting(meeting.id);
     redirect(`/meetings/${meeting.id}/live`);
   }
