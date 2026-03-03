@@ -312,6 +312,7 @@ export const meetings = pgTable(
     status: meetingStatusEnum("status").default("draft").notNull(),
     notes: text("notes"),
     createdBy: uuid("created_by").references(() => users.id),
+    facilitatorId: uuid("facilitator_id").references(() => users.id),
     shareToken: varchar("share_token", { length: 64 }).unique(),
     sessionState: jsonb("session_state"),
     transcript: text("transcript"),

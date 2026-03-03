@@ -37,6 +37,7 @@ export async function createMeeting(formData: FormData) {
   const type = (formData.get("type") as string)?.trim() || null;
   const status = ((formData.get("status") as string)?.trim() || "draft") as MeetingStatus;
   const notes = (formData.get("notes") as string)?.trim() || null;
+  const facilitatorId = (formData.get("facilitatorId") as string)?.trim() || null;
   const isPublic = formData.get("hideFromPublic") !== "on";
   const attendeeIdsRaw = formData.get("attendeeIds") as string;
 
@@ -55,6 +56,7 @@ export async function createMeeting(formData: FormData) {
       notes,
       isPublic,
       createdBy: user.id,
+      facilitatorId: facilitatorId || user.id,
     })
     .returning({ id: meetings.id });
 
@@ -128,6 +130,7 @@ export async function updateMeeting(meetingId: string, formData: FormData) {
   const type = (formData.get("type") as string)?.trim() || null;
   const status = ((formData.get("status") as string)?.trim() || "draft") as MeetingStatus;
   const notes = (formData.get("notes") as string)?.trim() || null;
+  const facilitatorId = (formData.get("facilitatorId") as string)?.trim() || null;
   const isPublic = formData.get("hideFromPublic") !== "on";
   const attendeeIdsRaw = formData.get("attendeeIds") as string;
 
@@ -144,6 +147,7 @@ export async function updateMeeting(meetingId: string, formData: FormData) {
       status,
       notes,
       isPublic,
+      facilitatorId,
       updatedAt: new Date(),
     })
     .where(eq(meetings.id, meetingId));

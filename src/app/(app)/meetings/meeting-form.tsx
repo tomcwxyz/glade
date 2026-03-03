@@ -42,6 +42,7 @@ interface MeetingData {
   status: string;
   notes: string | null;
   isPublic: boolean;
+  facilitatorId: string | null;
   attendeeIds: string[];
   agendaItems: AgendaItem[];
 }
@@ -272,6 +273,26 @@ export function MeetingForm({
               ))}
             </select>
           </div>
+        </div>
+
+        {/* Facilitator */}
+        <div>
+          <label htmlFor="facilitatorId" className="block text-sm font-medium text-bark mb-1.5">
+            Facilitator
+          </label>
+          <select
+            id="facilitatorId"
+            name="facilitatorId"
+            defaultValue={meeting?.facilitatorId || ""}
+            className={inputClass}
+          >
+            <option value="">Meeting creator (default)</option>
+            {members.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.name}
+              </option>
+            ))}
+          </select>
         </div>
 
         {/* Notes */}

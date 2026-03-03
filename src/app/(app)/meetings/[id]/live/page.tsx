@@ -24,7 +24,7 @@ export default async function LiveMeetingPage({
     redirect(`/meetings/${meeting.id}/live`);
   }
 
-  const isFacilitator = meeting.createdBy === user.id;
+  const isFacilitator = (meeting.facilitatorId || meeting.createdBy) === user.id;
   const settings = (space.settings as Record<string, unknown>) || {};
   const voteThreshold = typeof settings.votePassThreshold === "number" ? settings.votePassThreshold : 0.5;
 
