@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { switchSpace } from "@/lib/space";
 import type { SpaceInfo, UserSpace } from "./app-shell";
+import { SignOutButtonMobile } from "./sign-out-button";
 import {
   BookOpen,
   Calendar,
@@ -16,7 +17,6 @@ import {
   Home,
   Lightbulb,
   ListChecks,
-  LogOut,
   Menu,
   MessageSquare,
   Plus,
@@ -273,14 +273,7 @@ export function MobileNav({ currentSpace, userSpaces }: MobileNavProps) {
               );
             })}
 
-            <Link
-              href="/api/auth/signout"
-              onClick={() => setOpen(false)}
-              className="flex items-center gap-2.5 px-3 py-3 rounded-lg text-sm min-h-[44px] text-bark-muted hover:text-bark hover:bg-paper-deep transition-colors"
-            >
-              <LogOut size={17} strokeWidth={1.8} aria-hidden="true" />
-              Sign out
-            </Link>
+            <SignOutButtonMobile onClick={() => setOpen(false)} />
           </div>
         </nav>
       )}

@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { switchSpace } from "@/lib/space";
 import type { SpaceInfo, UserSpace } from "./app-shell";
+import { SignOutButton } from "./sign-out-button";
 import {
   BookOpen,
   Calendar,
@@ -18,7 +19,6 @@ import {
   Home,
   Lightbulb,
   ListChecks,
-  LogOut,
   MessageSquare,
   Plus,
   Settings,
@@ -316,13 +316,7 @@ export function Sidebar({ currentSpace, userSpaces, isSuperAdmin }: SidebarProps
         )}
 
         {/* Sign out */}
-        <Link
-          href="/api/auth/signout"
-          className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[0.8125rem] text-bark-muted hover:text-bark hover:bg-paper-deep transition-colors"
-        >
-          <LogOut size={17} strokeWidth={1.8} className="shrink-0" aria-hidden="true" />
-          {!collapsed && <span>Sign out</span>}
-        </Link>
+        <SignOutButton collapsed={collapsed} />
 
         {/* Collapse toggle */}
         <button
