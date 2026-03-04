@@ -6,8 +6,12 @@ export const metadata: Metadata = { title: "Settings" };
 import { isAiAvailable, isAiEnabled } from "@/lib/ai";
 import { getSpacePlan } from "@/lib/billing";
 import { PLAN_LIMITS, PLAN_DISPLAY } from "@/lib/plans";
+import { eq } from "drizzle-orm";
+import { db } from "@/db";
+import { users } from "@/db/schema";
 import { Settings } from "lucide-react";
 import { SpaceSettingsForm } from "./settings-form";
+import { ChangePasswordForm } from "./change-password-form";
 import { ApiKeys } from "./api-keys";
 import { Webhooks } from "./webhooks";
 import { AuditLog } from "./audit-log";
@@ -28,6 +32,13 @@ export default async function SettingsPage() {
     getAuditLog(space.id),
   ]);
 
+  const [userRecord] = await db
+    .select({ passwordHash: users.passwordHash })
+    .from(users)
+    .where(eq(users.id, user.id))
+    .limit(1);
+  const hasPassword = !!userRecord?.passwordHash;
+
   const currentMember = members.find((m) => m.userId === user.id || m.email === user.email);
   const isAdmin = currentMember?.role === "admin";
 
@@ -47,6 +58,21 @@ export default async function SettingsPage() {
           Manage settings for {space.name}
         </p>
       </header>
+
+      {hasPassword && (
+        <section className="mb-12 pb-10 border-b border-border">
+          <h2
+            className="text-xl font-light tracking-tight mb-1"
+            style={{ fontFamily: "var(--font-display)" }}
+          >
+            Your Account
+          </h2>
+          <p className="text-sm text-bark-muted mb-6">
+            {user.email}
+          </p>
+          <ChangePasswordForm />
+        </section>
+      )}
 
       <SpaceSettingsForm
         name={space.name}
