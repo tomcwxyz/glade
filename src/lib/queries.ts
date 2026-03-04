@@ -27,6 +27,7 @@ import {
   apiKeys,
   webhooks,
   auditLog,
+  invitations,
 } from "@/db/schema";
 import { eq, and, or, desc, asc, count, sql, inArray } from "drizzle-orm";
 
@@ -1469,4 +1470,41 @@ export async function getAuditLog(spaceId: string) {
     .where(eq(auditLog.spaceId, spaceId))
     .orderBy(desc(auditLog.deletedAt))
     .limit(50);
+}
+
+// ============================================================
+// Invitations
+// ============================================================
+
+export async function getInvitationByToken(token: string) {
+  const [invitation] = await db
+    .select()
+    .from(invitations)
+    .where(eq(invitations.token, token))
+    .limit(1);
+  return invitation ?? null;
+}
+
+export async function getPendingInvitationsForEmail(email: string) {
+  return db
+    .select()
+    .from(invitations)
+    .where(
+      and(
+        eq(invitations.email, email.toLowerCase().trim()),
+        eq(invitations.status, "pending")
+      )
+    );
+}
+
+export async function getPendingInvitationsForSpace(spaceId: string) {
+  return db
+    .select()
+    .from(invitations)
+    .where(
+      and(
+        eq(invitations.spaceId, spaceId),
+        eq(invitations.status, "pending")
+      )
+    );
 }

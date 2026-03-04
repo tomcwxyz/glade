@@ -1,12 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { signUp } from "@/lib/auth-actions";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Lock, Mail, User, Loader2 } from "lucide-react";
 import { FormError } from "@/components/form-error";
 
 export default function SignUpPage() {
+  return (
+    <Suspense>
+      <SignUpForm />
+    </Suspense>
+  );
+}
+
+function SignUpForm() {
+  const searchParams = useSearchParams();
+  const inviteToken = searchParams.get("invite");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -35,13 +46,18 @@ export default function SignUpPage() {
           Create your account
         </h1>
         <p className="text-sm text-bark-muted">
-          Start building your organisation&apos;s governance memory
+          {inviteToken
+            ? "Create an account to join the space you were invited to"
+            : "Start building your organisation\u2019s governance memory"}
         </p>
       </div>
 
       <FormError message={error} />
 
       <form onSubmit={handleSubmit} className="space-y-4">
+        {inviteToken && (
+          <input type="hidden" name="inviteToken" value={inviteToken} />
+        )}
         <div>
           <label htmlFor="name" className="block text-sm font-medium text-bark mb-1.5">
             Full name

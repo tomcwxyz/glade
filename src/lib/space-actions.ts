@@ -8,6 +8,9 @@ import * as schema from "@/db/schema";
 import { spaces, spaceMembers, users } from "@/db/schema";
 import { getCurrentSpace, requireUser, setCurrentSpace } from "@/lib/space";
 import { canAddMember } from "@/lib/billing";
+import { randomBytes } from "crypto";
+import { invitations } from "@/db/schema";
+import { sendSpaceInviteEmail, sendAddedToSpaceEmail, isEmailConfigured } from "@/lib/email";
 
 export async function updateSpace(formData: FormData) {
   const user = await requireUser();
@@ -156,6 +159,8 @@ export async function inviteMember(email: string) {
   const space = await getCurrentSpace();
   if (!space) return { error: "No space selected" };
 
+  const normalizedEmail = email.toLowerCase().trim();
+
   // Verify admin
   const [actingMembership] = await db
     .select({ role: spaceMembers.role })
@@ -171,37 +176,80 @@ export async function inviteMember(email: string) {
     return { error: "Member limit reached. Upgrade to Canopy for more members." };
   }
 
-  // Check if user exists
+  // Check if user already exists
   const [existingUser] = await db
-    .select({ id: users.id })
+    .select({ id: users.id, name: users.name, email: users.email })
     .from(users)
-    .where(eq(users.email, email.toLowerCase().trim()));
+    .where(eq(users.email, normalizedEmail));
 
-  if (!existingUser) {
-    return { error: "No account found with that email. They need to sign up first." };
+  if (existingUser) {
+    // Check if already a member
+    const [existingMembership] = await db
+      .select({ id: spaceMembers.id })
+      .from(spaceMembers)
+      .where(
+        and(
+          eq(spaceMembers.spaceId, space.id),
+          eq(spaceMembers.userId, existingUser.id)
+        )
+      );
+
+    if (existingMembership) return { error: "This person is already a member of this space" };
+
+    // Add existing user directly
+    await db.insert(spaceMembers).values({
+      spaceId: space.id,
+      userId: existingUser.id,
+      role: "member",
+    });
+
+    // Send notification email (best-effort)
+    if (isEmailConfigured()) {
+      try {
+        await sendAddedToSpaceEmail(
+          normalizedEmail,
+          space.name,
+          user.name || user.email || "A space admin",
+        );
+      } catch {
+        // Don't fail the action if email fails
+      }
+    }
+
+    revalidatePath("/members");
+    return { success: true, message: "Member added successfully!" };
   }
 
-  // Check if already a member
-  const [existingMembership] = await db
-    .select({ id: spaceMembers.id })
-    .from(spaceMembers)
-    .where(
-      and(
-        eq(spaceMembers.spaceId, space.id),
-        eq(spaceMembers.userId, existingUser.id)
-      )
-    );
+  // New user — create invitation
+  const token = randomBytes(32).toString("hex");
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
 
-  if (existingMembership) return { error: "This person is already a member of this space" };
-
-  // Add as member
-  await db.insert(spaceMembers).values({
+  await db.insert(invitations).values({
     spaceId: space.id,
-    userId: existingUser.id,
+    email: normalizedEmail,
     role: "member",
+    token,
+    invitedBy: user.id!,
+    status: "pending",
+    expiresAt,
   });
 
-  return { success: true };
+  // Send invite email (best-effort)
+  if (isEmailConfigured()) {
+    try {
+      await sendSpaceInviteEmail(
+        normalizedEmail,
+        space.name,
+        user.name || user.email || "A space admin",
+        token,
+      );
+    } catch {
+      // Don't fail the action if email fails
+    }
+  }
+
+  revalidatePath("/members");
+  return { success: true, message: "Invitation sent!" };
 }
 
 export async function clearSpaceData() {

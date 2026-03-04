@@ -127,6 +127,12 @@ export const subscriptionStatusEnum = pgEnum("subscription_status", [
   "trialing",
 ]);
 
+export const invitationStatusEnum = pgEnum("invitation_status", [
+  "pending",
+  "accepted",
+  "expired",
+]);
+
 // ============================================================
 // NextAuth tables
 // ============================================================
@@ -192,6 +198,30 @@ export const passwordResetTokens = pgTable(
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
   },
   (t) => [index("password_reset_tokens_email_idx").on(t.email)]
+);
+
+export const invitations = pgTable(
+  "invitations",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    spaceId: uuid("space_id")
+      .notNull()
+      .references(() => spaces.id, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+    role: spaceRoleEnum("role").default("member").notNull(),
+    token: varchar("token", { length: 64 }).unique().notNull(),
+    invitedBy: uuid("invited_by")
+      .notNull()
+      .references(() => users.id),
+    status: invitationStatusEnum("status").default("pending").notNull(),
+    expiresAt: timestamp("expires_at", { mode: "date" }).notNull(),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (i) => [
+    index("invitations_email_idx").on(i.email),
+    index("invitations_token_idx").on(i.token),
+    index("invitations_space_idx").on(i.spaceId),
+  ]
 );
 
 // ============================================================

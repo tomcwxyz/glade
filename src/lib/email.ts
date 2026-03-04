@@ -1,4 +1,5 @@
 import { Resend } from "resend";
+import { gladeEmail, getBaseUrl } from "@/lib/email-templates";
 
 function getResend() {
   const key = process.env.AUTH_RESEND_KEY;
@@ -6,31 +7,74 @@ function getResend() {
   return new Resend(key);
 }
 
+export function isEmailConfigured(): boolean {
+  return !!process.env.AUTH_RESEND_KEY;
+}
+
 export async function sendPasswordResetEmail(email: string, token: string) {
   const resend = getResend();
-  const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL
-    ? `https://${process.env.VERCEL_URL}`
-    : "http://localhost:3000";
-
-  const resetUrl = `${baseUrl}/reset-password?token=${token}`;
+  const resetUrl = `${getBaseUrl()}/reset-password?token=${token}`;
 
   await resend.emails.send({
     from: "Glade <noreply@ourglade.app>",
     to: email,
     subject: "Reset your Glade password",
-    html: `
-      <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 32px 0;">
-        <h2 style="font-size: 20px; font-weight: 500; margin-bottom: 16px;">Reset your password</h2>
-        <p style="font-size: 15px; color: #555; line-height: 1.6; margin-bottom: 24px;">
-          Someone requested a password reset for your Glade account. Click the button below to choose a new password. This link expires in 1 hour.
-        </p>
-        <a href="${resetUrl}" style="display: inline-block; background: #2d6a4f; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-size: 14px; font-weight: 500;">
-          Reset password
-        </a>
-        <p style="font-size: 13px; color: #888; margin-top: 24px; line-height: 1.5;">
-          If you didn't request this, you can safely ignore this email. Your password won't change.
-        </p>
-      </div>
-    `,
+    html: gladeEmail({
+      preview: "Reset your Glade password",
+      heading: "Reset your password",
+      body: "Someone requested a password reset for your Glade account. Click the button below to choose a new password.",
+      cta: { label: "Reset password", url: resetUrl },
+      footer: "This link expires in 1 hour. If you didn't request this, you can safely ignore this email.",
+    }),
+  });
+}
+
+export async function sendSpaceInviteEmail(
+  email: string,
+  spaceName: string,
+  inviterName: string,
+  inviteToken: string,
+  magicLinkUrl?: string,
+) {
+  const resend = getResend();
+  const signUpUrl = `${getBaseUrl()}/sign-up?invite=${inviteToken}`;
+
+  await resend.emails.send({
+    from: "Glade <noreply@ourglade.app>",
+    to: email,
+    subject: `${inviterName} invited you to ${spaceName} on Glade`,
+    html: gladeEmail({
+      preview: `${inviterName} invited you to ${spaceName}`,
+      heading: `You're invited to ${spaceName}`,
+      body: `${inviterName} has invited you to join <strong>${spaceName}</strong> on Glade, a governance platform for social purpose organisations.`,
+      cta: magicLinkUrl
+        ? { label: `Join ${spaceName}`, url: magicLinkUrl }
+        : { label: "Create your account", url: signUpUrl },
+      secondaryCta: magicLinkUrl
+        ? { label: "create an account with a password instead", url: signUpUrl }
+        : undefined,
+      footer: "This invitation expires in 7 days.",
+    }),
+  });
+}
+
+export async function sendAddedToSpaceEmail(
+  email: string,
+  spaceName: string,
+  inviterName: string,
+) {
+  const resend = getResend();
+  const dashboardUrl = `${getBaseUrl()}/dashboard`;
+
+  await resend.emails.send({
+    from: "Glade <noreply@ourglade.app>",
+    to: email,
+    subject: `You were added to ${spaceName} on Glade`,
+    html: gladeEmail({
+      preview: `You were added to ${spaceName}`,
+      heading: `You've been added to ${spaceName}`,
+      body: `${inviterName} has added you to <strong>${spaceName}</strong> on Glade. You can now access this space from your dashboard.`,
+      cta: { label: "Go to dashboard", url: dashboardUrl },
+    }),
   });
 }

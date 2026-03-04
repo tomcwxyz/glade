@@ -2,9 +2,9 @@
 
 import bcrypt from "bcryptjs";
 import { randomBytes, createHash } from "crypto";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { db } from "@/db";
-import { users, passwordResetTokens } from "@/db/schema";
+import { users, passwordResetTokens, invitations, spaceMembers } from "@/db/schema";
 import { signIn, auth } from "@/lib/auth";
 import { sendPasswordResetEmail } from "@/lib/email";
 
@@ -12,6 +12,7 @@ export async function signUp(formData: FormData) {
   const name = formData.get("name") as string;
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
+  const inviteToken = formData.get("inviteToken") as string | null;
 
   if (!email || !password || !name) {
     return { error: "All fields are required" };
@@ -34,11 +35,62 @@ export async function signUp(formData: FormData) {
 
   const passwordHash = await bcrypt.hash(password, 12);
 
-  await db.insert(users).values({
+  const [newUser] = await db.insert(users).values({
     name,
     email,
     passwordHash,
-  });
+  }).returning({ id: users.id });
+
+  // Consume invite token if provided
+  if (inviteToken) {
+    const [invitation] = await db
+      .select()
+      .from(invitations)
+      .where(
+        and(
+          eq(invitations.token, inviteToken),
+          eq(invitations.status, "pending"),
+        )
+      )
+      .limit(1);
+
+    if (invitation && invitation.expiresAt > new Date()) {
+      await db.insert(spaceMembers).values({
+        spaceId: invitation.spaceId,
+        userId: newUser.id,
+        role: invitation.role,
+      });
+      await db
+        .update(invitations)
+        .set({ status: "accepted" })
+        .where(eq(invitations.id, invitation.id));
+    }
+  }
+
+  // Also consume any other pending invitations for this email
+  const pendingInvites = await db
+    .select()
+    .from(invitations)
+    .where(
+      and(
+        eq(invitations.email, email.toLowerCase().trim()),
+        eq(invitations.status, "pending"),
+      )
+    );
+
+  for (const inv of pendingInvites) {
+    if (inv.expiresAt > new Date() && inv.token !== inviteToken) {
+      await db.insert(spaceMembers).values({
+        spaceId: inv.spaceId,
+        userId: newUser.id,
+        role: inv.role,
+      });
+      await db
+        .update(invitations)
+        .set({ status: "accepted" })
+        .where(eq(invitations.id, inv.id));
+    }
+  }
 
   // Sign in immediately after registration
   await signIn("credentials", {

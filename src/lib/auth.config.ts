@@ -11,6 +11,7 @@ export const authConfig: NextAuthConfig = {
   pages: {
     signIn: "/sign-in",
     newUser: "/dashboard",
+    verifyRequest: "/verify-request",
   },
   providers: [
     // Google OAuth

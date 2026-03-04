@@ -70,7 +70,7 @@ export function MembersList({
       if (result?.error) {
         setInviteMessage({ type: "error", text: result.error });
       } else {
-        setInviteMessage({ type: "success", text: "Member added successfully!" });
+        setInviteMessage({ type: "success", text: result?.message || "Done!" });
         setInviteEmail("");
         router.refresh();
       }
@@ -141,7 +141,7 @@ export function MembersList({
                 </button>
               </div>
               <p className="text-xs text-bark-muted mt-2">
-                The person must already have a Glade account. They&apos;ll be added as a member.
+                If they already have a Glade account, they&apos;ll be added immediately. Otherwise, they&apos;ll receive an invitation email.
               </p>
             </form>
           )}
