@@ -21,6 +21,11 @@ import {
 import { getDecisions, getDocuments, getDecisionByNumber, getActions, getDocumentById, getMeetingById } from "@/lib/queries";
 import { tiptapToText } from "@/lib/tiptap-utils";
 
+/** Strip markdown code fences (```json ... ```) that LLMs sometimes add around JSON */
+function stripCodeFences(text: string): string {
+  return text.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
+}
+
 async function checkAiEnabled() {
   const space = await getCurrentSpace();
   if (!space) return { error: "No space selected", space: null };
@@ -70,7 +75,7 @@ export async function analysePatterns() {
     relatedDecisionNumber: number | null;
   }>;
   try {
-    parsed = JSON.parse(response);
+    parsed = JSON.parse(stripCodeFences(response));
   } catch {
     return { error: "Failed to parse AI response" };
   }
@@ -202,7 +207,7 @@ export async function suggestDocumentUpdates(decisionId: string) {
 
   let suggestions: Array<{ documentTitle: string; reason: string }>;
   try {
-    suggestions = JSON.parse(response);
+    suggestions = JSON.parse(stripCodeFences(response));
   } catch {
     return { error: "Failed to parse AI response" };
   }
@@ -321,7 +326,7 @@ export async function flagStaleDocuments() {
     relatedDecisionNumbers: number[];
   }>;
   try {
-    parsed = JSON.parse(response);
+    parsed = JSON.parse(stripCodeFences(response));
   } catch {
     return { error: "Failed to parse AI response" };
   }
@@ -545,9 +550,7 @@ export async function extractFromTranscript(
   );
 
   try {
-    // Strip markdown code fences if present (e.g. ```json ... ```)
-    const cleaned = response.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
-    const parsed = JSON.parse(cleaned);
+    const parsed = JSON.parse(stripCodeFences(response));
     return {
       decisions: parsed.decisions || [],
       actions: parsed.actions || [],
