@@ -19,6 +19,15 @@ interface Tag {
   color: string | null;
 }
 
+// Tag colour token → dot class (literal classes so Tailwind JIT keeps them).
+const TAG_DOT: Record<string, string> = {
+  canopy: "bg-canopy",
+  amber: "bg-amber",
+  earth: "bg-earth",
+  sky: "bg-sky",
+  moss: "bg-moss",
+};
+
 interface Member {
   id: string;
   name: string;
@@ -379,9 +388,9 @@ export function DecisionForm({
         </div>
 
         {/* Tags */}
-        {tags.length > 0 && (
-          <div>
-            <InputLabel htmlFor="tags-section">Tags</InputLabel>
+        <div>
+          <InputLabel htmlFor="tags-section">Tags</InputLabel>
+          {tags.length > 0 ? (
             <div id="tags-section" className="flex flex-wrap gap-2">
               {tags.map((tag) => {
                 const isSelected = selectedTags.includes(tag.id);
@@ -390,19 +399,28 @@ export function DecisionForm({
                     key={tag.id}
                     type="button"
                     onClick={() => toggleTag(tag.id)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
                       isSelected
                         ? "bg-canopy-pale text-canopy border-canopy/30"
                         : "bg-paper-warm text-bark-muted border-border hover:border-canopy/30 hover:text-bark"
                     }`}
                   >
+                    <span className={`w-2 h-2 rounded-full shrink-0 ${TAG_DOT[tag.color ?? ""] ?? "bg-bark-muted"}`} />
                     {tag.name}
                   </button>
                 );
               })}
             </div>
-          </div>
-        )}
+          ) : (
+            <p id="tags-section" className="text-sm text-bark-muted">
+              No tags yet.{" "}
+              <Link href="/settings" className="text-canopy hover:text-canopy-light underline">
+                Create tags in Settings
+              </Link>{" "}
+              to group decisions by theme.
+            </p>
+          )}
+        </div>
 
         {/* Action Items */}
         {!isEditing && (

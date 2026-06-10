@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { getCurrentSpace, requireUser } from "@/lib/space";
-import { getSpaceMembers, getSpaceSubscription, getDecisionCount, getMemberCount, getApiKeys, getWebhooks, getAuditLog } from "@/lib/queries";
+import { getSpaceMembers, getSpaceSubscription, getDecisionCount, getMemberCount, getApiKeys, getWebhooks, getAuditLog, getSpaceTags } from "@/lib/queries";
 
 export const metadata: Metadata = { title: "Settings" };
 import { isAiAvailable, isAiEnabled } from "@/lib/ai";
@@ -15,13 +15,14 @@ import { ChangePasswordForm } from "./change-password-form";
 import { ApiKeys } from "./api-keys";
 import { Webhooks } from "./webhooks";
 import { AuditLog } from "./audit-log";
+import { TagManager } from "./tag-manager";
 
 export default async function SettingsPage() {
   const user = await requireUser();
   const space = await getCurrentSpace();
   if (!space) return null;
 
-  const [members, subscription, planTier, decisionCount, memberCount, apiKeys, spaceWebhooks, auditEntries] = await Promise.all([
+  const [members, subscription, planTier, decisionCount, memberCount, apiKeys, spaceWebhooks, auditEntries, spaceTags] = await Promise.all([
     getSpaceMembers(space.id),
     getSpaceSubscription(space.id),
     getSpacePlan(space.id),
@@ -30,6 +31,7 @@ export default async function SettingsPage() {
     getApiKeys(space.id),
     getWebhooks(space.id),
     getAuditLog(space.id),
+    getSpaceTags(space.id),
   ]);
 
   const [userRecord] = await db
@@ -41,6 +43,7 @@ export default async function SettingsPage() {
 
   const currentMember = members.find((m) => m.userId === user.id || m.email === user.email);
   const isAdmin = currentMember?.role === "admin";
+  const canManageTags = currentMember?.role === "admin" || currentMember?.role === "member";
 
   return (
     <div className="max-w-2xl mx-auto px-4 sm:px-8 py-6 sm:py-10">
@@ -99,6 +102,12 @@ export default async function SettingsPage() {
         decisionCount={decisionCount}
         decisionLimit={PLAN_LIMITS[planTier].maxDecisions}
       />
+
+      {canManageTags && (
+        <section className="mt-12 pt-10 border-t border-border">
+          <TagManager tags={spaceTags} />
+        </section>
+      )}
 
       {isAdmin && (
         <div className="mt-12 space-y-8">

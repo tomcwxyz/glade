@@ -326,7 +326,10 @@ export const tags = pgTable(
     color: varchar("color", { length: 50 }),
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
   },
-  (t) => [index("tags_space_idx").on(t.spaceId)]
+  (t) => [
+    index("tags_space_idx").on(t.spaceId),
+    unique("tags_space_name_unq").on(t.spaceId, t.name),
+  ]
 );
 
 export const decisionTags = pgTable(
