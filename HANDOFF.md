@@ -1,42 +1,35 @@
-# Handoff — 2026-03-02
+# Handoff — 2026-06-10
 
 ## What happened this session
 
-Implemented "public by default when feature enabled" — when a space toggle (e.g. publicDecisionLog) is on, all new items default to `isPublic = true`. Users can opt out individual items via a "Hide from public page" checkbox. 1 commit, 21 files changed.
+Turned the full-app review (`docs/plans/2026-06-10-full-app-review.md`) into an implementation roadmap and shipped **Tranche 1 — Security & Integrity** end-to-end on branch `security-integrity-hardening`.
 
-### Changes
+### Planning artifacts
+- `docs/plans/2026-06-10-review-roadmap.md` — master index, 8 tranches, just-in-time per-tranche plans.
+- `docs/plans/2026-06-10-security-integrity-plan.md` — detailed task-by-task plan for Tranche 1.
 
-1. **Schema default flipped** — `isPublic` column on all 6 tables (decisions, meetings, actions, documents, proposals, topics) now defaults to `true` instead of `false`.
-2. **DB migration** — Bulk-updated all existing rows to `is_public = true` (0 rows needed changing).
-3. **Server actions inverted** — 5 files changed from `formData.get("isPublic") === "on"` to `formData.get("hideFromPublic") !== "on"`.
-4. **Form UI flipped** — 5 form components now show "Hide from public page" with `EyeOff` icon instead of "Make this X publicly visible" with `Globe`. Checkbox only appears when the space-level toggle is enabled (`publicEnabled` prop).
-5. **Parent pages wired** — 9 new/edit pages now pass `publicEnabled` from `space.settings`.
-6. **Decision detail badge** — Changed from green "Public" badge to muted "Hidden" badge (shown only when `isPublic = false`).
+### Implemented (closes S1–S8, D2, B3, S7)
+1. **`requireSpaceRole` helper** (`src/lib/space.ts`) — observer<member<admin.
+2. **Unscoped actions scoped (S2)** — removeDecisionLink, link/unlinkDecisionToMeeting, add/removeSectionLink, removeProposalReference, dismissInsight now verify space ownership.
+3. **Live state route membership (S1)** — `getMeetingSessionStateForUser` / `isMeetingSpaceMember`; cross-tenant → 404. Removed the old unscoped `getMeetingSessionState`.
+4. **`initializeMeetingState` authenticated (S3)** — signature now `(meetingId)`, identity/space derived server-side; live page call site updated.
+5. **Facilitator gating (S8)** — `withFacilitatorState` wrapper on 12 control actions, keyed on `meetings.facilitatorId`; cross-participant speaker removal also gated.
+6. **Observer read-only (S4)** — `requireSpaceRole("member")` across decision/action/topic/document/proposal/meeting/ai actions; billing requires admin. `getHistoricalDocument` stays readable. Also closed `generateMeetingSummary`'s `canUseAi` billing bypass.
+7. **Decision number race (D2)** — unique index `decisions_space_number_unq` (applied to Neon) + `insertDecisionWithUniqueNumber` retry helper, used by all 4 creation paths.
+8. **Security headers (S6)** — `next.config.ts`; framing denied app-wide, allowed only on `/embed/*`.
+9. **Webhook SSRF (S5)** — `validateWebhookUrl` (HTTPS + private-IP blocklist), enforced at create + delivery.
+10. **API-key value (B3)** — form/display now use `read_write`.
+11. **Rate limiting (S6)** — Upstash sliding-window on `/api/v1/*` (100/60s/space) and live polling (120/60s/user+meeting); fails open without `UPSTASH_REDIS_REST_URL`/`TOKEN`. New deps: `@upstash/ratelimit`, `@upstash/redis` (owner-approved).
+12. **Export injection (S7)** — CSV formula-injection neutralised; HTML/Word export escapes title/type/space name.
 
-### What doesn't change
-
-- Public page routes still gate on space settings + `WHERE isPublic = true`
-- Settings form toggles unchanged
-- Embed pages unchanged
-- `getPublic*` queries unchanged
-
-## Pre-existing unstaged change
-
-`src/lib/queries.ts` has a small unrelated diff (refactoring a raw SQL `OR` to use Drizzle's `or()`/`inArray()` in `getPublicGladeDecisions`). This was already modified before this session and was **not committed** — stage and commit separately if desired.
+### Commits
+One per task on `security-integrity-hardening` (12 feature commits + planning docs). `npm run build` passing, `npm run lint` clean (pre-existing a11y warnings only).
 
 ## What to do next
-
-- Deploy to Vercel (manual)
-- Resend email setup (manual)
-- Stripe production config (manual)
-- Integration tasks (Google Calendar, Outlook, Notion import — see `docs/plans/2026-02-27-accessibility-and-integrations.md`)
+- **Set Upstash env vars in Vercel** (the app is live) so rate limiting is active.
+- Open/merge the PR for this branch; run `/security-review` on it.
+- Then plan **Tranche 2 — make broken features work** (B1 participant voting, B2 public observer, B4 lock wiring, B5 tags, B6 overdue, B8 AI type collisions, D4 autosave draft buffer).
 
 ## Build status
-
 - `npm run build` — **passing**
-- `npm run lint` — **no errors** (warnings only from pre-existing jsx-a11y rules)
-
-<!--
-Keep this file as the single source of truth for "where are we?"
-The /status command reads this file.
--->
+- `npm run lint` — **no errors** (pre-existing jsx-a11y warnings only)

@@ -320,6 +320,8 @@ These items cannot be automated by Claude — they require account credentials, 
 | `STRIPE_WEBHOOK_SECRET` | Stripe dashboard → Developers → Webhooks → Signing secret | For billing |
 | `NEXT_PUBLIC_STRIPE_PRO_MONTHLY_PRICE_ID` | Stripe dashboard → Products → Price ID | For billing |
 | `NEXT_PUBLIC_APP_URL` | Your production URL, e.g. `https://glade.app` | For Stripe redirects |
+| `UPSTASH_REDIS_REST_URL` | Upstash console → Redis database → REST URL | For API/polling rate limiting (fails open if unset) |
+| `UPSTASH_REDIS_REST_TOKEN` | Upstash console → Redis database → REST token | For API/polling rate limiting (fails open if unset) |
 
 **Post-deploy checklist:**
 - [ ] Set `AUTH_TRUST_HOST=true` in Vercel env vars (required for NextAuth on Vercel)

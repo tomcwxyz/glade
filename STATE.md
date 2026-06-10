@@ -1,6 +1,6 @@
 # State
 
-> Last updated: 2026-03-02
+> Last updated: 2026-03-03
 
 ## System State Diagram
 
@@ -18,7 +18,7 @@ stateDiagram-v2
 
 ## Summary
 
-All 5 phases of application code are **feature-complete**. WCAG 2.1 AA accessibility pass is **complete** (14 commits). The remaining code work is integration tasks (Google Calendar, Microsoft Outlook, Notion import — plan at `docs/plans/2026-02-27-accessibility-and-integrations.md`, Tasks 11–17). External service configuration (Vercel deploy, Resend email, Sentry, Stripe production setup) still pending. See PLAN.md [Manual Deployment Steps](#manual-deployment-steps) for step-by-step instructions.
+All 5 phases of application code are **feature-complete**. Proposals now flow through live meetings end-to-end (added to agendas, auto-start decision flows, auto-link back to decisions). WCAG 2.1 AA accessibility pass is **complete**. The remaining code work is integration tasks (Google Calendar, Microsoft Outlook, Notion import — plan at `docs/plans/2026-02-27-accessibility-and-integrations.md`, Tasks 11–17). External service configuration (Vercel deploy, Resend email, Sentry, Stripe production setup) still pending. See PLAN.md [Manual Deployment Steps](#manual-deployment-steps) for step-by-step instructions.
 
 **Database:** 26 tables (24 original + `api_keys` + `webhooks`). All columns applied to Neon. Drizzle schema.ts is source of truth; generated migrations may lag behind.
 
@@ -151,12 +151,23 @@ flowchart LR
 
 ## Build Status
 
-- `npm run build` — **passing** (as of 2026-03-02)
+- `npm run build` — **passing** (as of 2026-03-03)
 - `npm run lint` — **no errors** (warnings only from jsx-a11y rules)
+
+## Security & Integrity Hardening (2026-06-10)
+
+Full-app review (`docs/plans/2026-06-10-full-app-review.md`) → Tranche 1 implemented on branch `security-integrity-hardening` (see `docs/plans/2026-06-10-security-integrity-plan.md`). Closes S1–S8, D2, B3, S7:
+
+- `requireSpaceRole(minRole)` helper in `src/lib/space.ts`; all mutating content actions now require member+ (billing/admin actions require admin). Observers are read-only.
+- Live-meeting state route scoped to space membership; `initializeMeetingState` derives identity server-side; facilitator-only live actions gated on `meetings.facilitatorId`.
+- Unscoped delete/link actions now verify the target belongs to the caller's space.
+- Unique index `decisions_space_number_unq` on `(space_id, number)` + `insertDecisionWithUniqueNumber` retry helper (all 4 decision-creation paths).
+- Security headers in `next.config.ts` (framing denied app-wide, allowed only on `/embed/*`); webhook SSRF validation; Upstash rate limiting on `/api/v1/*` and live polling; API-key `read_write` value fixed; CSV/HTML export injection neutralised.
 
 ## Known Issues
 
-- **Drizzle migration drift** — schema.ts (26 tables) is ahead of generated migrations. DB has all columns via direct SQL. Run `db:generate` to reconcile.
+- **Deployment:** app is **live** (per owner) — set `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` in Vercel for rate limiting (fails open without them). Earlier "deploy pending" notes in PLAN/CLAUDE are stale.
+- **Drizzle migration drift** — schema.ts is ahead of generated migrations (now includes `decisions_space_number_unq`, applied via direct SQL). Run `db:generate` to reconcile.
 - **Untracked files** — Several `glade-*.png` screenshots and `.playwright-mcp/` logs in working dir. Safe to gitignore or delete.
 
 <!--
