@@ -4,6 +4,16 @@ import { getCurrentSpace } from "@/lib/space";
 import { getDocumentById } from "@/lib/queries";
 import { tiptapToText, tiptapToHtml } from "@/lib/tiptap-utils";
 
+/** Escape untrusted strings interpolated into the HTML/Word export. */
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 const TYPE_LABELS: Record<string, string> = {
   constitution: "Constitution",
   terms_of_reference: "Terms of Reference",
@@ -50,7 +60,7 @@ export async function GET(
     const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
 <head>
 <meta charset="utf-8">
-<title>${doc.title}</title>
+<title>${escapeHtml(doc.title)}</title>
 <style>
   body { font-family: Calibri, sans-serif; font-size: 11pt; color: #333; line-height: 1.5; }
   h1 { font-size: 20pt; color: #1a1a1a; margin-bottom: 4pt; }
@@ -64,12 +74,12 @@ export async function GET(
 </style>
 </head>
 <body>
-<h1>${doc.title}</h1>
-<p class="meta"><b>Type:</b> ${typeLabel} &nbsp;&middot;&nbsp; <b>Status:</b> ${doc.status === "published" ? "Published" : "Draft"} &nbsp;&middot;&nbsp; <b>Version:</b> ${doc.currentVersion} &nbsp;&middot;&nbsp; <b>Updated:</b> ${dateStr}</p>
+<h1>${escapeHtml(doc.title)}</h1>
+<p class="meta"><b>Type:</b> ${escapeHtml(typeLabel)} &nbsp;&middot;&nbsp; <b>Status:</b> ${doc.status === "published" ? "Published" : "Draft"} &nbsp;&middot;&nbsp; <b>Version:</b> ${doc.currentVersion} &nbsp;&middot;&nbsp; <b>Updated:</b> ${dateStr}</p>
 <hr>
 ${bodyHtml}
 <hr>
-<p class="meta">Exported from ${space.name} on Glade</p>
+<p class="meta">Exported from ${escapeHtml(space.name)} on Glade</p>
 </body>
 </html>`;
 

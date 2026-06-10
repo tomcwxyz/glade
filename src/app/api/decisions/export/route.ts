@@ -4,10 +4,14 @@ import { getCurrentSpace } from "@/lib/space";
 import { getDecisions } from "@/lib/queries";
 
 function escapeCsv(value: string): string {
-  if (value.includes(",") || value.includes('"') || value.includes("\n")) {
-    return `"${value.replace(/"/g, '""')}"`;
+  // Neutralise spreadsheet formula injection: a leading =, +, -, @ (or a
+  // control char) can execute when the CSV is opened in Excel/Sheets.
+  let safe = value;
+  if (/^[=+\-@\t\r]/.test(safe)) safe = `'${safe}`;
+  if (safe.includes(",") || safe.includes('"') || safe.includes("\n")) {
+    return `"${safe.replace(/"/g, '""')}"`;
   }
-  return value;
+  return safe;
 }
 
 function formatDate(date: Date | null): string {
