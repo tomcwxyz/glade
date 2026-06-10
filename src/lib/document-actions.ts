@@ -62,12 +62,24 @@ export async function updateDocument(documentId: string, formData: FormData) {
   const { user, space } = auth;
 
   const [existing] = await db
-    .select({ id: documents.id, currentVersion: documents.currentVersion })
+    .select({
+      id: documents.id,
+      currentVersion: documents.currentVersion,
+      updatedAt: documents.updatedAt,
+    })
     .from(documents)
     .where(and(eq(documents.id, documentId), eq(documents.spaceId, space.id)))
     .limit(1);
 
   if (!existing) return { error: "Document not found" };
+
+  // Conflict check: if the document was saved by someone else since this editor
+  // loaded it, don't silently overwrite. Autosaves touch only draftUpdatedAt,
+  // so this fires only on a competing explicit Save.
+  const knownUpdatedAt = formData.get("knownUpdatedAt") as string | null;
+  if (knownUpdatedAt && existing.updatedAt.getTime() > new Date(knownUpdatedAt).getTime()) {
+    return { error: "This document was saved by someone else. Reload to see their changes before saving." };
+  }
 
   const title = (formData.get("title") as string)?.trim();
   if (!title) return { error: "Title is required" };
@@ -90,6 +102,9 @@ export async function updateDocument(documentId: string, formData: FormData) {
     .set({
       title,
       content,
+      // Promote to published content and clear the autosave draft buffer.
+      draftContent: null,
+      draftUpdatedAt: null,
       currentVersion: newVersion,
       isPublic: formData.get("hideFromPublic") !== "on",
       updatedAt: new Date(),
@@ -221,9 +236,11 @@ export async function autoSaveDocument(documentId: string, content: unknown) {
 
   if (!existing) return { error: "Document not found" };
 
+  // Autosave to the draft buffer only — never mutate published `content`, and
+  // don't touch `updatedAt` (so the Save conflict check stays meaningful).
   await db
     .update(documents)
-    .set({ content, updatedAt: new Date() })
+    .set({ draftContent: content, draftUpdatedAt: new Date() })
     .where(eq(documents.id, documentId));
 
   return { success: true };

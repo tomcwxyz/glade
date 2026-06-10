@@ -47,6 +47,8 @@ export default async function EditDocumentPage({
           title: doc.title,
           type: doc.type,
           content: doc.content as import("@tiptap/react").JSONContent | null,
+          draftContent: doc.draftContent as import("@tiptap/react").JSONContent | null,
+          updatedAt: doc.updatedAt.toISOString(),
           isPublic: doc.isPublic,
         }}
       />

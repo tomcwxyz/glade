@@ -500,6 +500,10 @@ export const documents = pgTable(
     title: varchar("title", { length: 500 }).notNull(),
     type: documentTypeEnum("type").notNull(),
     content: jsonb("content"),
+    // Autosave buffer: edits land here; promoted to `content` on explicit Save.
+    // Public/version reads always use `content`, never the draft.
+    draftContent: jsonb("draft_content"),
+    draftUpdatedAt: timestamp("draft_updated_at", { mode: "date" }),
     status: documentStatusEnum("status").default("draft").notNull(),
     currentVersion: integer("current_version").default(1).notNull(),
     isPublic: boolean("is_public").default(true).notNull(),

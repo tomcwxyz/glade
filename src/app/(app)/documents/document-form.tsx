@@ -24,6 +24,8 @@ interface DocumentData {
   title: string;
   type: string;
   content: JSONContent | null;
+  draftContent?: JSONContent | null;
+  updatedAt?: string;
   isPublic: boolean;
 }
 
@@ -58,10 +60,12 @@ function SaveStatusIndicator({ status }: { status: SaveStatus }) {
 
 export function DocumentForm({ document, publicEnabled }: { document?: DocumentData; publicEnabled?: boolean }) {
   const isEditing = !!document;
+  const hasDraft = !!document?.draftContent;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Load the autosave draft if present, else the published content.
   const [content, setContent] = useState<JSONContent | null>(
-    document?.content || null
+    document?.draftContent ?? document?.content ?? null
   );
   const [editorKey, setEditorKey] = useState(0);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
@@ -118,6 +122,21 @@ export function DocumentForm({ document, publicEnabled }: { document?: DocumentD
       <FormError message={error} />
 
       <form onSubmit={handleSubmit} className="space-y-8">
+        {isEditing && (
+          <input type="hidden" name="knownUpdatedAt" value={document?.updatedAt ?? ""} />
+        )}
+
+        {hasDraft && (
+          <div className="flex items-start gap-2 p-3 rounded-lg bg-amber/10 border border-amber/20 text-sm text-bark">
+            <Cloud size={15} className="text-amber mt-0.5 shrink-0" />
+            <span>
+              You have unsaved changes from a previous session — they&apos;re loaded
+              below. The published version is unchanged until you click{" "}
+              <strong>Save changes</strong>.
+            </span>
+          </div>
+        )}
+
         <div>
           <label htmlFor="title" className="block text-sm font-medium text-bark mb-1.5">
             Title
