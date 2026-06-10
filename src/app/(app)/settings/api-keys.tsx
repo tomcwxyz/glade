@@ -175,7 +175,7 @@ export function ApiKeys({ keys }: { keys: ApiKey[] }) {
                 className={inputClass}
               >
                 <option value="read">Read only</option>
-                <option value="read-write">Read &amp; write</option>
+                <option value="read_write">Read &amp; write</option>
               </select>
             </div>
             <div className="flex items-center gap-2">
@@ -224,12 +224,12 @@ export function ApiKeys({ keys }: { keys: ApiKey[] }) {
                   </span>
                   <span
                     className={`inline-flex items-center px-2 py-0.5 rounded-full text-[0.6875rem] font-medium ${
-                      k.permissions === "read-write"
+                      k.permissions === "read_write"
                         ? "bg-amber/10 text-amber"
                         : "bg-paper-deep text-bark-muted"
                     }`}
                   >
-                    {k.permissions === "read-write" ? "Read & write" : "Read only"}
+                    {k.permissions === "read_write" ? "Read & write" : "Read only"}
                   </span>
                 </div>
                 <div className="flex items-center gap-3 text-xs text-bark-muted">
