@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateApiKey } from "@/lib/api-auth";
+import { limitApi, rateLimitedResponse } from "@/lib/rate-limit";
 import { getDocuments } from "@/lib/queries";
 
 export async function GET(request: NextRequest) {
@@ -10,6 +11,9 @@ export async function GET(request: NextRequest) {
       { status: 401, headers: { "Cache-Control": "no-store" } }
     );
   }
+
+  const rl = await limitApi(auth.spaceId);
+  if (!rl.success) return rateLimitedResponse(rl);
 
   const rows = await getDocuments(auth.spaceId);
 

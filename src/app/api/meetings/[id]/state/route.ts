@@ -5,6 +5,7 @@ import {
   isMeetingSpaceMember,
   updateMeetingSessionState,
 } from "@/lib/queries";
+import { limitPoll, rateLimitedResponse } from "@/lib/rate-limit";
 import type { MeetingSessionState } from "@/lib/meeting-state";
 
 export async function GET(
@@ -17,6 +18,10 @@ export async function GET(
   }
 
   const { id } = await params;
+
+  const rl = await limitPoll(`${session.user.id}:${id}`);
+  if (!rl.success) return rateLimitedResponse(rl);
+
   const result = await getMeetingSessionStateForUser(id, session.user.id);
 
   if (!result) {

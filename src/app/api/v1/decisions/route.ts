@@ -3,6 +3,7 @@ import { eq, and, desc, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { decisions, decisionTags, tags } from "@/db/schema";
 import { authenticateApiKey } from "@/lib/api-auth";
+import { limitApi, rateLimitedResponse } from "@/lib/rate-limit";
 
 export async function GET(request: NextRequest) {
   const auth = await authenticateApiKey(request);
@@ -12,6 +13,9 @@ export async function GET(request: NextRequest) {
       { status: 401, headers: { "Cache-Control": "no-store" } }
     );
   }
+
+  const rl = await limitApi(auth.spaceId);
+  if (!rl.success) return rateLimitedResponse(rl);
 
   const { searchParams } = request.nextUrl;
   const statusFilter = searchParams.get("status");

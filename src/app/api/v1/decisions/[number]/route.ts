@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateApiKey } from "@/lib/api-auth";
+import { limitApi, rateLimitedResponse } from "@/lib/rate-limit";
 import { getDecisionByNumber } from "@/lib/queries";
 
 export async function GET(
@@ -13,6 +14,9 @@ export async function GET(
       { status: 401, headers: { "Cache-Control": "no-store" } }
     );
   }
+
+  const rl = await limitApi(auth.spaceId);
+  if (!rl.success) return rateLimitedResponse(rl);
 
   const { number } = await params;
   const num = parseInt(number, 10);
