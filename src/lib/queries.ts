@@ -406,16 +406,6 @@ export async function getMeetingByShareToken(token: string) {
   };
 }
 
-export async function getMeetingSessionState(meetingId: string) {
-  const [m] = await db
-    .select({ sessionState: meetings.sessionState, status: meetings.status })
-    .from(meetings)
-    .where(eq(meetings.id, meetingId))
-    .limit(1);
-
-  return m || null;
-}
-
 export async function updateMeetingSessionState(
   meetingId: string,
   sessionState: unknown,
@@ -435,6 +425,40 @@ export async function updateMeetingSessionState(
     .returning({ id: meetings.id });
 
   return result.length > 0;
+}
+
+/**
+ * Fetch live session state only if the user is a member of the meeting's space.
+ * Returns null when the meeting doesn't exist OR the user isn't a member —
+ * callers should treat null as 404 (don't leak existence cross-tenant).
+ */
+export async function getMeetingSessionStateForUser(
+  meetingId: string,
+  userId: string
+) {
+  const [m] = await db
+    .select({ sessionState: meetings.sessionState, status: meetings.status })
+    .from(meetings)
+    .innerJoin(spaceMembers, eq(spaceMembers.spaceId, meetings.spaceId))
+    .where(and(eq(meetings.id, meetingId), eq(spaceMembers.userId, userId)))
+    .limit(1);
+
+  return m || null;
+}
+
+/**
+ * Confirm the user is a member of the meeting's space. Used to gate the
+ * version-locked state update at the API route.
+ */
+export async function isMeetingSpaceMember(meetingId: string, userId: string) {
+  const [row] = await db
+    .select({ id: meetings.id })
+    .from(meetings)
+    .innerJoin(spaceMembers, eq(spaceMembers.spaceId, meetings.spaceId))
+    .where(and(eq(meetings.id, meetingId), eq(spaceMembers.userId, userId)))
+    .limit(1);
+
+  return !!row;
 }
 
 // ============================================================

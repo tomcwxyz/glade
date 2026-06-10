@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { getMeetingSessionState, updateMeetingSessionState } from "@/lib/queries";
+import {
+  getMeetingSessionStateForUser,
+  isMeetingSpaceMember,
+  updateMeetingSessionState,
+} from "@/lib/queries";
 import type { MeetingSessionState } from "@/lib/meeting-state";
 
 export async function GET(
@@ -13,9 +17,11 @@ export async function GET(
   }
 
   const { id } = await params;
-  const result = await getMeetingSessionState(id);
+  const result = await getMeetingSessionStateForUser(id, session.user.id);
 
   if (!result) {
+    // Either the meeting doesn't exist or the user isn't a member of its space.
+    // Same 404 either way — don't leak existence cross-tenant.
     return NextResponse.json({ error: "Meeting not found" }, { status: 404 });
   }
 
@@ -47,6 +53,11 @@ export async function PUT(
 
   if (!state || typeof expectedVersion !== "number") {
     return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+  }
+
+  // Must be a member of the meeting's space to write its state.
+  if (!(await isMeetingSpaceMember(id, session.user.id))) {
+    return NextResponse.json({ error: "Meeting not found" }, { status: 404 });
   }
 
   const success = await updateMeetingSessionState(id, state, expectedVersion);
