@@ -23,6 +23,7 @@ async function getMeetingState(meetingId: string, spaceId: string) {
       id: meetings.id,
       sessionState: meetings.sessionState,
       createdBy: meetings.createdBy,
+      facilitatorId: meetings.facilitatorId,
     })
     .from(meetings)
     .where(and(eq(meetings.id, meetingId), eq(meetings.spaceId, spaceId)))
@@ -48,7 +49,7 @@ async function getAgendaCount(meetingId: string) {
 
 type User = { id: string; name?: string | null; email?: string | null };
 type Space = { id: string; name: string; slug: string; description: string | null; settings: unknown };
-type MeetingRow = { id: string; sessionState: unknown; createdBy: string | null };
+type MeetingRow = { id: string; sessionState: unknown; createdBy: string | null; facilitatorId: string | null };
 
 async function withMeetingState<T>(
   meetingId: string,
@@ -67,8 +68,27 @@ async function withMeetingState<T>(
   }
 }
 
+/**
+ * Like withMeetingState, but additionally requires the caller to be the
+ * meeting's facilitator (authoritative `meetings.facilitatorId`, falling back
+ * to `createdBy` for legacy rows). Use for control actions — advancing the
+ * agenda, timers, decision flows, recording outcomes, ending the meeting.
+ */
+async function withFacilitatorState<T>(
+  meetingId: string,
+  fn: (ctx: { state: MeetingSessionState; meeting: MeetingRow; user: User; space: Space }) => Promise<T> | T
+): Promise<T | { error: string }> {
+  return withMeetingState(meetingId, async (ctx) => {
+    const authoritative = ctx.meeting.facilitatorId ?? ctx.meeting.createdBy;
+    if (authoritative && ctx.user.id !== authoritative) {
+      return { error: "Only the facilitator can do this" } as { error: string };
+    }
+    return fn(ctx);
+  });
+}
+
 export async function advanceAgendaItem(meetingId: string, outcome?: string, decisionId?: string) {
-  return withMeetingState(meetingId, async ({ state }) => {
+  return withFacilitatorState(meetingId, async ({ state }) => {
     const totalItems = await getAgendaCount(meetingId);
     const newState = advanceItem(state, totalItems, outcome, decisionId);
     await saveState(meetingId, newState);
@@ -77,7 +97,7 @@ export async function advanceAgendaItem(meetingId: string, outcome?: string, dec
 }
 
 export async function skipAgendaItem(meetingId: string) {
-  return withMeetingState(meetingId, async ({ state }) => {
+  return withFacilitatorState(meetingId, async ({ state }) => {
     const totalItems = await getAgendaCount(meetingId);
     const newState = skipItem(state, totalItems);
     await saveState(meetingId, newState);
@@ -86,7 +106,7 @@ export async function skipAgendaItem(meetingId: string) {
 }
 
 export async function goToAgendaItem(meetingId: string, index: number) {
-  return withMeetingState(meetingId, async ({ state }) => {
+  return withFacilitatorState(meetingId, async ({ state }) => {
     const newState = goToItem(state, index);
     await saveState(meetingId, newState);
     return { state: newState };
@@ -94,7 +114,7 @@ export async function goToAgendaItem(meetingId: string, index: number) {
 }
 
 export async function startTimer(meetingId: string, durationMinutes: number) {
-  return withMeetingState(meetingId, async ({ state }) => {
+  return withFacilitatorState(meetingId, async ({ state }) => {
     const newState: MeetingSessionState = {
       ...state,
       timer: {
@@ -113,7 +133,7 @@ export async function startTimer(meetingId: string, durationMinutes: number) {
 }
 
 export async function pauseTimer(meetingId: string) {
-  return withMeetingState(meetingId, async ({ state }) => {
+  return withFacilitatorState(meetingId, async ({ state }) => {
     const now = new Date();
     const startedAt = state.timer.startedAt ? new Date(state.timer.startedAt) : now;
     const elapsed = state.timer.elapsed + (now.getTime() - startedAt.getTime()) / 1000;
@@ -136,7 +156,7 @@ export async function pauseTimer(meetingId: string) {
 }
 
 export async function resetTimer(meetingId: string) {
-  return withMeetingState(meetingId, async ({ state }) => {
+  return withFacilitatorState(meetingId, async ({ state }) => {
     const newState: MeetingSessionState = {
       ...state,
       timer: {
@@ -155,7 +175,7 @@ export async function resetTimer(meetingId: string) {
 }
 
 export async function beginDecisionFlow(meetingId: string, method: string, proposalText?: string) {
-  return withMeetingState(meetingId, async ({ state }) => {
+  return withFacilitatorState(meetingId, async ({ state }) => {
     const newState = startDecisionFlow(state, method, proposalText);
     await saveState(meetingId, newState);
     return { state: newState };
@@ -163,7 +183,7 @@ export async function beginDecisionFlow(meetingId: string, method: string, propo
 }
 
 export async function advanceDecisionStage(meetingId: string, nextStage: string) {
-  return withMeetingState(meetingId, async ({ state }) => {
+  return withFacilitatorState(meetingId, async ({ state }) => {
     if (!state.decisionFlow) return { error: "No decision flow active" };
 
     const newState: MeetingSessionState = {
@@ -236,8 +256,16 @@ export async function requestToSpeak(meetingId: string) {
 }
 
 export async function withdrawSpeaker(meetingId: string, participantId?: string) {
-  return withMeetingState(meetingId, async ({ state, user }) => {
+  return withMeetingState(meetingId, async ({ state, user, meeting }) => {
     const targetId = participantId || user.id;
+
+    // Anyone may withdraw themselves; removing someone else is facilitator-only.
+    if (targetId !== user.id) {
+      const authoritative = meeting.facilitatorId ?? meeting.createdBy;
+      if (authoritative && user.id !== authoritative) {
+        return { error: "Only the facilitator can remove others from the stack" };
+      }
+    }
 
     const newState: MeetingSessionState = {
       ...state,
@@ -251,7 +279,7 @@ export async function withdrawSpeaker(meetingId: string, participantId?: string)
 }
 
 export async function cancelDecisionFlow(meetingId: string) {
-  return withMeetingState(meetingId, async ({ state }) => {
+  return withFacilitatorState(meetingId, async ({ state }) => {
     const newState: MeetingSessionState = {
       ...state,
       phase: "agenda_item",
@@ -271,7 +299,7 @@ export async function recordMeetingDecision(
   outcome?: string,
   proposalId?: string
 ) {
-  return withMeetingState(meetingId, async ({ user, space }) => {
+  return withFacilitatorState(meetingId, async ({ user, space }) => {
     const nextNumber = await getNextDecisionNumber(space.id);
 
     const [decision] = await db
@@ -319,7 +347,7 @@ export async function recordMeetingAction(
   ownerName?: string,
   dueDate?: string
 ) {
-  return withMeetingState(meetingId, async ({ space }) => {
+  return withFacilitatorState(meetingId, async ({ space }) => {
     const [newAction] = await db
       .insert(actions)
       .values({
@@ -344,7 +372,7 @@ export async function recordMeetingAction(
 }
 
 export async function endMeeting(meetingId: string) {
-  return withMeetingState(meetingId, async ({ state }) => {
+  return withFacilitatorState(meetingId, async ({ state }) => {
     const finalState: MeetingSessionState = {
       ...state,
       phase: "completed",
