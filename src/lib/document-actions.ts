@@ -4,8 +4,8 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { eq, and } from "drizzle-orm";
 import { db } from "@/db";
-import { documents, documentVersions, documentSectionLinks } from "@/db/schema";
-import { getCurrentSpace, requireUser } from "@/lib/space";
+import { documents, documentVersions, documentSectionLinks, decisions } from "@/db/schema";
+import { getCurrentSpace, requireUser, requireSpaceRole } from "@/lib/space";
 import { getDocumentVersionAtDate } from "@/lib/queries";
 import { logDeletion } from "@/lib/audit";
 
@@ -158,8 +158,24 @@ export async function getHistoricalDocument(documentId: string, dateStr: string)
 }
 
 export async function addSectionLink(documentId: string, sectionId: string, decisionId: string) {
-  const space = await getCurrentSpace();
-  if (!space) return { error: "No space selected" };
+  const auth = await requireSpaceRole("member");
+  if ("error" in auth) return auth;
+  const { space } = auth;
+
+  // Both the document and the decision must belong to the caller's space.
+  const [doc] = await db
+    .select({ id: documents.id })
+    .from(documents)
+    .where(and(eq(documents.id, documentId), eq(documents.spaceId, space.id)))
+    .limit(1);
+  if (!doc) return { error: "Document not found" };
+
+  const [decision] = await db
+    .select({ id: decisions.id })
+    .from(decisions)
+    .where(and(eq(decisions.id, decisionId), eq(decisions.spaceId, space.id)))
+    .limit(1);
+  if (!decision) return { error: "Decision not found" };
 
   await db.insert(documentSectionLinks).values({
     documentId,
@@ -171,15 +187,23 @@ export async function addSectionLink(documentId: string, sectionId: string, deci
 }
 
 export async function removeSectionLink(linkId: string) {
+  const auth = await requireSpaceRole("member");
+  if ("error" in auth) return auth;
+  const { space } = auth;
+
+  // Verify the link's document belongs to the caller's space.
   const [link] = await db
     .select({ documentId: documentSectionLinks.documentId })
     .from(documentSectionLinks)
-    .where(eq(documentSectionLinks.id, linkId))
+    .innerJoin(documents, eq(documents.id, documentSectionLinks.documentId))
+    .where(and(eq(documentSectionLinks.id, linkId), eq(documents.spaceId, space.id)))
     .limit(1);
+
+  if (!link) return { error: "Link not found" };
 
   await db.delete(documentSectionLinks).where(eq(documentSectionLinks.id, linkId));
 
-  if (link) revalidatePath(`/documents/${link.documentId}`);
+  revalidatePath(`/documents/${link.documentId}`);
 }
 
 export async function autoSaveDocument(documentId: string, content: unknown) {

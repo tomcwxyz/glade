@@ -3,8 +3,8 @@
 import { redirect } from "next/navigation";
 import { eq, and, count } from "drizzle-orm";
 import { db } from "@/db";
-import { decisions, decisionLinks, decisionTags, tags, actions, meetingDecisions, proposals, documentVersions, insights } from "@/db/schema";
-import { getCurrentSpace, requireUser } from "@/lib/space";
+import { decisions, decisionLinks, decisionTags, tags, actions, meetingDecisions, meetings, proposals, documentVersions, insights } from "@/db/schema";
+import { getCurrentSpace, requireUser, requireSpaceRole } from "@/lib/space";
 import { getNextDecisionNumber } from "@/lib/queries";
 import { canAddDecision } from "@/lib/billing";
 import { fireWebhooks } from "@/lib/webhooks";
@@ -252,6 +252,19 @@ export async function addDecisionLink(
 }
 
 export async function removeDecisionLink(linkId: string) {
+  const auth = await requireSpaceRole("member");
+  if ("error" in auth) return auth;
+  const { space } = auth;
+
+  // Verify the link belongs to a decision in the caller's space.
+  const [link] = await db
+    .select({ id: decisionLinks.id })
+    .from(decisionLinks)
+    .innerJoin(decisions, eq(decisions.id, decisionLinks.fromDecisionId))
+    .where(and(eq(decisionLinks.id, linkId), eq(decisions.spaceId, space.id)))
+    .limit(1);
+
+  if (!link) return { error: "Link not found" };
   await db.delete(decisionLinks).where(eq(decisionLinks.id, linkId));
 }
 
@@ -259,8 +272,24 @@ export async function linkDecisionToMeeting(
   decisionId: string,
   meetingId: string
 ) {
-  const space = await getCurrentSpace();
-  if (!space) return { error: "No space selected" };
+  const auth = await requireSpaceRole("member");
+  if ("error" in auth) return auth;
+  const { space } = auth;
+
+  // Both the decision and the meeting must belong to the caller's space.
+  const [decision] = await db
+    .select({ id: decisions.id })
+    .from(decisions)
+    .where(and(eq(decisions.id, decisionId), eq(decisions.spaceId, space.id)))
+    .limit(1);
+  if (!decision) return { error: "Decision not found" };
+
+  const [meeting] = await db
+    .select({ id: meetings.id })
+    .from(meetings)
+    .where(and(eq(meetings.id, meetingId), eq(meetings.spaceId, space.id)))
+    .limit(1);
+  if (!meeting) return { error: "Meeting not found" };
 
   // Check if already linked
   const [existing] = await db
@@ -282,6 +311,18 @@ export async function unlinkDecisionFromMeeting(
   decisionId: string,
   meetingId: string
 ) {
+  const auth = await requireSpaceRole("member");
+  if ("error" in auth) return auth;
+  const { space } = auth;
+
+  // Verify the decision belongs to the caller's space before unlinking.
+  const [decision] = await db
+    .select({ id: decisions.id })
+    .from(decisions)
+    .where(and(eq(decisions.id, decisionId), eq(decisions.spaceId, space.id)))
+    .limit(1);
+  if (!decision) return { error: "Decision not found" };
+
   await db
     .delete(meetingDecisions)
     .where(

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { eq, and, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { insights, decisions, documents } from "@/db/schema";
-import { getCurrentSpace } from "@/lib/space";
+import { getCurrentSpace, requireSpaceRole } from "@/lib/space";
 import { isAiEnabled, generateText } from "@/lib/ai";
 import { canUseAi } from "@/lib/billing";
 import {
@@ -35,10 +35,14 @@ async function checkAiEnabled() {
 }
 
 export async function dismissInsight(insightId: string) {
+  const auth = await requireSpaceRole("member");
+  if ("error" in auth) return auth;
+  const { space } = auth;
+
   await db
     .update(insights)
     .set({ status: "dismissed" })
-    .where(eq(insights.id, insightId));
+    .where(and(eq(insights.id, insightId), eq(insights.spaceId, space.id)));
 
   revalidatePath("/dashboard");
 }

@@ -6,7 +6,7 @@ import { eq, and } from "drizzle-orm";
 import { db } from "@/db";
 import { proposals, proposalComments, proposalReferences, decisions } from "@/db/schema";
 import { getNextDecisionNumber } from "@/lib/queries";
-import { getCurrentSpace, requireUser } from "@/lib/space";
+import { getCurrentSpace, requireUser, requireSpaceRole } from "@/lib/space";
 import { logDeletion } from "@/lib/audit";
 
 export async function createProposal(formData: FormData) {
@@ -226,6 +226,20 @@ export async function addProposalReference(
 }
 
 export async function removeProposalReference(referenceId: string) {
+  const auth = await requireSpaceRole("member");
+  if ("error" in auth) return auth;
+  const { space } = auth;
+
+  // Verify the reference's proposal belongs to the caller's space.
+  const [reference] = await db
+    .select({ id: proposalReferences.id })
+    .from(proposalReferences)
+    .innerJoin(proposals, eq(proposals.id, proposalReferences.proposalId))
+    .where(and(eq(proposalReferences.id, referenceId), eq(proposals.spaceId, space.id)))
+    .limit(1);
+
+  if (!reference) return { error: "Reference not found" };
+
   await db.delete(proposalReferences).where(eq(proposalReferences.id, referenceId));
   revalidatePath("/proposals");
 }
