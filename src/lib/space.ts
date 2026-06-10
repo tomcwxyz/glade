@@ -87,6 +87,64 @@ export async function getCurrentSpace() {
   return null;
 }
 
+export type SpaceRole = "observer" | "member" | "admin";
+const ROLE_RANK: Record<SpaceRole, number> = { observer: 0, member: 1, admin: 2 };
+
+type Membership = {
+  user: { id: string; name?: string | null; email?: string | null };
+  space: {
+    id: string;
+    name: string;
+    slug: string;
+    description: string | null;
+    settings: unknown;
+  };
+  role: SpaceRole;
+};
+
+/**
+ * Resolve the current user's membership of the current space, or null if they
+ * have no space selected or aren't a member of it.
+ */
+export async function getCurrentMembership(): Promise<Membership | null> {
+  const user = await requireUser();
+  const space = await getCurrentSpace();
+  if (!space) return null;
+
+  const [membership] = await db
+    .select({ role: spaceMembers.role })
+    .from(spaceMembers)
+    .where(
+      and(eq(spaceMembers.spaceId, space.id), eq(spaceMembers.userId, user.id))
+    )
+    .limit(1);
+
+  if (!membership) return null;
+  return { user, space, role: membership.role as SpaceRole };
+}
+
+/**
+ * Require that the current user has at least `minRole` in the current space.
+ * Returns the membership on success, or `{ error }` for the caller to return.
+ *
+ * Usage:
+ *   const auth = await requireSpaceRole("member");
+ *   if ("error" in auth) return auth;
+ *   const { user, space } = auth;
+ */
+export async function requireSpaceRole(
+  minRole: SpaceRole
+): Promise<Membership | { error: string }> {
+  const membership = await getCurrentMembership();
+  if (!membership) {
+    return { error: "No space selected, or you are not a member of it" };
+  }
+  if (ROLE_RANK[membership.role] < ROLE_RANK[minRole]) {
+    return { error: "You don't have permission to do this" };
+  }
+  return membership;
+}
+
 /**
  * Get all spaces the current user is a member of.
  */
