@@ -7,6 +7,7 @@ import { db } from "@/db";
 import { webhooks } from "@/db/schema";
 import { getCurrentSpace, requireUser } from "@/lib/space";
 import { getSpaceMembers } from "@/lib/queries";
+import { validateWebhookUrl } from "@/lib/webhooks";
 
 async function requireAdmin() {
   const user = await requireUser();
@@ -23,14 +24,12 @@ async function requireAdmin() {
 export async function createWebhook(formData: FormData) {
   const { space } = await requireAdmin();
 
-  const url = (formData.get("url") as string)?.trim();
-  if (!url) return { error: "URL is required" };
+  const rawUrl = (formData.get("url") as string)?.trim();
+  if (!rawUrl) return { error: "URL is required" };
 
-  try {
-    new URL(url);
-  } catch {
-    return { error: "Invalid URL" };
-  }
+  const validation = validateWebhookUrl(rawUrl);
+  if (!validation.ok) return { error: validation.reason };
+  const url = validation.url;
 
   const eventsRaw = formData.get("events") as string;
   const events = eventsRaw
