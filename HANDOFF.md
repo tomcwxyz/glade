@@ -1,34 +1,30 @@
-# Handoff — 2026-06-10
+# Handoff — 2026-06-30
 
 ## What happened this session
 
-Turned the full-app review (`docs/plans/2026-06-10-full-app-review.md`) into an implementation roadmap and shipped **Tranche 1 — Security & Integrity** end-to-end on branch `security-integrity-hardening`.
+Shipped two review tranches end-to-end.
 
-### Planning artifacts
-- `docs/plans/2026-06-10-review-roadmap.md` — master index, 8 tranches, just-in-time per-tranche plans.
-- `docs/plans/2026-06-10-security-integrity-plan.md` — detailed task-by-task plan for Tranche 1.
+### Tranche 1 — Security & Integrity (`security-integrity-hardening`)
+Closes S1–S8, D2, B3, S7. `requireSpaceRole` helper, observer read-only, live-state route scoping, facilitator gating, unique decision numbers, security headers, webhook SSRF, Upstash rate limiting, API-key value fix, export injection. 14 commits. **PR not yet opened** (gh GraphQL auth issue — run `! gh auth refresh -h github.com -s repo`, or use the branch link).
 
-### Implemented (closes S1–S8, D2, B3, S7)
-1. **`requireSpaceRole` helper** (`src/lib/space.ts`) — observer<member<admin.
-2. **Unscoped actions scoped (S2)** — removeDecisionLink, link/unlinkDecisionToMeeting, add/removeSectionLink, removeProposalReference, dismissInsight now verify space ownership.
-3. **Live state route membership (S1)** — `getMeetingSessionStateForUser` / `isMeetingSpaceMember`; cross-tenant → 404. Removed the old unscoped `getMeetingSessionState`.
-4. **`initializeMeetingState` authenticated (S3)** — signature now `(meetingId)`, identity/space derived server-side; live page call site updated.
-5. **Facilitator gating (S8)** — `withFacilitatorState` wrapper on 12 control actions, keyed on `meetings.facilitatorId`; cross-participant speaker removal also gated.
-6. **Observer read-only (S4)** — `requireSpaceRole("member")` across decision/action/topic/document/proposal/meeting/ai actions; billing requires admin. `getHistoricalDocument` stays readable. Also closed `generateMeetingSummary`'s `canUseAi` billing bypass.
-7. **Decision number race (D2)** — unique index `decisions_space_number_unq` (applied to Neon) + `insertDecisionWithUniqueNumber` retry helper, used by all 4 creation paths.
-8. **Security headers (S6)** — `next.config.ts`; framing denied app-wide, allowed only on `/embed/*`.
-9. **Webhook SSRF (S5)** — `validateWebhookUrl` (HTTPS + private-IP blocklist), enforced at create + delivery.
-10. **API-key value (B3)** — form/display now use `read_write`.
-11. **Rate limiting (S6)** — Upstash sliding-window on `/api/v1/*` (100/60s/space) and live polling (120/60s/user+meeting); fails open without `UPSTASH_REDIS_REST_URL`/`TOKEN`. New deps: `@upstash/ratelimit`, `@upstash/redis` (owner-approved).
-12. **Export injection (S7)** — CSV formula-injection neutralised; HTML/Word export escapes title/type/space name.
+### Tranche 2 — Make Broken Features Work (`tranche-2-broken-features`, stacked on Tranche 1)
+Closes B1, B2, B4, B5, B6, B8, B10, D4. Plan: `docs/plans/2026-06-30-broken-features-plan.md`.
 
-### Commits
-One per task on `security-integrity-hardening` (12 feature commits + planning docs). `npm run build` passing, `npm run lint` clean (pre-existing a11y warnings only).
+1. **B6** — `deriveActionStatus` (overdue at read time) in `getActions`/by-topic/by-proposal.
+2. **B8** — meeting summaries now use a `meeting_summary` insight type (migration); briefing regen no longer wipes them.
+3. **B4 + B10** — `applyStateChange` optimistic-lock+retry for all live state writes; `submitResponse` dedupes per participant+stage (added `stage` to `DecisionResponse`).
+4. **B2** — token-scoped `/api/shared/meeting/[token]/state` route + `getMeetingSessionStateByShareToken`; observer-view polls it; `/api/shared` added to middleware public paths.
+5. **B1** — participant voting/reaction/objection input in `VoteFlow`/`ConsentFlow` (threaded `currentUserId`); retired dead `participant-interactions` stage UI.
+6. **B5** — `tag-actions.ts` + `TagManager` in Settings; colour chips; decision form shows tag section always; unique `tags(space_id, name)`.
+7. **D4** — document draft buffer (`draftContent`/`draftUpdatedAt`); autosave → draft only; Save promotes + snapshots + clears draft + `updatedAt` conflict check.
+
+Migrations applied to Neon: `insight_type += meeting_summary`, `tags_space_name_unq`, `documents.draft_content/draft_updated_at`.
 
 ## What to do next
-- **Set Upstash env vars in Vercel** (the app is live) so rate limiting is active.
-- Open/merge the PR for this branch; run `/security-review` on it.
-- Then plan **Tranche 2 — make broken features work** (B1 participant voting, B2 public observer, B4 lock wiring, B5 tags, B6 overdue, B8 AI type collisions, D4 autosave draft buffer).
+- Open PRs for both branches (auth permitting). Tranche 2 stacks on Tranche 1 — merge Tranche 1 first, or rebase Tranche 2 onto main after.
+- Set `UPSTASH_REDIS_REST_URL`/`TOKEN` in Vercel (rate limiting).
+- Manual smoke test of live meetings (participant vote/object, observer page), tags, document draft/publish.
+- Next: **Tranche 3 — traceability release** (provenance panel, `decision_responses` persistence, proposal↔meeting unification, review workflow).
 
 ## Build status
 - `npm run build` — **passing**

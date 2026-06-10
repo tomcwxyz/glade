@@ -8,7 +8,7 @@
 | # | Tranche | Detailed plan | Branch | Status |
 |---|---------|---------------|--------|--------|
 | 1 | **Security & integrity** (S1–S8, D2, B3, S7) | [`2026-06-10-security-integrity-plan.md`](./2026-06-10-security-integrity-plan.md) | `security-integrity-hardening` | ✅ Implemented — PR open |
-| 2 | Make broken features work (B1, B2, B4, B5, B6, B8, D4) | _tbd_ | _tbd_ | ⏳ Not started |
+| 2 | Make broken features work (B1, B2, B4, B5, B6, B8, B10, D4) | [`2026-06-30-broken-features-plan.md`](./2026-06-30-broken-features-plan.md) | `tranche-2-broken-features` | ✅ Implemented — stacked on Tranche 1 |
 | 3 | Traceability release (provenance panel, `decision_responses`, proposal↔meeting unification, review workflow) | _tbd_ | _tbd_ | ⏳ Not started |
 | 4a | Performance (React.cache, detail-page Promise.all, pagination, indexes, neon-serverless txns, `waitUntil`) | _tbd_ | _tbd_ | ⏳ Not started |
 | 4b | Sharing/transparency (readable public docs, decision permalinks, RSS, sitemap, per-item action hide, export) | _tbd_ | _tbd_ | ⏳ Not started |

@@ -164,6 +164,20 @@ Full-app review (`docs/plans/2026-06-10-full-app-review.md`) → Tranche 1 imple
 - Unique index `decisions_space_number_unq` on `(space_id, number)` + `insertDecisionWithUniqueNumber` retry helper (all 4 decision-creation paths).
 - Security headers in `next.config.ts` (framing denied app-wide, allowed only on `/embed/*`); webhook SSRF validation; Upstash rate limiting on `/api/v1/*` and live polling; API-key `read_write` value fixed; CSV/HTML export injection neutralised.
 
+## Broken-Features Tranche (2026-06-30)
+
+Tranche 2 implemented on `tranche-2-broken-features` (stacked on Tranche 1). See `docs/plans/2026-06-30-broken-features-plan.md`. Closes B1, B2, B4, B5, B6, B8, B10, D4:
+
+- **B1/B10:** participants can now vote / react / object in live consent & vote flows (input in the flow components, threaded `currentUserId`); responses dedupe per participant+stage.
+- **B4:** live state writes go through optimistic locking with retry (`applyStateChange`) — concurrent votes/speaker entries no longer lost.
+- **B2:** public observer polls a token-scoped endpoint `/api/shared/meeting/[token]/state` (the id-route stays membership-scoped).
+- **B5:** tag CRUD in Settings (`TagManager`), colour chips, decision form shows the tag section always; unique `tags(space_id, name)`.
+- **B6:** `overdue` action status derived at read time (`deriveActionStatus`).
+- **B8:** meeting summaries use a distinct `meeting_summary` insight type so member-briefing regeneration no longer wipes them.
+- **D4:** document autosave writes a `draftContent` buffer; publish-on-Save snapshots a version, clears the draft, and has an `updatedAt` conflict check. New columns `documents.draftContent/draftUpdatedAt`.
+
+Schema migrations applied to Neon: `insight_type += meeting_summary`, `tags_space_name_unq`, `documents.draft_content/draft_updated_at` (plus Tranche 1's `decisions_space_number_unq`).
+
 ## Known Issues
 
 - **Deployment:** app is **live** (per owner) — set `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` in Vercel for rate limiting (fails open without them). Earlier "deploy pending" notes in PLAN/CLAUDE are stale.
