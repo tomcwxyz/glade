@@ -5,7 +5,6 @@ import { eq, and } from "drizzle-orm";
 import { db } from "@/db";
 import {
   meetings,
-  decisions,
   meetingDecisions,
   meetingActions,
   actions,
@@ -13,7 +12,7 @@ import {
   proposals,
 } from "@/db/schema";
 import { getCurrentSpace, requireUser } from "@/lib/space";
-import { getNextDecisionNumber } from "@/lib/queries";
+import { insertDecisionWithUniqueNumber } from "@/lib/queries";
 import type { MeetingSessionState } from "@/lib/meeting-state";
 import { advanceItem, skipItem, goToItem, startDecisionFlow } from "@/lib/meeting-state";
 
@@ -300,21 +299,14 @@ export async function recordMeetingDecision(
   proposalId?: string
 ) {
   return withFacilitatorState(meetingId, async ({ user, space }) => {
-    const nextNumber = await getNextDecisionNumber(space.id);
-
-    const [decision] = await db
-      .insert(decisions)
-      .values({
-        spaceId: space.id,
-        number: nextNumber,
-        title,
-        method: method as "consent" | "majority_vote" | "advice_process" | "delegation" | "consensus" | "lazy_consensus",
-        outcome,
-        status: "decided",
-        date: new Date(),
-        createdBy: user.id,
-      })
-      .returning({ id: decisions.id });
+    const decision = await insertDecisionWithUniqueNumber(space.id, {
+      title,
+      method: method as "consent" | "majority_vote" | "advice_process" | "delegation" | "consensus" | "lazy_consensus",
+      outcome,
+      status: "decided",
+      date: new Date(),
+      createdBy: user.id,
+    });
 
     await db.insert(meetingDecisions).values({
       meetingId,
@@ -336,7 +328,7 @@ export async function recordMeetingDecision(
 
     revalidatePath(`/meetings/${meetingId}`);
     revalidatePath("/decisions");
-    return { decisionId: decision.id, number: nextNumber };
+    return { decisionId: decision.id, number: decision.number };
   });
 }
 

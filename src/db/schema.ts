@@ -9,6 +9,7 @@ import {
   jsonb,
   primaryKey,
   index,
+  unique,
   pgEnum,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
@@ -288,6 +289,7 @@ export const decisions = pgTable(
     index("decisions_space_idx").on(d.spaceId),
     index("decisions_status_idx").on(d.status),
     index("decisions_date_idx").on(d.date),
+    unique("decisions_space_number_unq").on(d.spaceId, d.number),
   ]
 );
 

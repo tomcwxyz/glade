@@ -11,7 +11,6 @@ import {
   meetingAttendees,
   meetingDecisions,
   meetingActions,
-  decisions,
   actions,
   topics,
   proposals,
@@ -20,7 +19,7 @@ import { requireSpaceRole } from "@/lib/space";
 import { createInitialState } from "@/lib/meeting-state";
 import { canUseLiveMeetings } from "@/lib/billing";
 import { logDeletion } from "@/lib/audit";
-import { getNextDecisionNumber } from "@/lib/queries";
+import { insertDecisionWithUniqueNumber } from "@/lib/queries";
 
 type MeetingStatus = "draft" | "scheduled" | "in_progress" | "completed";
 
@@ -424,27 +423,21 @@ export async function importTranscript(data: {
 
   // Create decisions and link to meeting
   for (const d of data.decisions) {
-    const nextNumber = await getNextDecisionNumber(space.id);
-    const [decision] = await db
-      .insert(decisions)
-      .values({
-        spaceId: space.id,
-        number: nextNumber,
-        title: d.title,
-        description: d.description,
-        method: d.method as
-          | "consent"
-          | "majority_vote"
-          | "advice_process"
-          | "delegation"
-          | "consensus"
-          | "lazy_consensus",
-        outcome: d.outcome,
-        status: "decided",
-        date: new Date(),
-        createdBy: user.id,
-      })
-      .returning({ id: decisions.id });
+    const decision = await insertDecisionWithUniqueNumber(space.id, {
+      title: d.title,
+      description: d.description,
+      method: d.method as
+        | "consent"
+        | "majority_vote"
+        | "advice_process"
+        | "delegation"
+        | "consensus"
+        | "lazy_consensus",
+      outcome: d.outcome,
+      status: "decided",
+      date: new Date(),
+      createdBy: user.id,
+    });
 
     await db.insert(meetingDecisions).values({
       meetingId,

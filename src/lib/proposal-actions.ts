@@ -4,8 +4,8 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { eq, and } from "drizzle-orm";
 import { db } from "@/db";
-import { proposals, proposalComments, proposalReferences, decisions } from "@/db/schema";
-import { getNextDecisionNumber } from "@/lib/queries";
+import { proposals, proposalComments, proposalReferences } from "@/db/schema";
+import { insertDecisionWithUniqueNumber } from "@/lib/queries";
 import { requireUser, requireSpaceRole } from "@/lib/space";
 import { logDeletion } from "@/lib/audit";
 
@@ -169,24 +169,17 @@ export async function createDecisionFromProposal(
     ? participantsRaw.split(",").map((p) => p.trim()).filter(Boolean)
     : [];
 
-  const number = await getNextDecisionNumber(space.id);
-
-  const [decision] = await db
-    .insert(decisions)
-    .values({
-      number,
-      spaceId: space.id,
-      title: proposal.title,
-      description: proposal.description,
-      rationale: proposal.rationale,
-      method: method as "consent" | "majority_vote" | "advice_process" | "delegation" | "consensus" | "lazy_consensus",
-      outcome,
-      status: "decided",
-      participants,
-      date: new Date(dateStr),
-      createdBy: user.id,
-    })
-    .returning({ id: decisions.id, number: decisions.number });
+  const decision = await insertDecisionWithUniqueNumber(space.id, {
+    title: proposal.title,
+    description: proposal.description,
+    rationale: proposal.rationale,
+    method: method as "consent" | "majority_vote" | "advice_process" | "delegation" | "consensus" | "lazy_consensus",
+    outcome,
+    status: "decided",
+    participants,
+    date: new Date(dateStr),
+    createdBy: user.id,
+  });
 
   // Link proposal to decision
   await db

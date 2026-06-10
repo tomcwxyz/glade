@@ -666,6 +666,39 @@ export async function getNextDecisionNumber(spaceId: string) {
   return (result?.maxNumber ?? 0) + 1;
 }
 
+/** True when an error is the unique-violation on (space_id, number). */
+function isDecisionNumberConflict(err: unknown): boolean {
+  const code = (err as { code?: string })?.code;
+  if (code === "23505") return true;
+  const msg = err instanceof Error ? err.message : String(err);
+  return msg.includes("decisions_space_number_unq") || msg.includes("duplicate key");
+}
+
+/**
+ * Insert a decision with the next per-space number, retrying on the unique
+ * (space_id, number) violation so concurrent creates can't fail or duplicate.
+ * The unique index is the real guarantee; this just avoids a user-facing error.
+ */
+export async function insertDecisionWithUniqueNumber(
+  spaceId: string,
+  values: Omit<typeof decisions.$inferInsert, "number" | "spaceId">
+): Promise<{ id: string; number: number }> {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const number = await getNextDecisionNumber(spaceId);
+    try {
+      const [row] = await db
+        .insert(decisions)
+        .values({ ...values, spaceId, number })
+        .returning({ id: decisions.id, number: decisions.number });
+      return row;
+    } catch (err) {
+      if (attempt < 2 && isDecisionNumberConflict(err)) continue;
+      throw err;
+    }
+  }
+  throw new Error("Could not assign a unique decision number");
+}
+
 // ============================================================
 // Members
 // ============================================================

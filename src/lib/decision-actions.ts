@@ -5,7 +5,7 @@ import { eq, and, count } from "drizzle-orm";
 import { db } from "@/db";
 import { decisions, decisionLinks, decisionTags, tags, actions, meetingDecisions, meetings, proposals, documentVersions, insights } from "@/db/schema";
 import { requireSpaceRole } from "@/lib/space";
-import { getNextDecisionNumber } from "@/lib/queries";
+import { insertDecisionWithUniqueNumber } from "@/lib/queries";
 import { canAddDecision } from "@/lib/billing";
 import { fireWebhooks } from "@/lib/webhooks";
 import { logDeletion } from "@/lib/audit";
@@ -44,27 +44,20 @@ export async function createDecision(formData: FormData) {
     ? tagIdsRaw.split(",").filter(Boolean)
     : [];
 
-  const number = await getNextDecisionNumber(space.id);
-
-  const [decision] = await db
-    .insert(decisions)
-    .values({
-      number,
-      spaceId: space.id,
-      title,
-      description,
-      rationale,
-      method: method as "consent" | "majority_vote" | "advice_process" | "delegation" | "consensus" | "lazy_consensus",
-      outcome,
-      status: status as "decided" | "implemented" | "reviewed" | "learned",
-      participants,
-      date: new Date(dateStr),
-      conditions,
-      reviewDate: reviewDateStr ? new Date(reviewDateStr) : null,
-      isPublic: formData.get("hideFromPublic") !== "on",
-      createdBy: user.id,
-    })
-    .returning({ id: decisions.id, number: decisions.number });
+  const decision = await insertDecisionWithUniqueNumber(space.id, {
+    title,
+    description,
+    rationale,
+    method: method as "consent" | "majority_vote" | "advice_process" | "delegation" | "consensus" | "lazy_consensus",
+    outcome,
+    status: status as "decided" | "implemented" | "reviewed" | "learned",
+    participants,
+    date: new Date(dateStr),
+    conditions,
+    reviewDate: reviewDateStr ? new Date(reviewDateStr) : null,
+    isPublic: formData.get("hideFromPublic") !== "on",
+    createdBy: user.id,
+  });
 
   // Add tags
   if (tagIds.length > 0) {
