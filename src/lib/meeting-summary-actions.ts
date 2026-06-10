@@ -3,16 +3,18 @@
 import { eq, and } from "drizzle-orm";
 import { db } from "@/db";
 import { meetings, insights } from "@/db/schema";
-import { getCurrentSpace, requireUser } from "@/lib/space";
+import { requireSpaceRole } from "@/lib/space";
+import { canUseAi } from "@/lib/billing";
 import { isAiEnabled, generateText } from "@/lib/ai";
 import { SYSTEM_PROMPT, meetingSummaryPrompt } from "@/lib/ai-prompts";
 import { getMeetingById } from "@/lib/queries";
 import type { MeetingSessionState } from "@/lib/meeting-state";
 
 export async function generateMeetingSummary(meetingId: string) {
-  await requireUser();
-  const space = await getCurrentSpace();
-  if (!space) return { error: "No space selected" };
+  const auth = await requireSpaceRole("member");
+  if ("error" in auth) return auth;
+  const { space } = auth;
+  if (!(await canUseAi(space.id))) return { error: "AI features require a Canopy plan" };
   if (!isAiEnabled(space.settings)) return { error: "AI features are not enabled" };
 
   const meeting = await getMeetingById(space.id, meetingId);

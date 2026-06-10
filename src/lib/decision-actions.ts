@@ -4,16 +4,16 @@ import { redirect } from "next/navigation";
 import { eq, and, count } from "drizzle-orm";
 import { db } from "@/db";
 import { decisions, decisionLinks, decisionTags, tags, actions, meetingDecisions, meetings, proposals, documentVersions, insights } from "@/db/schema";
-import { getCurrentSpace, requireUser, requireSpaceRole } from "@/lib/space";
+import { requireSpaceRole } from "@/lib/space";
 import { getNextDecisionNumber } from "@/lib/queries";
 import { canAddDecision } from "@/lib/billing";
 import { fireWebhooks } from "@/lib/webhooks";
 import { logDeletion } from "@/lib/audit";
 
 export async function createDecision(formData: FormData) {
-  const user = await requireUser();
-  const space = await getCurrentSpace();
-  if (!space) return { error: "No space selected" };
+  const auth = await requireSpaceRole("member");
+  if ("error" in auth) return auth;
+  const { user, space } = auth;
 
   const allowed = await canAddDecision(space.id);
   if (!allowed) return { error: "Decision limit reached. Upgrade to Canopy for unlimited decisions." };
@@ -114,9 +114,9 @@ export async function createDecision(formData: FormData) {
 }
 
 export async function updateDecision(decisionId: string, formData: FormData) {
-  const user = await requireUser();
-  const space = await getCurrentSpace();
-  if (!space) return { error: "No space selected" };
+  const auth = await requireSpaceRole("member");
+  if ("error" in auth) return auth;
+  const { user, space } = auth;
 
   // Verify the decision belongs to this space
   const [existing] = await db
@@ -197,8 +197,9 @@ export async function updateDecisionStatus(
   decisionId: string,
   status: "decided" | "implemented" | "reviewed" | "learned"
 ) {
-  const space = await getCurrentSpace();
-  if (!space) return { error: "No space selected" };
+  const auth = await requireSpaceRole("member");
+  if ("error" in auth) return auth;
+  const { space } = auth;
 
   await db
     .update(decisions)
@@ -216,8 +217,9 @@ export async function addDecisionLink(
   toDecisionId: string,
   linkType: "supersedes" | "relates_to" | "amends"
 ) {
-  const space = await getCurrentSpace();
-  if (!space) return { error: "No space selected" };
+  const auth = await requireSpaceRole("member");
+  if ("error" in auth) return auth;
+  const { space } = auth;
 
   // Verify both decisions belong to this space
   const [from] = await db
@@ -334,9 +336,9 @@ export async function unlinkDecisionFromMeeting(
 }
 
 export async function deleteDecision(decisionId: string) {
-  const user = await requireUser();
-  const space = await getCurrentSpace();
-  if (!space) return { error: "No space selected" };
+  const auth = await requireSpaceRole("member");
+  if ("error" in auth) return auth;
+  const { user, space } = auth;
 
   // Fetch decision for audit snapshot
   const [decision] = await db

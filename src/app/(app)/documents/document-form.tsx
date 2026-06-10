@@ -72,7 +72,7 @@ export function DocumentForm({ document, publicEnabled }: { document?: DocumentD
       if (!document?.id) return;
       setSaveStatus("saving");
       const result = await autoSaveDocument(document.id, newContent);
-      setSaveStatus(result?.error ? "error" : "saved");
+      setSaveStatus(result && "error" in result ? "error" : "saved");
     },
     [document?.id]
   );

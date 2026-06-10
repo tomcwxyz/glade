@@ -5,14 +5,14 @@ import { revalidatePath } from "next/cache";
 import { eq, and } from "drizzle-orm";
 import { db } from "@/db";
 import { documents, documentVersions, documentSectionLinks, decisions } from "@/db/schema";
-import { getCurrentSpace, requireUser, requireSpaceRole } from "@/lib/space";
+import { getCurrentSpace, requireSpaceRole } from "@/lib/space";
 import { getDocumentVersionAtDate } from "@/lib/queries";
 import { logDeletion } from "@/lib/audit";
 
 export async function createDocument(formData: FormData) {
-  const user = await requireUser();
-  const space = await getCurrentSpace();
-  if (!space) return { error: "No space selected" };
+  const auth = await requireSpaceRole("member");
+  if ("error" in auth) return auth;
+  const { user, space } = auth;
 
   const title = (formData.get("title") as string)?.trim();
   if (!title) return { error: "Title is required" };
@@ -57,9 +57,9 @@ export async function createDocument(formData: FormData) {
 }
 
 export async function updateDocument(documentId: string, formData: FormData) {
-  const user = await requireUser();
-  const space = await getCurrentSpace();
-  if (!space) return { error: "No space selected" };
+  const auth = await requireSpaceRole("member");
+  if ("error" in auth) return auth;
+  const { user, space } = auth;
 
   const [existing] = await db
     .select({ id: documents.id, currentVersion: documents.currentVersion })
@@ -109,8 +109,9 @@ export async function updateDocument(documentId: string, formData: FormData) {
 }
 
 export async function publishDocument(documentId: string) {
-  const space = await getCurrentSpace();
-  if (!space) return { error: "No space selected" };
+  const auth = await requireSpaceRole("member");
+  if ("error" in auth) return auth;
+  const { space } = auth;
 
   await db
     .update(documents)
@@ -121,8 +122,9 @@ export async function publishDocument(documentId: string) {
 }
 
 export async function unpublishDocument(documentId: string) {
-  const space = await getCurrentSpace();
-  if (!space) return { error: "No space selected" };
+  const auth = await requireSpaceRole("member");
+  if ("error" in auth) return auth;
+  const { space } = auth;
 
   await db
     .update(documents)
@@ -207,8 +209,9 @@ export async function removeSectionLink(linkId: string) {
 }
 
 export async function autoSaveDocument(documentId: string, content: unknown) {
-  const space = await getCurrentSpace();
-  if (!space) return { error: "No space selected" };
+  const auth = await requireSpaceRole("member");
+  if ("error" in auth) return auth;
+  const { space } = auth;
 
   const [existing] = await db
     .select({ id: documents.id })
@@ -227,9 +230,9 @@ export async function autoSaveDocument(documentId: string, content: unknown) {
 }
 
 export async function deleteDocument(documentId: string) {
-  const user = await requireUser();
-  const space = await getCurrentSpace();
-  if (!space) return { error: "No space selected" };
+  const auth = await requireSpaceRole("member");
+  if ("error" in auth) return auth;
+  const { user, space } = auth;
 
   // Fetch for audit snapshot
   const [doc] = await db

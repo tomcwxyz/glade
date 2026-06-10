@@ -6,13 +6,13 @@ import { eq, and } from "drizzle-orm";
 import { db } from "@/db";
 import { proposals, proposalComments, proposalReferences, decisions } from "@/db/schema";
 import { getNextDecisionNumber } from "@/lib/queries";
-import { getCurrentSpace, requireUser, requireSpaceRole } from "@/lib/space";
+import { requireUser, requireSpaceRole } from "@/lib/space";
 import { logDeletion } from "@/lib/audit";
 
 export async function createProposal(formData: FormData) {
-  const user = await requireUser();
-  const space = await getCurrentSpace();
-  if (!space) return { error: "No space selected" };
+  const auth = await requireSpaceRole("member");
+  if ("error" in auth) return auth;
+  const { user, space } = auth;
 
   const title = (formData.get("title") as string)?.trim();
   if (!title) return { error: "Title is required" };
@@ -40,9 +40,9 @@ export async function createProposal(formData: FormData) {
 }
 
 export async function updateProposal(proposalId: string, formData: FormData) {
-  const user = await requireUser();
-  const space = await getCurrentSpace();
-  if (!space) return { error: "No space selected" };
+  const auth = await requireSpaceRole("member");
+  if ("error" in auth) return auth;
+  const { user, space } = auth;
 
   const [existing] = await db
     .select({ id: proposals.id })
@@ -79,8 +79,9 @@ export async function advanceProposalStatus(
   proposalId: string,
   status: "draft" | "open_for_discussion" | "ready_for_decision" | "decided" | "implemented"
 ) {
-  const space = await getCurrentSpace();
-  if (!space) return { error: "No space selected" };
+  const auth = await requireSpaceRole("member");
+  if ("error" in auth) return auth;
+  const { space } = auth;
 
   await db
     .update(proposals)
@@ -95,9 +96,9 @@ export async function addProposalComment(
   content: string,
   parentId?: string
 ) {
-  const user = await requireUser();
-  const space = await getCurrentSpace();
-  if (!space) return { error: "No space selected" };
+  const auth = await requireSpaceRole("member");
+  if ("error" in auth) return auth;
+  const { user, space } = auth;
 
   if (!content.trim()) return { error: "Comment cannot be empty" };
 
@@ -142,9 +143,9 @@ export async function createDecisionFromProposal(
   proposalId: string,
   formData: FormData
 ) {
-  const user = await requireUser();
-  const space = await getCurrentSpace();
-  if (!space) return { error: "No space selected" };
+  const auth = await requireSpaceRole("member");
+  if ("error" in auth) return auth;
+  const { user, space } = auth;
 
   // Verify proposal
   const [proposal] = await db
@@ -201,8 +202,9 @@ export async function addProposalReference(
   title: string,
   url: string
 ) {
-  const space = await getCurrentSpace();
-  if (!space) return { error: "No space selected" };
+  const auth = await requireSpaceRole("member");
+  if ("error" in auth) return auth;
+  const { space } = auth;
 
   if (!title.trim()) return { error: "Title is required" };
   if (!url.trim()) return { error: "URL is required" };
@@ -245,9 +247,9 @@ export async function removeProposalReference(referenceId: string) {
 }
 
 export async function deleteProposal(proposalId: string) {
-  const user = await requireUser();
-  const space = await getCurrentSpace();
-  if (!space) return { error: "No space selected" };
+  const auth = await requireSpaceRole("member");
+  if ("error" in auth) return auth;
+  const { user, space } = auth;
 
   // Fetch for audit snapshot
   const [proposal] = await db

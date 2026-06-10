@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { subscriptions } from "@/db/schema";
-import { getCurrentSpace, requireUser } from "@/lib/space";
+import { requireSpaceRole } from "@/lib/space";
 import { getSpaceSubscription } from "@/lib/queries";
 import { getStripe } from "@/lib/stripe";
 
@@ -20,9 +20,9 @@ async function getOrCreateSubscription(spaceId: string) {
 }
 
 export async function createCheckoutSession(priceId: string) {
-  await requireUser();
-  const space = await getCurrentSpace();
-  if (!space) return { error: "No space selected" };
+  const auth = await requireSpaceRole("admin");
+  if ("error" in auth) return auth;
+  const { space } = auth;
 
   const stripe = getStripe();
   const sub = await getOrCreateSubscription(space.id);
@@ -55,9 +55,9 @@ export async function createCheckoutSession(priceId: string) {
 }
 
 export async function createCustomerPortalSession() {
-  await requireUser();
-  const space = await getCurrentSpace();
-  if (!space) return { error: "No space selected" };
+  const auth = await requireSpaceRole("admin");
+  if ("error" in auth) return auth;
+  const { space } = auth;
 
   const sub = await getSpaceSubscription(space.id);
   if (!sub?.stripeCustomerId) return { error: "No billing account found" };

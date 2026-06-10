@@ -4,7 +4,7 @@ import { eq, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { actions, decisions, topics, proposals } from "@/db/schema";
-import { getCurrentSpace, requireUser } from "@/lib/space";
+import { requireSpaceRole } from "@/lib/space";
 import { logDeletion } from "@/lib/audit";
 
 export async function createAction(
@@ -14,9 +14,9 @@ export async function createAction(
   ownerName?: string,
   dueDate?: string
 ) {
-  await requireUser();
-  const space = await getCurrentSpace();
-  if (!space) return { error: "No space selected" };
+  const auth = await requireSpaceRole("member");
+  if ("error" in auth) return auth;
+  const { space } = auth;
 
   if (!description.trim()) return { error: "Description is required" };
 
@@ -57,9 +57,9 @@ export async function updateActionStatus(
   actionId: string,
   status: "open" | "in_progress" | "complete" | "overdue"
 ) {
-  await requireUser();
-  const space = await getCurrentSpace();
-  if (!space) return { error: "No space selected" };
+  const auth = await requireSpaceRole("member");
+  if ("error" in auth) return auth;
+  const { space } = auth;
 
   const [existing] = await db
     .select({ id: actions.id })
@@ -83,9 +83,9 @@ export async function updateActionStatus(
 }
 
 export async function deleteAction(actionId: string) {
-  const user = await requireUser();
-  const space = await getCurrentSpace();
-  if (!space) return { error: "No space selected" };
+  const auth = await requireSpaceRole("member");
+  if ("error" in auth) return auth;
+  const { user, space } = auth;
 
   // Fetch action with linked parent for audit snapshot
   const [action] = await db

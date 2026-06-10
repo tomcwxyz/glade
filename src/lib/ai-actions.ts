@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { eq, and, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { insights, decisions, documents } from "@/db/schema";
-import { getCurrentSpace, requireSpaceRole } from "@/lib/space";
+import { requireSpaceRole } from "@/lib/space";
 import { isAiEnabled, generateText } from "@/lib/ai";
 import { canUseAi } from "@/lib/billing";
 import {
@@ -27,8 +27,9 @@ function stripCodeFences(text: string): string {
 }
 
 async function checkAiEnabled() {
-  const space = await getCurrentSpace();
-  if (!space) return { error: "No space selected", space: null };
+  const auth = await requireSpaceRole("member");
+  if ("error" in auth) return { error: auth.error, space: null };
+  const { space } = auth;
   if (!(await canUseAi(space.id))) return { error: "AI features require a Canopy plan", space: null };
   if (!isAiEnabled(space.settings)) return { error: "AI features are not enabled", space: null };
   return { error: null, space };

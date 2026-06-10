@@ -4,13 +4,13 @@ import { redirect } from "next/navigation";
 import { eq, and } from "drizzle-orm";
 import { db } from "@/db";
 import { topics, proposals } from "@/db/schema";
-import { getCurrentSpace, requireUser } from "@/lib/space";
+import { requireSpaceRole } from "@/lib/space";
 import { logDeletion } from "@/lib/audit";
 
 export async function createTopic(formData: FormData) {
-  const user = await requireUser();
-  const space = await getCurrentSpace();
-  if (!space) return { error: "No space selected" };
+  const auth = await requireSpaceRole("member");
+  if ("error" in auth) return auth;
+  const { user, space } = auth;
 
   const title = (formData.get("title") as string)?.trim();
   if (!title) return { error: "Title is required" };
@@ -36,9 +36,9 @@ export async function createTopic(formData: FormData) {
 }
 
 export async function promoteTopic(topicId: string) {
-  const user = await requireUser();
-  const space = await getCurrentSpace();
-  if (!space) return { error: "No space selected" };
+  const auth = await requireSpaceRole("member");
+  if ("error" in auth) return auth;
+  const { user, space } = auth;
 
   const [topic] = await db
     .select()
@@ -71,9 +71,9 @@ export async function promoteTopic(topicId: string) {
 }
 
 export async function deleteTopic(topicId: string) {
-  const user = await requireUser();
-  const space = await getCurrentSpace();
-  if (!space) return { error: "No space selected" };
+  const auth = await requireSpaceRole("member");
+  if ("error" in auth) return auth;
+  const { user, space } = auth;
 
   // Fetch for audit snapshot
   const [topic] = await db

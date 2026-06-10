@@ -16,7 +16,7 @@ import {
   topics,
   proposals,
 } from "@/db/schema";
-import { getCurrentSpace, requireUser, requireSpaceRole } from "@/lib/space";
+import { requireSpaceRole } from "@/lib/space";
 import { createInitialState } from "@/lib/meeting-state";
 import { canUseLiveMeetings } from "@/lib/billing";
 import { logDeletion } from "@/lib/audit";
@@ -25,9 +25,9 @@ import { getNextDecisionNumber } from "@/lib/queries";
 type MeetingStatus = "draft" | "scheduled" | "in_progress" | "completed";
 
 export async function createMeeting(formData: FormData) {
-  const user = await requireUser();
-  const space = await getCurrentSpace();
-  if (!space) return { error: "No space selected" };
+  const auth = await requireSpaceRole("member");
+  if ("error" in auth) return auth;
+  const { user, space } = auth;
 
   const title = (formData.get("title") as string)?.trim();
   if (!title) return { error: "Meeting title is required" };
@@ -110,9 +110,9 @@ export async function createMeeting(formData: FormData) {
 }
 
 export async function updateMeeting(meetingId: string, formData: FormData) {
-  await requireUser();
-  const space = await getCurrentSpace();
-  if (!space) return { error: "No space selected" };
+  const auth = await requireSpaceRole("member");
+  if ("error" in auth) return auth;
+  const { space } = auth;
 
   const [existing] = await db
     .select({ id: meetings.id })
@@ -204,9 +204,9 @@ export async function updateMeeting(meetingId: string, formData: FormData) {
 }
 
 export async function generateShareLink(meetingId: string) {
-  await requireUser();
-  const space = await getCurrentSpace();
-  if (!space) return { error: "No space selected" };
+  const auth = await requireSpaceRole("member");
+  if ("error" in auth) return auth;
+  const { space } = auth;
 
   const [existing] = await db
     .select({ id: meetings.id, shareToken: meetings.shareToken })
@@ -232,9 +232,9 @@ export async function generateShareLink(meetingId: string) {
 }
 
 export async function revokeShareLink(meetingId: string) {
-  await requireUser();
-  const space = await getCurrentSpace();
-  if (!space) return { error: "No space selected" };
+  const auth = await requireSpaceRole("member");
+  if ("error" in auth) return auth;
+  const { space } = auth;
 
   await db
     .update(meetings)
@@ -246,9 +246,9 @@ export async function revokeShareLink(meetingId: string) {
 }
 
 export async function deleteMeeting(meetingId: string) {
-  const user = await requireUser();
-  const space = await getCurrentSpace();
-  if (!space) return { error: "No space selected" };
+  const auth = await requireSpaceRole("member");
+  if ("error" in auth) return auth;
+  const { user, space } = auth;
 
   // Fetch meeting for audit snapshot
   const [meeting] = await db
@@ -326,9 +326,9 @@ export async function initializeMeetingState(meetingId: string) {
 }
 
 export async function startMeeting(meetingId: string) {
-  const user = await requireUser();
-  const space = await getCurrentSpace();
-  if (!space) return { error: "No space selected" };
+  const auth = await requireSpaceRole("member");
+  if ("error" in auth) return auth;
+  const { user, space } = auth;
 
   const allowed = await canUseLiveMeetings(space.id);
   if (!allowed) return { error: "Live meetings require a Canopy plan." };
@@ -385,9 +385,9 @@ export async function importTranscript(data: {
     type: string;
   }[];
 }) {
-  const user = await requireUser();
-  const space = await getCurrentSpace();
-  if (!space) return { error: "No space selected" };
+  const auth = await requireSpaceRole("member");
+  if ("error" in auth) return auth;
+  const { user, space } = auth;
 
   let meetingId: string;
 
@@ -492,9 +492,9 @@ export async function importTranscript(data: {
 }
 
 export async function addProposalToAgenda(proposalId: string, meetingId: string) {
-  await requireUser();
-  const space = await getCurrentSpace();
-  if (!space) return { error: "No space selected" };
+  const auth = await requireSpaceRole("member");
+  if ("error" in auth) return auth;
+  const { space } = auth;
 
   // Verify meeting belongs to space
   const [meeting] = await db
