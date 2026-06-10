@@ -16,7 +16,7 @@ import {
   topics,
   proposals,
 } from "@/db/schema";
-import { getCurrentSpace, requireUser } from "@/lib/space";
+import { getCurrentSpace, requireUser, requireSpaceRole } from "@/lib/space";
 import { createInitialState } from "@/lib/meeting-state";
 import { canUseLiveMeetings } from "@/lib/billing";
 import { logDeletion } from "@/lib/audit";
@@ -289,16 +289,29 @@ export async function deleteMeeting(meetingId: string) {
 
 // Direct DB update for initializing meeting state — safe to call during render
 // (no revalidatePath). Used by the live page when a meeting needs state initialized.
-export async function initializeMeetingState(
-  meetingId: string,
-  spaceId: string,
-  userId: string,
-  userName: string
-) {
-  const allowed = await canUseLiveMeetings(spaceId);
-  if (!allowed) return { error: "Live meetings require a Canopy plan." };
+// Identity and space are derived server-side: never trust caller-supplied ids.
+export async function initializeMeetingState(meetingId: string) {
+  const auth = await requireSpaceRole("member");
+  if ("error" in auth) return { error: auth.error };
+  const { user, space } = auth;
 
-  const initialState = createInitialState(userId, userName);
+  // The meeting must belong to the caller's current space.
+  const [meeting] = await db
+    .select({ id: meetings.id, facilitatorId: meetings.facilitatorId })
+    .from(meetings)
+    .where(and(eq(meetings.id, meetingId), eq(meetings.spaceId, space.id)))
+    .limit(1);
+  if (!meeting) return { error: "Meeting not found" };
+
+  if (!(await canUseLiveMeetings(space.id))) {
+    return { error: "Live meetings require a Canopy plan." };
+  }
+
+  const facilitatorName = user.name || user.email || "Facilitator";
+  const initialState = createInitialState(
+    meeting.facilitatorId ?? user.id,
+    facilitatorName
+  );
 
   await db
     .update(meetings)
@@ -307,7 +320,7 @@ export async function initializeMeetingState(
       sessionState: initialState,
       updatedAt: new Date(),
     })
-    .where(eq(meetings.id, meetingId));
+    .where(and(eq(meetings.id, meetingId), eq(meetings.spaceId, space.id)));
 
   return { success: true };
 }

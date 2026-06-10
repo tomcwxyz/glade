@@ -23,7 +23,7 @@ export default async function LiveMeetingPage({
 
   // If meeting hasn't started yet, or is in_progress but missing session state, initialise it
   if (meeting.status === "draft" || meeting.status === "scheduled" || !meeting.sessionState) {
-    await initializeMeetingState(meeting.id, space.id, user.id, user.name || "Facilitator");
+    await initializeMeetingState(meeting.id);
     redirect(`/meetings/${meeting.id}/live`);
   }
 
