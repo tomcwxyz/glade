@@ -6,6 +6,10 @@ import {
   getDecisionsList,
   getMeetingsList,
   getDecisionReviewInsight,
+  getProposalByDecision,
+  getTopicByProposal,
+  getDocumentsByDecision,
+  getInsightsByDecision,
 } from "@/lib/queries";
 import { isAiEnabled } from "@/lib/ai";
 import { formatDate } from "@/lib/utils";
@@ -19,6 +23,11 @@ import {
   Pencil,
   TriangleAlert,
   Users,
+  ArrowRight,
+  Lightbulb,
+  FileText,
+  MessageSquare,
+  CalendarDays,
 } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -181,13 +190,39 @@ export default async function DecisionDetailPage({
 
   const aiOn = isAiEnabled(space.settings);
 
-  const [linksWithIds, decisionMeetings, allDecisions, allMeetings, reviewInsight] = await Promise.all([
+  const [
+    linksWithIds,
+    decisionMeetings,
+    allDecisions,
+    allMeetings,
+    reviewInsight,
+    originProposal,
+    changedDocuments,
+    relatedInsights,
+  ] = await Promise.all([
     getDecisionLinksWithIds(decision.id),
     getDecisionMeetings(decision.id),
     getDecisionsList(space.id),
     getMeetingsList(space.id),
     aiOn && decision.reviewDate ? getDecisionReviewInsight(decision.id) : Promise.resolve(null),
+    getProposalByDecision(decision.id),
+    getDocumentsByDecision(decision.id),
+    getInsightsByDecision(decision.id),
   ]);
+
+  // Topic→proposal→decision lineage: topic depends on the proposal id.
+  const originTopic = originProposal ? await getTopicByProposal(originProposal.id) : null;
+
+  // The meeting this decision was made in (fixes the formerly-dead header link).
+  const decidedAtMeeting = decisionMeetings[0] ?? null;
+
+  // Reverse `supersedes` link → this decision has been superseded by another.
+  const supersededBy = linksWithIds.filter(
+    (l) => l.relation === "supersedes" && l.direction === "reverse"
+  );
+
+  const hasProvenance =
+    !!originProposal || !!originTopic || !!decidedAtMeeting || changedDocuments.length > 0 || relatedInsights.length > 0;
 
   const participants = decision.participants as string[];
 
@@ -209,6 +244,15 @@ export default async function DecisionDetailPage({
               Decision #{decision.number}
             </span>
             <StatusBadge status={decision.status as DecisionStatus} />
+            {supersededBy.length > 0 && (
+              <Link
+                href={`/decisions/${supersededBy[0].number}`}
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[0.625rem] font-medium bg-earth/10 text-earth border border-earth/20 hover:bg-earth/15 transition-colors"
+              >
+                <TriangleAlert size={10} />
+                Superseded by #{supersededBy[0].number}
+              </Link>
+            )}
             {!decision.isPublic && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[0.625rem] font-medium bg-bark/8 text-bark-muted border border-bark/20">
                 <EyeOff size={10} />
@@ -241,14 +285,22 @@ export default async function DecisionDetailPage({
           <span>{formatDate(decision.date.toISOString())}</span>
           <span className="text-border-strong">|</span>
           <span>{METHOD_LABELS[decision.method as DecisionMethod]}</span>
-          {decision.meetingTitle && (
+          {decidedAtMeeting ? (
             <>
               <span className="text-border-strong">|</span>
-              <Link href="#" className="hover:text-canopy transition-colors">
-                {decision.meetingTitle}
+              <Link
+                href={`/meetings/${decidedAtMeeting.meetingId}`}
+                className="hover:text-canopy transition-colors"
+              >
+                {decidedAtMeeting.title}
               </Link>
             </>
-          )}
+          ) : decision.meetingTitle ? (
+            <>
+              <span className="text-border-strong">|</span>
+              <span>{decision.meetingTitle}</span>
+            </>
+          ) : null}
           {decision.tags.map((tag) => (
             <span
               key={tag}
@@ -263,6 +315,106 @@ export default async function DecisionDetailPage({
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-10 lg:gap-14">
         {/* Main content */}
         <div className="space-y-10">
+          {/* Provenance — the lineage this decision came from and what it touched */}
+          {hasProvenance && (
+            <section>
+              <h2 className="text-xs uppercase tracking-wider text-bark-muted font-medium mb-3">
+                Provenance
+              </h2>
+              <div className="bg-paper-warm rounded-xl border border-border divide-y divide-border">
+                {(originTopic || originProposal) && (
+                  <div className="px-5 py-3.5">
+                    <p className="text-[0.625rem] uppercase tracking-wider text-bark-muted mb-2">Origin</p>
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+                      {originTopic && (
+                        <>
+                          <Link
+                            href={`/topics/${originTopic.id}`}
+                            className="inline-flex items-center gap-1.5 text-bark hover:text-canopy transition-colors"
+                          >
+                            <Lightbulb size={13} className="text-amber" />
+                            {originTopic.title}
+                          </Link>
+                          <ArrowRight size={13} className="text-bark-muted/50" />
+                        </>
+                      )}
+                      {originProposal && (
+                        <>
+                          <Link
+                            href={`/proposals/${originProposal.id}`}
+                            className="inline-flex items-center gap-1.5 text-bark hover:text-canopy transition-colors"
+                          >
+                            <MessageSquare size={13} className="text-canopy" />
+                            {originProposal.title}
+                            {originProposal.commentCount > 0 && (
+                              <span className="text-bark-muted">
+                                ({originProposal.commentCount} comment{originProposal.commentCount === 1 ? "" : "s"})
+                              </span>
+                            )}
+                          </Link>
+                          <ArrowRight size={13} className="text-bark-muted/50" />
+                        </>
+                      )}
+                      <span className="font-medium text-bark">This decision</span>
+                    </div>
+                  </div>
+                )}
+
+                {decidedAtMeeting && (
+                  <div className="px-5 py-3.5">
+                    <p className="text-[0.625rem] uppercase tracking-wider text-bark-muted mb-2">Decided at</p>
+                    <Link
+                      href={`/meetings/${decidedAtMeeting.meetingId}`}
+                      className="inline-flex items-center gap-1.5 text-sm text-bark hover:text-canopy transition-colors"
+                    >
+                      <CalendarDays size={13} className="text-sky" />
+                      {decidedAtMeeting.title}
+                    </Link>
+                  </div>
+                )}
+
+                {changedDocuments.length > 0 && (
+                  <div className="px-5 py-3.5">
+                    <p className="text-[0.625rem] uppercase tracking-wider text-bark-muted mb-2">
+                      Documents changed
+                    </p>
+                    <div className="space-y-1.5">
+                      {changedDocuments.map((doc) => (
+                        <Link
+                          key={doc.documentId}
+                          href={`/documents/${doc.documentId}`}
+                          className="flex items-center gap-1.5 text-sm text-bark hover:text-canopy transition-colors"
+                        >
+                          <FileText size={13} className="text-bark-muted" />
+                          {doc.title}
+                          <span className="text-bark-muted text-xs">
+                            ({doc.sections.length} section{doc.sections.length === 1 ? "" : "s"})
+                          </span>
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {relatedInsights.length > 0 && (
+                  <div className="px-5 py-3.5">
+                    <p className="text-[0.625rem] uppercase tracking-wider text-bark-muted mb-2">
+                      Related insights
+                    </p>
+                    <ul className="space-y-1">
+                      {relatedInsights.map((insight) => (
+                        <li key={insight.id} className="flex items-center gap-1.5 text-sm text-bark-muted">
+                          <Lightbulb size={13} className="text-amber shrink-0" />
+                          {insight.title}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </section>
+          )}
+
           {/* Description */}
           <section>
             <h2 className="text-xs uppercase tracking-wider text-bark-muted font-medium mb-3">

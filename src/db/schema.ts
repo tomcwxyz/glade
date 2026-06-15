@@ -422,7 +422,11 @@ export const meetingDecisions = pgTable(
       .notNull()
       .references(() => decisions.id, { onDelete: "cascade" }),
   },
-  (md) => [primaryKey({ columns: [md.meetingId, md.decisionId] })]
+  (md) => [
+    primaryKey({ columns: [md.meetingId, md.decisionId] }),
+    index("meeting_decisions_meeting_idx").on(md.meetingId),
+    index("meeting_decisions_decision_idx").on(md.decisionId),
+  ]
 );
 
 export const meetingActions = pgTable(
@@ -539,7 +543,10 @@ export const documentVersions = pgTable(
     createdBy: uuid("created_by").references(() => users.id),
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
   },
-  (dv) => [index("doc_versions_document_idx").on(dv.documentId)]
+  (dv) => [
+    index("doc_versions_document_idx").on(dv.documentId),
+    index("doc_versions_decision_idx").on(dv.decisionId),
+  ]
 );
 
 export const documentSectionLinks = pgTable(
@@ -555,7 +562,10 @@ export const documentSectionLinks = pgTable(
       .references(() => decisions.id, { onDelete: "cascade" }),
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
   },
-  (dsl) => [index("doc_section_links_document_idx").on(dsl.documentId)]
+  (dsl) => [
+    index("doc_section_links_document_idx").on(dsl.documentId),
+    index("doc_section_links_decision_idx").on(dsl.decisionId),
+  ]
 );
 
 // --- Proposals ---
@@ -581,6 +591,7 @@ export const proposals = pgTable(
   (p) => [
     index("proposals_space_idx").on(p.spaceId),
     index("proposals_status_idx").on(p.status),
+    index("proposals_decided_idx").on(p.decidedAsDecisionId),
   ]
 );
 
@@ -633,7 +644,10 @@ export const topics = pgTable(
     createdBy: uuid("created_by").references(() => users.id),
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
   },
-  (t) => [index("topics_space_idx").on(t.spaceId)]
+  (t) => [
+    index("topics_space_idx").on(t.spaceId),
+    index("topics_promoted_idx").on(t.promotedToProposalId),
+  ]
 );
 
 // --- Insights (AI) ---
@@ -657,6 +671,7 @@ export const insights = pgTable(
   (i) => [
     index("insights_space_idx").on(i.spaceId),
     index("insights_type_idx").on(i.type),
+    index("insights_related_decision_idx").on(i.relatedDecisionId),
   ]
 );
 

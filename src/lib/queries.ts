@@ -1687,3 +1687,77 @@ export async function getMeetingStartRecipients(
   userIds = userIds.filter((id) => id !== excludeUserId);
   return { title: meeting.title, userIds };
 }
+
+// ============================================================
+// Provenance (reverse lookups for the decision detail page)
+// ============================================================
+
+/** The proposal that was decided as this decision (with its comment count). */
+export async function getProposalByDecision(decisionId: string) {
+  const [p] = await db
+    .select({ id: proposals.id, title: proposals.title, status: proposals.status })
+    .from(proposals)
+    .where(eq(proposals.decidedAsDecisionId, decisionId))
+    .limit(1);
+  if (!p) return null;
+  const [c] = await db
+    .select({ value: count() })
+    .from(proposalComments)
+    .where(eq(proposalComments.proposalId, p.id));
+  return { ...p, commentCount: c?.value ?? 0 };
+}
+
+/** The topic a proposal was promoted from (completes topic→proposal→decision). */
+export async function getTopicByProposal(proposalId: string) {
+  const [t] = await db
+    .select({ id: topics.id, title: topics.title, type: topics.type })
+    .from(topics)
+    .where(eq(topics.promotedToProposalId, proposalId))
+    .limit(1);
+  return t || null;
+}
+
+/** Documents (and the sections within them) this decision changed. */
+export async function getDocumentsByDecision(decisionId: string) {
+  const rows = await db
+    .select({
+      documentId: documents.id,
+      title: documents.title,
+      sectionId: documentSectionLinks.sectionId,
+    })
+    .from(documentSectionLinks)
+    .innerJoin(documents, eq(documents.id, documentSectionLinks.documentId))
+    .where(eq(documentSectionLinks.decisionId, decisionId));
+
+  const byDoc = new Map<string, { documentId: string; title: string; sections: string[] }>();
+  for (const r of rows) {
+    const entry = byDoc.get(r.documentId) ?? {
+      documentId: r.documentId,
+      title: r.title,
+      sections: [],
+    };
+    entry.sections.push(r.sectionId);
+    byDoc.set(r.documentId, entry);
+  }
+  return [...byDoc.values()];
+}
+
+/** Active AI insights related to this decision (excludes review prompts, shown separately). */
+export async function getInsightsByDecision(decisionId: string) {
+  return db
+    .select({
+      id: insights.id,
+      type: insights.type,
+      title: insights.title,
+      content: insights.content,
+    })
+    .from(insights)
+    .where(
+      and(
+        eq(insights.relatedDecisionId, decisionId),
+        eq(insights.status, "active"),
+        inArray(insights.type, ["pattern", "suggestion", "briefing"])
+      )
+    )
+    .orderBy(desc(insights.createdAt));
+}
