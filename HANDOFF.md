@@ -1,35 +1,31 @@
-# Handoff — 2026-06-15 (Traceability)
+# Handoff — 2026-06-15 (Performance & Integrity)
 
 ## What happened this session
 
-Two stacked tranches shipped end-to-end, phased with review between, build + lint clean throughout, one commit per phase.
+Continued the review roadmap. Completed **Tranche 4a — Performance & Integrity** end-to-end on `tranche-4a-performance` (stacked on `tranche-3b-traceability`). Phased, build + lint clean throughout, one commit per phase. Also smoke-tested Tranche 3's provenance + review flows with Playwright.
 
-### Tranche 3a — Meeting-flow overhaul (`tranche-3a-meeting-flow`, PR #3)
-Change/withdraw responses across all flows; speaker-stack management (call/done/note); observer view enriched; in-app notifications + "meeting started" alert; structured objection resolution; deliberation snapshot + clarify-stage input. (See git log / PR #3.)
+### Tranche 4a — Performance & Integrity (4 commits)
+- **P1 (`3f50e7c`)** — dashboard `count()/FILTER` aggregates; `cache()`-wrapped per-request context readers (split client mutations into `space-actions.ts`); remaining indexes.
+- **P2 (`0a13536`)** — swapped the app DB client to the **neon-serverless WebSocket Pool** (`ws`) and wrapped 10 multi-write sequences in `db.transaction()` so they're all-or-nothing. `insertDecisionWithUniqueNumber` uses savepoints.
+- **P3 + P4 (`f50eed9`)** — v1 API pagination caps; shared `<Pagination>` on server lists; decisions "Load more" (keeps client filters); webhooks via `after()`; polling stops on completed/hidden tab.
 
-### Tranche 3b — Traceability release (`tranche-3b-traceability`, stacked on 3a)
-Plan: `~/.claude/plans/steady-frolicking-eagle.md`. Closes the review's §2 traceability gaps + review workflow.
+Verified on the production server (`npm start`, not dev — Playwright thrashes the dev watcher): dashboard renders with identical stats and no 500; a real transaction (promote topic → proposal + topic link) commits both sides atomically; decisions/actions render clean.
 
-- **P1 (`c4e8dcf`) Provenance panel** — reverse-lookup indexes + queries; decision detail now shows origin (topic→proposal→decision), decided-at meeting (dead link fixed), documents changed, related insights, superseded-by badge.
-- **P2 (`7612f58`) decision_responses** — normalized per-response audit table persisted at record time (kept the deliberation jsonb as read-model); "N responses recorded".
-- **P3 (`fc0b026`) proposal↔meeting unification** — `meeting_agenda_items` is the single source of truth; backfilled + dropped `meeting_proposals`; agenda FKs → ON DELETE SET NULL.
-- **P4 (`9b220a5`) review workflow** — learnings + retiredAt; `decision_reviews` history + `review_outcome` enum; overdue-review dashboard queue; Record-review action (keep/amend/supersede/retire, auto-links, learnings) + UI + Retired badge.
-
-Migrations applied to Neon: provenance indexes; `decision_responses`; unification (drop `meeting_proposals`, agenda FK set-null); `decisions.learnings`/`retired_at` + `decision_reviews` + `review_outcome` enum.
-
-## PR stack (in merge order)
+## PR stack (merge bottom-up)
 1. #1 `security-integrity-hardening` → main
 2. #2 `tranche-2-broken-features` → #1
 3. #3 `tranche-3a-meeting-flow` → #2
-4. #4 `tranche-3b-traceability` → #3 (this session)
-
-Merge bottom-up, or rebase the stack onto main once #1 lands.
+4. #4 `tranche-3b-traceability` → #3
+5. #5 `tranche-4a-performance` → #4 (this session)
 
 ## What to do next
-- **Manual smoke test:** run a live consent meeting → record a decision → open it and confirm the provenance panel, the per-response record, a consistent proposal↔meeting agenda link, and the overdue-review → Record-review flow (keep/amend/supersede/retire, learnings, Retired badge).
 - Set `UPSTASH_REDIS_REST_URL`/`TOKEN` in Vercel (rate limiting, still pending).
-- Deferred follow-ups: review-due in-app notifications (needs a scheduler — `notifications` table + `createNotifications` are ready to wire a `review_due` type); `document_versions.decisionId` capture (needs a UI flow); deliberation render on the meeting summary page.
-- Remaining roadmap tranches: 4a Performance, 4b Sharing/transparency, 4c Canvas, 4d AI, 4e Engagement.
+- Confirm Vercel's `DATABASE_URL` is the **pooled** Neon endpoint (the new driver opens a WebSocket per invocation).
+- Deferred within 4a: admin-list pagination (super-admin only); the "N total" counts on paginated list headers now reflect the page, not the grand total (cosmetic).
+- Remaining roadmap tranches: 4b Sharing/transparency, 4c Canvas, 4d AI, 4e Engagement.
+
+## Notes / demo-data state
+- Demo (Riverside) space carries test artifacts from this + prior sessions: decision #47 is "Reviewed" (with learnings), and a "Should we publish our decision log publicly?" proposal was created by the promote-topic transaction test. User asked to leave them.
 
 ## Build status
 - `npm run build` — **passing** (exit 0)

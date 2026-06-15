@@ -201,6 +201,17 @@ New Neon migrations: provenance indexes; `decision_responses`; proposal↔meetin
 
 Deferred: review-due notifications (no scheduler); `document_versions.decisionId` capture (UI flow); deliberation render on the meeting summary page.
 
+## Performance & Integrity (2026-06-15)
+
+Branch `tranche-4a-performance` (stacked on 3b). Four phases, all build/lint clean, commit per phase:
+
+- **P1:** dashboard stats via SQL `count()/FILTER` aggregates (no more fetch-all-and-filter-in-JS); `requireUser`/`getCurrentSpace`/`getCurrentMembership` wrapped in React `cache()` (space.ts is now a plain server module; client-invoked `createSpace`/`switchSpace` moved to `space-actions.ts`); remaining indexes (actions FKs, subscriptions.stripeSubscriptionId, agenda-item FKs, unique decision_links).
+- **P2:** DB driver swapped to **neon-serverless Pool** (`ws` dep) for interactive transactions; the 10 multi-write sequences (recordMeetingDecision, createDecision, createMeeting/updateMeeting, signUp, deleteDecision, clearSpaceData, etc.) wrapped in `db.transaction()`. `insertDecisionWithUniqueNumber` uses savepoints for its retry inside a tx.
+- **P3:** v1 API pagination caps (actions/meetings/documents); shared `<Pagination>` on server-rendered lists; decisions log = cap + "Load more" (`loadMoreDecisions`) keeping client filters.
+- **P4:** webhooks dispatch via `after()`; live + observer polling stop on completed + skip while tab hidden.
+
+New dependency: `ws`. New Neon migration: P1 indexes. DB driver is now neon-serverless (app runtime); migration/seed `.cjs` scripts still use neon-http.
+
 ## Known Issues
 
 - **Deployment:** app is **live** (per owner) — set `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` in Vercel for rate limiting (fails open without them). Earlier "deploy pending" notes in PLAN/CLAUDE are stale.
