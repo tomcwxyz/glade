@@ -223,6 +223,16 @@ Branch `tranche-4e-engagement` (stacked on 4a). Four phases, build/lint clean, c
 
 New Neon migration: `notification_type += review_due`. No new dependencies.
 
+## Sharing & Transparency (2026-06-15)
+
+Branch `tranche-4b-sharing` (stacked on 4e). Three phases, build/lint clean, commit per phase:
+
+- **P1:** public **decision permalinks** (`/public/[spaceSlug]/decisions/[number]`) + **document reader** (`/public/[spaceSlug]/documents/[id]`, Tiptap→HTML). `getPublicDecisionByNumber` (linked decisions re-filtered to public) + `getPublicDocumentById`. List rows link through.
+- **P2:** RSS 2.0 feed `/public/[spaceSlug]/feed.xml`; dynamic `sitemap.ts` (force-dynamic) covering public spaces/sections/decision permalinks.
+- **P3:** per-action public/hide toggle (`setActionPublic`); `?format=json` on decisions export + public CSV export; **middleware fix** — `/sitemap.xml` + `/robots.txt` were behind auth (302), now public.
+
+No new dependencies, no migration. Verified via curl against the `test-event` space.
+
 ## Known Issues
 
 - **Deployment:** app is **live** (per owner) — set `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` in Vercel for rate limiting (fails open without them). Earlier "deploy pending" notes in PLAN/CLAUDE are stale.

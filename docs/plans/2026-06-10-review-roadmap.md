@@ -11,7 +11,7 @@
 | 2 | Make broken features work (B1, B2, B4, B5, B6, B8, B10, D4) | [`2026-06-30-broken-features-plan.md`](./2026-06-30-broken-features-plan.md) | `tranche-2-broken-features` | ✅ Implemented — stacked on Tranche 1 |
 | 3 | Traceability release (provenance panel, `decision_responses`, proposal↔meeting unification, review workflow) | `~/.claude/plans/steady-frolicking-eagle.md` | `tranche-3b-traceability` | ✅ Implemented — stacked on Tranche 3a |
 | 4a | Performance (React.cache, detail-page Promise.all, pagination, indexes, neon-serverless txns, `waitUntil`) | `~/.claude/plans/steady-frolicking-eagle.md` | `tranche-4a-performance` | ✅ Implemented — stacked on Tranche 3b |
-| 4b | Sharing/transparency (readable public docs, decision permalinks, RSS, sitemap, per-item action hide, export) | _tbd_ | _tbd_ | ⏳ Not started |
+| 4b | Sharing/transparency (readable public docs, decision permalinks, RSS, sitemap, per-item action hide, export) | `~/.claude/plans/steady-frolicking-eagle.md` | `tranche-4b-sharing` | ✅ Implemented — stacked on Tranche 4e |
 | 4c | Canvas (stable hashId jitter, drag-pan, legend filters, memoised layers, distinct status colours) | _tbd_ | _tbd_ | ⏳ Not started |
 | 4d | AI (structured outputs + model upgrade, error handling, input caps → governance Q&A, agenda drafting, auto-tagging) | _tbd_ | _tbd_ | ⏳ Not started |
 | 4e | Engagement (notifications + review-due digest, pending-invite mgmt, global search/command palette, user profile) | `~/.claude/plans/steady-frolicking-eagle.md` | `tranche-4e-engagement` | ✅ Implemented — stacked on Tranche 4a |
