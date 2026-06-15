@@ -1,31 +1,34 @@
-# Handoff — 2026-06-30
+# Handoff — 2026-06-15
 
 ## What happened this session
 
-Shipped two review tranches end-to-end.
+Meeting-flow overhaul, on branch `tranche-3a-meeting-flow` (stacked on `tranche-2-broken-features`). Plan: `~/.claude/plans/steady-frolicking-eagle.md`. Delivered in three reviewed phases; all build + lint clean; one commit per phase.
 
-### Tranche 1 — Security & Integrity (`security-integrity-hardening`)
-Closes S1–S8, D2, B3, S7. `requireSpaceRole` helper, observer read-only, live-state route scoping, facilitator gating, unique decision numbers, security headers, webhook SSRF, Upstash rate limiting, API-key value fix, export injection. 14 commits. **PR not yet opened** (gh GraphQL auth issue — run `! gh auth refresh -h github.com -s repo`, or use the branch link).
+### Phase 1 — broken interactions, observer, speaker mgmt (`385559b`)
+- **Change & withdraw responses** across consent (react/object), vote, advice, temperature check. New `withdrawResponse` action; controls stay live after submit with a Withdraw affordance. Fixed temperature-check `hasVoted` bug (was true if *any* participant had voted).
+- **Speaker stack management**: `SpeakerEntry` gains `status` (waiting/speaking/spoke), `calledAt`/`finishedAt`, `note`. New shared `SpeakerStack` component; facilitator Call to speak / Mark done / record clarifying-question note / remove; participants see own status. New `callSpeaker`/`markSpeakerDone`/`setSpeakerNote` actions.
+- **Observer view** now mirrors live activity: ticking timer, speaker stack, decision method/stage with aggregate tallies (counts only — no per-name attribution), objection count, recorded outcomes under completed items.
 
-### Tranche 2 — Make Broken Features Work (`tranche-2-broken-features`, stacked on Tranche 1)
-Closes B1, B2, B4, B5, B6, B8, B10, D4. Plan: `docs/plans/2026-06-30-broken-features-plan.md`.
+### Phase 2 — in-app notifications (`77becd5`)
+- New `notifications` table + `notification_type` enum (migrated to Neon). Queries in `queries.ts`. `notifyMeetingStarted` fires from `startMeeting`/`initializeMeetingState`, notifying invited attendees (or all members if none invited), excluding the starter; best-effort.
+- `NotificationBell` in the sidebar header (unread badge, dropdown, mark-read, click-through), polling `GET /api/notifications` every 30s.
 
-1. **B6** — `deriveActionStatus` (overdue at read time) in `getActions`/by-topic/by-proposal.
-2. **B8** — meeting summaries now use a `meeting_summary` insight type (migration); briefing regen no longer wipes them.
-3. **B4 + B10** — `applyStateChange` optimistic-lock+retry for all live state writes; `submitResponse` dedupes per participant+stage (added `stage` to `DecisionResponse`).
-4. **B2** — token-scoped `/api/shared/meeting/[token]/state` route + `getMeetingSessionStateByShareToken`; observer-view polls it; `/api/shared` added to middleware public paths.
-5. **B1** — participant voting/reaction/objection input in `VoteFlow`/`ConsentFlow` (threaded `currentUserId`); retired dead `participant-interactions` stage UI.
-6. **B5** — `tag-actions.ts` + `TagManager` in Settings; colour chips; decision form shows tag section always; unique `tags(space_id, name)`.
-7. **D4** — document draft buffer (`draftContent`/`draftUpdatedAt`); autosave → draft only; Save promotes + snapshots + clears draft + `updatedAt` conflict check.
+### Phase 3 — objection resolution, deliberation record, clarify stage (`087ed1f`)
+- **Structured objection resolution**: objections gain `resolution` (addressed/integrated/withdrawn/stands) + note. New `resolveObjection` action (facilitator sets any; objector withdraws own). Integrate-stage UI; Decide stage **blocks recording consent while any objection stands**.
+- **Deliberation record**: new `decisions.deliberation` jsonb (migrated). `recordMeetingDecision` snapshots tallies, objections+resolutions, clarifying questions, speaker notes; rendered as "How this was decided" on the decision detail page.
+- **Clarify stage**: participants can ask clarifying questions in consent's Clarify stage (previously no input); feeds the deliberation record; excluded from observer tallies.
 
-Migrations applied to Neon: `insight_type += meeting_summary`, `tags_space_name_unq`, `documents.draft_content/draft_updated_at`.
+Migrations applied to Neon: `notifications` table + `notification_type` enum; `decisions.deliberation` jsonb.
 
 ## What to do next
-- Open PRs for both branches (auth permitting). Tranche 2 stacks on Tranche 1 — merge Tranche 1 first, or rebase Tranche 2 onto main after.
-- Set `UPSTASH_REDIS_REST_URL`/`TOKEN` in Vercel (rate limiting).
-- Manual smoke test of live meetings (participant vote/object, observer page), tags, document draft/publish.
-- Next: **Tranche 3 — traceability release** (provenance panel, `decision_responses` persistence, proposal↔meeting unification, review workflow).
+- **Manual smoke test** (two sessions + incognito observer): change/withdraw responses; speaker call/done/note; observer live updates; bell increments on meeting start; objection resolve/withdraw + consent blocked while one stands; deliberation shows on the decision afterwards.
+- Open PRs for the stack (`tranche-2-broken-features` then `tranche-3a-meeting-flow`) once branches are merged in order, or rebase onto main.
+- Set `UPSTASH_REDIS_REST_URL`/`TOKEN` in Vercel (rate limiting, still pending from prior tranche).
+- Follow-ups deferred: deliberation render on the meeting summary page (currently only decision detail); "record as deferred/not-agreed" outcome path when consent fails (currently just blocked); full per-response audit table (Tranche 3 proper).
 
 ## Build status
-- `npm run build` — **passing**
+- `npm run build` — **passing** (exit 0)
 - `npm run lint` — **no errors** (pre-existing jsx-a11y warnings only)
+
+## Gotcha logged
+Stopping an `npm run dev` background task orphans the child `next dev`, which keeps holding the `.next` lock and breaks `npm run build` (EPERM). Kill the specific orphaned PIDs before building — never a broad `taskkill //IM node.exe`. Saved to auto-memory.

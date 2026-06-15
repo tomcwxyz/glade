@@ -178,6 +178,16 @@ Tranche 2 implemented on `tranche-2-broken-features` (stacked on Tranche 1). See
 
 Schema migrations applied to Neon: `insight_type += meeting_summary`, `tags_space_name_unq`, `documents.draft_content/draft_updated_at` (plus Tranche 1's `decisions_space_number_unq`).
 
+## Meeting-Flow Overhaul (2026-06-15)
+
+Branch `tranche-3a-meeting-flow` (stacked on Tranche 2). Plan: `~/.claude/plans/steady-frolicking-eagle.md`. Three phases, all build/lint clean:
+
+- **P1:** participants can change AND withdraw reactions/objections/votes/advice/temperature pulses (new `withdrawResponse`); speaker-stack management (status waiting/speaking/spoke, facilitator Call/Done/note via new `SpeakerStack` + `callSpeaker`/`markSpeakerDone`/`setSpeakerNote`); observer view enriched (timer, speaker stack, stage, aggregate tallies, objection count, outcomes).
+- **P2:** in-app notifications — new `notifications` table + `notification_type` enum, `NotificationBell` in sidebar, `GET /api/notifications`, `notifyMeetingStarted` trigger on meeting start.
+- **P3:** structured objection resolution (resolution + note; consent blocked while an objection stands); `decisions.deliberation` jsonb snapshot rendered on the decision detail page; participant clarifying-question input in consent's Clarify stage.
+
+New Neon migrations: `notifications` + `notification_type`; `decisions.deliberation`. DB now 27 tables.
+
 ## Known Issues
 
 - **Deployment:** app is **live** (per owner) — set `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` in Vercel for rate limiting (fails open without them). Earlier "deploy pending" notes in PLAN/CLAUDE are stale.
