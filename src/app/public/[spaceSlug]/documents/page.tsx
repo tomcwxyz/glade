@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { getPublicSpace, getPublicDocuments } from "@/lib/queries";
 import { formatDateRelative } from "@/lib/utils";
 import { FileText } from "lucide-react";
@@ -87,9 +88,10 @@ export default async function PublicDocumentsPage({
                 </h3>
                 <div className="space-y-1">
                   {typeDocs.map((doc) => (
-                    <div
+                    <Link
                       key={doc.id}
-                      className="flex items-center gap-4 px-4 py-3 rounded-lg border border-border bg-paper-warm"
+                      href={`/public/${spaceSlug}/documents/${doc.id}`}
+                      className="flex items-center gap-4 px-4 py-3 rounded-lg border border-border bg-paper-warm hover:bg-paper-warm/80 transition-colors"
                     >
                       <FileText
                         size={18}
@@ -106,7 +108,7 @@ export default async function PublicDocumentsPage({
                       <span className="text-xs text-bark-muted/60 shrink-0">
                         {formatDateRelative(doc.updatedAt.toISOString())}
                       </span>
-                    </div>
+                    </Link>
                   ))}
                 </div>
               </section>

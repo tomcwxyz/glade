@@ -2003,3 +2003,89 @@ export async function searchSpace(spaceId: string, query: string): Promise<Searc
     })),
   ];
 }
+
+// ============================================================
+// Public detail (permalinks) — Tranche 4b
+// ============================================================
+
+/**
+ * A single public decision by its number. Enforces the per-item isPublic flag
+ * (caller enforces the space's publicDecisionLog toggle). Linked decisions are
+ * re-filtered to public so a hidden decision can't leak via a relationship.
+ */
+export async function getPublicDecisionByNumber(spaceId: string, number: number) {
+  const [d] = await db
+    .select()
+    .from(decisions)
+    .where(
+      and(
+        eq(decisions.spaceId, spaceId),
+        eq(decisions.number, number),
+        eq(decisions.isPublic, true)
+      )
+    )
+    .limit(1);
+  if (!d) return null;
+
+  const [tagRows, forward, reverse, meetingRow] = await Promise.all([
+    db
+      .select({ name: tags.name })
+      .from(decisionTags)
+      .innerJoin(tags, eq(tags.id, decisionTags.tagId))
+      .where(eq(decisionTags.decisionId, d.id)),
+    db
+      .select({ id: decisions.id, number: decisions.number, title: decisions.title, isPublic: decisions.isPublic, relation: decisionLinks.linkType })
+      .from(decisionLinks)
+      .innerJoin(decisions, eq(decisions.id, decisionLinks.toDecisionId))
+      .where(eq(decisionLinks.fromDecisionId, d.id)),
+    db
+      .select({ id: decisions.id, number: decisions.number, title: decisions.title, isPublic: decisions.isPublic, relation: decisionLinks.linkType })
+      .from(decisionLinks)
+      .innerJoin(decisions, eq(decisions.id, decisionLinks.fromDecisionId))
+      .where(eq(decisionLinks.toDecisionId, d.id)),
+    db
+      .select({ title: meetings.title, isPublic: meetings.isPublic })
+      .from(meetingDecisions)
+      .innerJoin(meetings, eq(meetings.id, meetingDecisions.meetingId))
+      .where(eq(meetingDecisions.decisionId, d.id))
+      .limit(1),
+  ]);
+
+  const linkedDecisions = [...forward, ...reverse]
+    .filter((l) => l.isPublic)
+    .map((l) => ({ number: l.number, title: l.title, relation: l.relation }));
+
+  return {
+    ...d,
+    tags: tagRows.map((t) => t.name),
+    linkedDecisions,
+    meetingTitle: meetingRow[0]?.isPublic ? meetingRow[0].title : null,
+  };
+}
+
+/**
+ * A single published, public document for the reader page. Caller enforces the
+ * space's publicDocuments toggle.
+ */
+export async function getPublicDocumentById(spaceId: string, documentId: string) {
+  const [doc] = await db
+    .select({
+      id: documents.id,
+      title: documents.title,
+      type: documents.type,
+      content: documents.content,
+      currentVersion: documents.currentVersion,
+      updatedAt: documents.updatedAt,
+    })
+    .from(documents)
+    .where(
+      and(
+        eq(documents.spaceId, spaceId),
+        eq(documents.id, documentId),
+        eq(documents.status, "published"),
+        eq(documents.isPublic, true)
+      )
+    )
+    .limit(1);
+  return doc || null;
+}

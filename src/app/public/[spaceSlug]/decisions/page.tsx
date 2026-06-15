@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { getPublicSpace, getPublicDecisions } from "@/lib/queries";
 import { formatDate } from "@/lib/utils";
 import { BookOpen } from "lucide-react";
@@ -69,9 +70,10 @@ export default async function PublicDecisionsPage({
       ) : (
         <div className="space-y-2">
           {decisions.map((d) => (
-            <div
+            <Link
               key={d.id}
-              className="px-4 py-3.5 rounded-lg border border-border bg-paper-warm hover:bg-paper-warm/80 transition-colors"
+              href={`/public/${spaceSlug}/decisions/${d.number}`}
+              className="block px-4 py-3.5 rounded-lg border border-border bg-paper-warm hover:bg-paper-warm/80 transition-colors"
             >
               <div className="flex items-start gap-3">
                 <span className="text-xs text-bark-muted/60 font-mono mt-0.5 shrink-0">
@@ -117,7 +119,7 @@ export default async function PublicDecisionsPage({
                   )}
                 </div>
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       )}
