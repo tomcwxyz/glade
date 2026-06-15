@@ -8,6 +8,7 @@ import { AgendaNavigator } from "./agenda-navigator";
 import { MeetingTimer } from "./meeting-timer";
 import { DecisionControls } from "./decision-controls";
 import { DecisionFlowContainer } from "./decision-flow-container";
+import { SpeakerStack } from "./speaker-stack";
 import {
   advanceAgendaItem,
   skipAgendaItem,
@@ -338,26 +339,12 @@ export function FacilitatorView({
             </div>
 
             {/* Speaker stack */}
-            {state.speakerStack.length > 0 && (
-              <div className="mb-6 md:mb-8">
-                <h3 className="text-xs uppercase tracking-wider text-bark-muted font-medium mb-2">
-                  Speaker stack
-                </h3>
-                <div className="space-y-1">
-                  {state.speakerStack.map((s, i) => (
-                    <div
-                      key={s.participantId}
-                      className="flex items-center gap-2 px-3 py-2 bg-paper-warm rounded-lg text-sm"
-                    >
-                      <span className="text-xs text-bark-muted font-medium w-5">
-                        {i + 1}.
-                      </span>
-                      <span className="text-bark">{s.name}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+            <SpeakerStack
+              meetingId={meetingId}
+              state={state}
+              mutate={mutate}
+              mode="facilitator"
+            />
 
             {/* Decision flow or controls */}
             {state.phase === "decision_flow" && state.decisionFlow ? (

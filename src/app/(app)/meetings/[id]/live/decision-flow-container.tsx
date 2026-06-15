@@ -9,6 +9,7 @@ import { TemperatureCheckFlow } from "./temperature-check-flow";
 import {
   advanceDecisionStage,
   submitResponse,
+  withdrawResponse,
   recordMeetingDecision,
   advanceAgendaItem,
   cancelDecisionFlow,
@@ -63,6 +64,11 @@ export function DecisionFlowContainer({
     [meetingId, mutate]
   );
 
+  const handleWithdrawResponse = useCallback(async () => {
+    const result = await withdrawResponse(meetingId);
+    if ("state" in result && result.state) mutate(result.state);
+  }, [meetingId, mutate]);
+
   const handleCloseFlow = useCallback(async () => {
     const result = await cancelDecisionFlow(meetingId);
     if ("state" in result && result.state) mutate(result.state);
@@ -91,7 +97,9 @@ export function DecisionFlowContainer({
         flow={flow}
         state={state}
         isFacilitator={isFacilitator}
+        currentUserId={currentUserId}
         onSubmit={(value) => handleSubmitResponse(value)}
+        onWithdraw={handleWithdrawResponse}
         onClose={handleCloseFlow}
       />
     );
@@ -108,6 +116,7 @@ export function DecisionFlowContainer({
         currentUserId={currentUserId}
         onAdvanceStage={handleAdvanceStage}
         onSubmit={handleSubmitResponse}
+        onWithdraw={handleWithdrawResponse}
         onRecord={handleRecordAndAdvance}
       />
     );
@@ -124,6 +133,7 @@ export function DecisionFlowContainer({
         currentUserId={currentUserId}
         onAdvanceStage={handleAdvanceStage}
         onSubmit={handleSubmitResponse}
+        onWithdraw={handleWithdrawResponse}
         onRecord={handleRecordAndAdvance}
         passThreshold={voteThreshold}
       />
@@ -147,8 +157,10 @@ export function DecisionFlowContainer({
         flow={flow}
         state={state}
         isFacilitator={isFacilitator}
+        currentUserId={currentUserId}
         onAdvanceStage={handleAdvanceStage}
         onSubmitAdvice={handleSubmitResponse}
+        onWithdraw={handleWithdrawResponse}
         onRecord={handleRecordAndAdvance}
       />
     );

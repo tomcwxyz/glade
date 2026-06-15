@@ -1,21 +1,20 @@
 "use client";
 
-import { useCallback, useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useLiveRegion } from "@/components/live-region";
 import { useMeetingPoll } from "./use-meeting-poll";
 import { AgendaNavigator } from "./agenda-navigator";
 import { MeetingTimer } from "./meeting-timer";
 import { DecisionFlowContainer } from "./decision-flow-container";
 import { ParticipantInteractions } from "./participant-interactions";
+import { SpeakerStack } from "./speaker-stack";
 import {
   Loader2,
   CheckCircle2,
   Users,
-  Hand,
   List,
   X,
 } from "lucide-react";
-import { requestToSpeak, withdrawSpeaker } from "@/lib/meeting-live-actions";
 
 const AGENDA_TYPE_LABELS: Record<string, { label: string; color: string }> = {
   for_decision: { label: "For decision", color: "text-canopy bg-canopy-pale" },
@@ -53,16 +52,6 @@ export function ParticipantView({
   const { announce } = useLiveRegion();
   const { state, loading, mutate } = useMeetingPoll(meetingId);
   const [mobileAgendaOpen, setMobileAgendaOpen] = useState(false);
-
-  const handleRequestToSpeak = useCallback(async () => {
-    const result = await requestToSpeak(meetingId);
-    if ("state" in result && result.state) mutate(result.state);
-  }, [meetingId, mutate]);
-
-  const handleWithdraw = useCallback(async () => {
-    const result = await withdrawSpeaker(meetingId);
-    if ("state" in result && result.state) mutate(result.state);
-  }, [meetingId, mutate]);
 
   // Announce agenda item changes to screen readers
   const currentAgendaItem = state ? agendaItems[state.currentAgendaItemIndex] : null;
@@ -221,45 +210,13 @@ export function ParticipantView({
             </div>
 
             {/* Speaker stack + request to speak */}
-            <div className="mb-6 md:mb-8">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-xs uppercase tracking-wider text-bark-muted font-medium">
-                  Speaker stack ({state.speakerStack.length})
-                </h3>
-                <button
-                  type="button"
-                  onClick={handleRequestToSpeak}
-                  className="flex items-center gap-1 px-2.5 py-1.5 text-xs bg-canopy text-paper rounded-lg font-medium hover:bg-canopy-light transition-colors"
-                >
-                  <Hand size={12} />
-                  Raise hand
-                </button>
-              </div>
-              {state.speakerStack.length > 0 ? (
-                <div className="space-y-1">
-                  {state.speakerStack.map((s, i) => (
-                    <div
-                      key={s.participantId}
-                      className="flex items-center gap-2 px-3 py-2 bg-paper-warm rounded-lg text-sm"
-                    >
-                      <span className="text-xs text-bark-muted font-medium w-5">
-                        {i + 1}.
-                      </span>
-                      <span className="text-bark flex-1">{s.name}</span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-xs text-bark-muted/60">No speakers in queue</p>
-              )}
-              <button
-                type="button"
-                onClick={handleWithdraw}
-                className="mt-2 text-xs text-bark-muted hover:text-bark transition-colors"
-              >
-                Lower hand
-              </button>
-            </div>
+            <SpeakerStack
+              meetingId={meetingId}
+              state={state}
+              mutate={mutate}
+              mode="participant"
+              currentUserId={currentUserId}
+            />
 
             {/* Decision flow interactions */}
             {state.phase === "decision_flow" && state.decisionFlow ? (

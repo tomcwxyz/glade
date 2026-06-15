@@ -20,6 +20,7 @@ export function VoteFlow({
   currentUserId,
   onAdvanceStage,
   onSubmit,
+  onWithdraw,
   onRecord,
   passThreshold,
 }: {
@@ -31,6 +32,7 @@ export function VoteFlow({
   currentUserId?: string;
   onAdvanceStage: (stage: string) => Promise<void>;
   onSubmit?: (value: string, comment?: string) => Promise<void>;
+  onWithdraw?: () => Promise<void>;
   onRecord: (title: string, method: string, outcome?: string) => Promise<void>;
   passThreshold?: number;
 }) {
@@ -176,9 +178,25 @@ export function VoteFlow({
             ))}
           </div>
           {myVote && (
-            <p className="text-xs text-canopy mt-2">
-              Vote recorded — you can change it until the round closes.
-            </p>
+            <div className="flex items-center gap-3 mt-2">
+              <p className="text-xs text-canopy">
+                Vote recorded — you can change it until the round closes.
+              </p>
+              {onWithdraw && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setSubmitting(true);
+                    await onWithdraw();
+                    setSubmitting(false);
+                  }}
+                  disabled={submitting}
+                  className="text-xs text-bark-muted hover:text-earth transition-colors disabled:opacity-50"
+                >
+                  Withdraw
+                </button>
+              )}
+            </div>
           )}
         </div>
       )}

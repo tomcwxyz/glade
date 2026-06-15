@@ -15,22 +15,33 @@ export function AdviceFlow({
   flow,
   state,
   isFacilitator,
+  currentUserId,
   onAdvanceStage,
   onSubmitAdvice,
+  onWithdraw,
   onRecord,
 }: {
   flow: DecisionFlow;
   state: MeetingSessionState;
   isFacilitator: boolean;
+  currentUserId?: string;
   onAdvanceStage: (stage: string) => Promise<void>;
   onSubmitAdvice: (value: string, comment?: string) => Promise<void>;
+  onWithdraw?: () => Promise<void>;
   onRecord: (title: string, method: string, outcome?: string) => Promise<void>;
 }) {
   const { announce } = useLiveRegion();
   const [title, setTitle] = useState(flow.proposalText || "");
   const [outcome, setOutcome] = useState("");
-  const [advice, setAdvice] = useState("");
-  const [submitted, setSubmitted] = useState(false);
+
+  // Derive the caller's existing advice from state so it survives re-renders and
+  // can be revised or withdrawn (rather than a one-way local "submitted" flag).
+  const myAdvice = flow.responses.find(
+    (r) => r.participantId === currentUserId && r.stage === "consult"
+  );
+  const [advice, setAdvice] = useState(myAdvice?.comment ?? "");
+  const [editing, setEditing] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   const currentStageIndex = ADVICE_STAGES.findIndex((s) => s.key === flow.stage);
 
@@ -48,8 +59,19 @@ export function AdviceFlow({
 
   async function handleSubmitAdvice() {
     if (!advice.trim()) return;
+    setSubmitting(true);
     await onSubmitAdvice("advice", advice.trim());
-    setSubmitted(true);
+    setSubmitting(false);
+    setEditing(false);
+  }
+
+  async function handleWithdrawAdvice() {
+    if (!onWithdraw) return;
+    setSubmitting(true);
+    await onWithdraw();
+    setSubmitting(false);
+    setAdvice("");
+    setEditing(false);
   }
 
   return (
@@ -96,33 +118,56 @@ export function AdviceFlow({
         </div>
       )}
 
-      {/* Consult stage: participants give input */}
-      {flow.stage === "consult" && !isFacilitator && !submitted && (
-        <div className="space-y-3 mb-4">
-          <textarea
-            placeholder="Share your advice, perspective, or concerns…"
-            value={advice}
-            onChange={(e) => setAdvice(e.target.value)}
-            rows={3}
-            className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-paper resize-none focus:outline-none focus:ring-2 focus:ring-canopy/20"
-          />
-          <button
-            type="button"
-            onClick={handleSubmitAdvice}
-            disabled={!advice.trim()}
-            className="px-4 py-2 text-sm bg-canopy text-paper rounded-lg font-medium hover:bg-canopy-light transition-colors disabled:opacity-50"
-          >
-            Submit advice
-          </button>
-        </div>
-      )}
-
-      {flow.stage === "consult" && !isFacilitator && submitted && (
-        <div className="p-3 bg-canopy-pale rounded-lg border border-canopy/20 mb-4">
-          <p className="text-sm text-canopy font-medium">
-            Your advice has been recorded. Waiting for others…
-          </p>
-        </div>
+      {/* Consult stage: participants give input (editable / withdrawable) */}
+      {flow.stage === "consult" && !isFacilitator && (
+        (!myAdvice || editing) ? (
+          <div className="space-y-3 mb-4">
+            <textarea
+              placeholder="Share your advice, perspective, or concerns…"
+              value={advice}
+              onChange={(e) => setAdvice(e.target.value)}
+              rows={3}
+              className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-paper resize-none focus:outline-none focus:ring-2 focus:ring-canopy/20"
+            />
+            <button
+              type="button"
+              onClick={handleSubmitAdvice}
+              disabled={!advice.trim() || submitting}
+              className="px-4 py-2 text-sm bg-canopy text-paper rounded-lg font-medium hover:bg-canopy-light transition-colors disabled:opacity-50"
+            >
+              {myAdvice ? "Update advice" : "Submit advice"}
+            </button>
+          </div>
+        ) : (
+          <div className="p-3 bg-canopy-pale rounded-lg border border-canopy/20 mb-4">
+            <p className="text-sm text-canopy font-medium mb-1">
+              Your advice has been recorded. Waiting for others…
+            </p>
+            <p className="text-sm text-bark-muted mb-2">{myAdvice.comment}</p>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setAdvice(myAdvice.comment ?? "");
+                  setEditing(true);
+                }}
+                className="text-xs text-canopy hover:underline"
+              >
+                Edit
+              </button>
+              {onWithdraw && (
+                <button
+                  type="button"
+                  onClick={handleWithdrawAdvice}
+                  disabled={submitting}
+                  className="text-xs text-bark-muted hover:text-earth transition-colors disabled:opacity-50"
+                >
+                  Withdraw
+                </button>
+              )}
+            </div>
+          </div>
+        )
       )}
 
       {/* Consultation responses (visible to facilitator always, and in review stage) */}

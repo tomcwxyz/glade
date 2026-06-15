@@ -14,20 +14,24 @@ export function TemperatureCheckFlow({
   flow,
   state,
   isFacilitator,
+  currentUserId,
   onSubmit,
+  onWithdraw,
   onClose,
 }: {
   flow: DecisionFlow;
   state: MeetingSessionState;
   isFacilitator: boolean;
+  currentUserId?: string;
   onSubmit: (value: string) => void;
+  onWithdraw?: () => void;
   onClose: () => void;
 }) {
   const participantCount = Object.keys(state.participants).length;
   const responseCount = flow.responses.length;
-  const hasVoted = !isFacilitator && flow.responses.some(
-    (r) => Object.keys(state.participants).includes(r.participantId)
-  );
+  // The caller's own response (if any) — drives the "you can change it" state.
+  const myVote = flow.responses.find((r) => r.participantId === currentUserId)?.value;
+  const hasVoted = !isFacilitator && !!myVote;
 
   // Tally results
   const tally = TEMP_OPTIONS.map((opt) => ({
@@ -81,28 +85,47 @@ export function TemperatureCheckFlow({
         </div>
       ) : null}
 
-      {/* Voting buttons (for participants who haven't voted) */}
-      {!isFacilitator && !hasVoted && (
+      {/* Voting buttons — stay live so participants can change their pulse */}
+      {!isFacilitator && (
         <div className="grid grid-cols-2 gap-2">
-          {TEMP_OPTIONS.map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() => onSubmit(opt.value)}
-              className="flex flex-col items-center gap-1 px-3 py-3 border border-border rounded-lg hover:bg-paper-deep transition-colors"
-            >
-              <span className="text-lg">{opt.emoji}</span>
-              <span className="text-sm font-medium text-bark">{opt.label}</span>
-              <span className="text-[0.6875rem] text-bark-muted">{opt.description}</span>
-            </button>
-          ))}
+          {TEMP_OPTIONS.map((opt) => {
+            const selected = myVote === opt.value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                aria-pressed={selected}
+                onClick={() => onSubmit(opt.value)}
+                className={`flex flex-col items-center gap-1 px-3 py-3 rounded-lg transition-colors ${
+                  selected
+                    ? "border border-amber bg-amber/10"
+                    : "border border-border hover:bg-paper-deep"
+                }`}
+              >
+                <span className="text-lg">{opt.emoji}</span>
+                <span className="text-sm font-medium text-bark">{opt.label}</span>
+                <span className="text-[0.6875rem] text-bark-muted">{opt.description}</span>
+              </button>
+            );
+          })}
         </div>
       )}
 
       {!isFacilitator && hasVoted && (
-        <p className="text-xs text-bark-muted">
-          Your response has been recorded.
-        </p>
+        <div className="flex items-center gap-3 mt-2">
+          <p className="text-xs text-bark-muted">
+            Recorded: <span className="font-medium">{myVote}</span> — you can change it.
+          </p>
+          {onWithdraw && (
+            <button
+              type="button"
+              onClick={onWithdraw}
+              className="text-xs text-bark-muted hover:text-earth transition-colors"
+            >
+              Withdraw
+            </button>
+          )}
+        </div>
       )}
 
       {isFacilitator && (

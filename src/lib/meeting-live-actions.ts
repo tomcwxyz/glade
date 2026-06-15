@@ -258,6 +258,33 @@ export async function submitResponse(
   });
 }
 
+/**
+ * Remove the caller's own response in the current decision-flow stage, letting a
+ * participant withdraw a reaction / objection / vote (not just replace it).
+ */
+export async function withdrawResponse(meetingId: string) {
+  return withMeetingState(meetingId, async ({ state, space, user }) => {
+    if (!state.decisionFlow) return { error: "No decision flow active" };
+
+    const newState = await applyStateChange(meetingId, space.id, state, (s) => {
+      if (!s.decisionFlow) return s;
+      const stage = s.decisionFlow.stage;
+      return {
+        ...s,
+        decisionFlow: {
+          ...s.decisionFlow,
+          responses: s.decisionFlow.responses.filter(
+            (r) => !(r.participantId === user.id && (r.stage ?? null) === stage)
+          ),
+        },
+        version: s.version + 1,
+        updatedAt: new Date().toISOString(),
+      };
+    });
+    return { state: newState };
+  });
+}
+
 export async function requestToSpeak(meetingId: string) {
   return withMeetingState(meetingId, async ({ state, space, user }) => {
     if (state.speakerStack.some((s) => s.participantId === user.id)) {
@@ -275,6 +302,7 @@ export async function requestToSpeak(meetingId: string) {
                 participantId: user.id,
                 name: user.name || "Unknown",
                 requestedAt: new Date().toISOString(),
+                status: "waiting" as const,
               },
             ],
             version: s.version + 1,
@@ -300,6 +328,71 @@ export async function withdrawSpeaker(meetingId: string, participantId?: string)
     const newState = await applyStateChange(meetingId, space.id, state, (s) => ({
       ...s,
       speakerStack: s.speakerStack.filter((e) => e.participantId !== targetId),
+      version: s.version + 1,
+      updatedAt: new Date().toISOString(),
+    }));
+    return { state: newState };
+  });
+}
+
+/**
+ * Facilitator calls a queued speaker to the floor. Only one speaker is "speaking"
+ * at a time — any current speaker is marked "spoke" first.
+ */
+export async function callSpeaker(meetingId: string, participantId: string) {
+  return withFacilitatorState(meetingId, async ({ state, space }) => {
+    const now = new Date().toISOString();
+    const newState = await applyStateChange(meetingId, space.id, state, (s) => ({
+      ...s,
+      speakerStack: s.speakerStack.map((e) => {
+        if (e.participantId === participantId) {
+          return { ...e, status: "speaking" as const, calledAt: now };
+        }
+        // Demote whoever was speaking — single active speaker.
+        if ((e.status ?? "waiting") === "speaking") {
+          return { ...e, status: "spoke" as const, finishedAt: now };
+        }
+        return e;
+      }),
+      version: s.version + 1,
+      updatedAt: now,
+    }));
+    return { state: newState };
+  });
+}
+
+/** Facilitator marks a speaker as finished (keeps them in the record). */
+export async function markSpeakerDone(meetingId: string, participantId: string) {
+  return withFacilitatorState(meetingId, async ({ state, space }) => {
+    const now = new Date().toISOString();
+    const newState = await applyStateChange(meetingId, space.id, state, (s) => ({
+      ...s,
+      speakerStack: s.speakerStack.map((e) =>
+        e.participantId === participantId
+          ? { ...e, status: "spoke" as const, finishedAt: now }
+          : e
+      ),
+      version: s.version + 1,
+      updatedAt: now,
+    }));
+    return { state: newState };
+  });
+}
+
+/** Facilitator records a note / clarifying question against a speaker. */
+export async function setSpeakerNote(
+  meetingId: string,
+  participantId: string,
+  note: string
+) {
+  return withFacilitatorState(meetingId, async ({ state, space }) => {
+    const newState = await applyStateChange(meetingId, space.id, state, (s) => ({
+      ...s,
+      speakerStack: s.speakerStack.map((e) =>
+        e.participantId === participantId
+          ? { ...e, note: note.trim() || undefined }
+          : e
+      ),
       version: s.version + 1,
       updatedAt: new Date().toISOString(),
     }));

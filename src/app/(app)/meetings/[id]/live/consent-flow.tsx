@@ -23,6 +23,7 @@ export function ConsentFlow({
   currentUserId,
   onAdvanceStage,
   onSubmit,
+  onWithdraw,
   onRecord,
 }: {
   meetingId: string;
@@ -33,6 +34,7 @@ export function ConsentFlow({
   currentUserId?: string;
   onAdvanceStage: (stage: string) => Promise<void>;
   onSubmit?: (value: string, comment?: string) => Promise<void>;
+  onWithdraw?: () => Promise<void>;
   onRecord: (title: string, method: string, outcome?: string) => Promise<void>;
 }) {
   const { announce } = useLiveRegion();
@@ -50,6 +52,14 @@ export function ConsentFlow({
     if (!onSubmit) return;
     setSubmitting(true);
     await onSubmit(value, withComment);
+    setSubmitting(false);
+    setComment("");
+  }
+
+  async function withdraw() {
+    if (!onWithdraw) return;
+    setSubmitting(true);
+    await onWithdraw();
     setSubmitting(false);
     setComment("");
   }
@@ -186,39 +196,56 @@ export function ConsentFlow({
       {/* Participant: reactions round */}
       {flow.stage === "react" && !isFacilitator && onSubmit && (
         <div className="mb-4">
-          {myResponse ? (
-            <p className="text-sm text-canopy">
-              Reaction recorded: <span className="font-medium">{myResponse.value}</span>
-            </p>
-          ) : (
-            <>
-              <h4 className="text-xs text-bark-muted font-medium mb-2">Your reaction</h4>
-              <div className="flex flex-wrap gap-2 mb-2">
-                {[
-                  { v: "support", label: "👍 Support" },
-                  { v: "concern", label: "🤔 Concern" },
-                  { v: "against", label: "👎 Against" },
-                  { v: "neutral", label: "😐 Neutral" },
-                ].map((r) => (
-                  <button
-                    key={r.v}
-                    type="button"
-                    onClick={() => submit(r.v, comment || undefined)}
-                    disabled={submitting}
-                    className="px-3 py-2 text-sm border border-border rounded-lg hover:bg-paper-deep transition-colors disabled:opacity-50"
-                  >
-                    {r.label}
-                  </button>
-                ))}
-              </div>
-              <textarea
-                placeholder="Optional comment…"
-                value={comment}
-                onChange={(e) => setComment(e.target.value)}
-                rows={2}
-                className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-paper resize-none focus:outline-none focus:ring-2 focus:ring-canopy/20"
-              />
-            </>
+          <h4 className="text-xs text-bark-muted font-medium mb-2">Your reaction</h4>
+          <div className="flex flex-wrap gap-2 mb-2">
+            {[
+              { v: "support", label: "👍 Support" },
+              { v: "concern", label: "🤔 Concern" },
+              { v: "against", label: "👎 Against" },
+              { v: "neutral", label: "😐 Neutral" },
+            ].map((r) => {
+              const selected = myResponse?.value === r.v;
+              return (
+                <button
+                  key={r.v}
+                  type="button"
+                  aria-pressed={selected}
+                  onClick={() => submit(r.v, comment || undefined)}
+                  disabled={submitting}
+                  className={`px-3 py-2 text-sm rounded-lg transition-colors disabled:opacity-50 ${
+                    selected
+                      ? "bg-canopy text-paper border border-canopy"
+                      : "border border-border hover:bg-paper-deep"
+                  }`}
+                >
+                  {r.label}
+                </button>
+              );
+            })}
+          </div>
+          <textarea
+            placeholder="Optional comment…"
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            rows={2}
+            className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-paper resize-none focus:outline-none focus:ring-2 focus:ring-canopy/20"
+          />
+          {myResponse && (
+            <div className="flex items-center gap-3 mt-2">
+              <p className="text-sm text-canopy">
+                Recorded: <span className="font-medium">{myResponse.value}</span> — you can change it.
+              </p>
+              {onWithdraw && (
+                <button
+                  type="button"
+                  onClick={withdraw}
+                  disabled={submitting}
+                  className="text-xs text-bark-muted hover:text-earth transition-colors disabled:opacity-50"
+                >
+                  Withdraw
+                </button>
+              )}
+            </div>
           )}
         </div>
       )}
@@ -226,44 +253,53 @@ export function ConsentFlow({
       {/* Participant: objection round */}
       {flow.stage === "object" && !isFacilitator && onSubmit && (
         <div className="mb-4">
-          {myResponse ? (
-            <p className="text-sm text-canopy">
-              {myResponse.value === "objection"
-                ? "Objection recorded."
-                : "Recorded: no objection."}
-            </p>
-          ) : (
-            <>
-              <h4 className="text-xs text-bark-muted font-medium mb-2">
-                Do you have a reasoned objection?
-              </h4>
-              <textarea
-                placeholder="Describe your objection (leave blank for none)…"
-                value={comment}
-                onChange={(e) => setComment(e.target.value)}
-                rows={3}
-                className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-paper resize-none focus:outline-none focus:ring-2 focus:ring-canopy/20 mb-2"
-              />
-              <div className="flex gap-2">
+          {myResponse && (
+            <div className="flex items-center gap-3 mb-2">
+              <p className="text-sm text-canopy">
+                {myResponse.value === "objection"
+                  ? "Objection recorded — you can revise or withdraw it."
+                  : "Recorded: no objection — you can still raise one."}
+              </p>
+              {onWithdraw && (
                 <button
                   type="button"
-                  onClick={() => submit("no_objection")}
+                  onClick={withdraw}
                   disabled={submitting}
-                  className="px-4 py-2 text-sm bg-canopy text-paper rounded-lg font-medium hover:bg-canopy-light transition-colors disabled:opacity-50"
+                  className="text-xs text-bark-muted hover:text-earth transition-colors disabled:opacity-50"
                 >
-                  No objection
+                  Withdraw
                 </button>
-                <button
-                  type="button"
-                  onClick={() => submit("objection", comment)}
-                  disabled={submitting || !comment.trim()}
-                  className="px-4 py-2 text-sm bg-earth text-paper rounded-lg font-medium hover:bg-earth/90 transition-colors disabled:opacity-50"
-                >
-                  Raise objection
-                </button>
-              </div>
-            </>
+              )}
+            </div>
           )}
+          <h4 className="text-xs text-bark-muted font-medium mb-2">
+            Do you have a reasoned objection?
+          </h4>
+          <textarea
+            placeholder="Describe your objection (leave blank for none)…"
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            rows={3}
+            className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-paper resize-none focus:outline-none focus:ring-2 focus:ring-canopy/20 mb-2"
+          />
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => submit("no_objection")}
+              disabled={submitting}
+              className="px-4 py-2 text-sm bg-canopy text-paper rounded-lg font-medium hover:bg-canopy-light transition-colors disabled:opacity-50"
+            >
+              No objection
+            </button>
+            <button
+              type="button"
+              onClick={() => submit("objection", comment)}
+              disabled={submitting || !comment.trim()}
+              className="px-4 py-2 text-sm bg-earth text-paper rounded-lg font-medium hover:bg-earth/90 transition-colors disabled:opacity-50"
+            >
+              {myResponse?.value === "objection" ? "Update objection" : "Raise objection"}
+            </button>
+          </div>
         </div>
       )}
 

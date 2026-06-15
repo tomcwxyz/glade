@@ -22,10 +22,21 @@ export interface DecisionFlow {
   responses: DecisionResponse[];
 }
 
+export type SpeakerStatus = "waiting" | "speaking" | "spoke";
+
 export interface SpeakerEntry {
   participantId: string;
   name: string;
   requestedAt: string;
+  status?: SpeakerStatus; // missing => "waiting" (back-compat for in-flight meetings)
+  calledAt?: string;
+  finishedAt?: string;
+  note?: string; // facilitator note / clarifying question raised
+}
+
+/** Resolve a speaker's status, defaulting legacy entries (no status) to waiting. */
+export function speakerStatus(entry: SpeakerEntry): SpeakerStatus {
+  return entry.status ?? "waiting";
 }
 
 export interface CompletedItem {
