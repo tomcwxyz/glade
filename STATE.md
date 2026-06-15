@@ -188,6 +188,19 @@ Branch `tranche-3a-meeting-flow` (stacked on Tranche 2). Plan: `~/.claude/plans/
 
 New Neon migrations: `notifications` + `notification_type`; `decisions.deliberation`. DB now 27 tables.
 
+## Traceability Release (2026-06-15)
+
+Branch `tranche-3b-traceability` (stacked on 3a). Four phases, all build/lint clean, commit per phase:
+
+- **P1 — Provenance panel:** reverse-lookup indexes + queries (`getProposalByDecision`, `getTopicByProposal`, `getDocumentsByDecision`, `getInsightsByDecision`); panel on the decision detail page (origin topic→proposal→decision, decided-at meeting, documents changed, related insights); fixed the dead meeting link; superseded-by badge.
+- **P2 — decision_responses:** normalized per-response audit table populated at `recordMeetingDecision` (kept the `deliberation` jsonb snapshot as read-model); `getDecisionResponses`.
+- **P3 — proposal↔meeting unification:** `meeting_agenda_items` is now the single source of truth; reads derive from it; "link to meeting" creates an agenda item; backfilled + **dropped `meeting_proposals`**; agenda FK `onDelete: set null`.
+- **P4 — review workflow:** `decisions.learnings` + `retiredAt`; `decision_reviews` history table + `review_outcome` enum; overdue-review dashboard queue (`getReviewsDue`); `recordDecisionReview` (keep/amend/supersede/retire, auto-links, learnings); RecordReview UI + history + Retired badge.
+
+New Neon migrations: provenance indexes; `decision_responses`; proposal↔meeting unification (drop `meeting_proposals`, agenda FK set-null); `decisions.learnings`/`retired_at` + `decision_reviews` + `review_outcome` enum. DB now ~28 tables (added `notifications`, `decision_responses`, `decision_reviews`; removed `meeting_proposals`).
+
+Deferred: review-due notifications (no scheduler); `document_versions.decisionId` capture (UI flow); deliberation render on the meeting summary page.
+
 ## Known Issues
 
 - **Deployment:** app is **live** (per owner) — set `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` in Vercel for rate limiting (fails open without them). Earlier "deploy pending" notes in PLAN/CLAUDE are stale.
