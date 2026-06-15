@@ -2089,3 +2089,30 @@ export async function getPublicDocumentById(spaceId: string, documentId: string)
     .limit(1);
   return doc || null;
 }
+
+// ============================================================
+// Sitemap / feeds (public discoverability) — Tranche 4b
+// ============================================================
+
+/** All spaces with their public-visibility settings, for the dynamic sitemap. */
+export async function getPublicSpacesForSitemap() {
+  return db
+    .select({ slug: spaces.slug, settings: spaces.settings })
+    .from(spaces);
+}
+
+/** Public decisions (in spaces with publicDecisionLog on) for sitemap permalinks. */
+export async function getPublicDecisionsForSitemap(limit = 1000) {
+  return db
+    .select({ slug: spaces.slug, number: decisions.number, date: decisions.date })
+    .from(decisions)
+    .innerJoin(spaces, eq(spaces.id, decisions.spaceId))
+    .where(
+      and(
+        eq(decisions.isPublic, true),
+        sql`(${spaces.settings}->>'publicDecisionLog') = 'true'`
+      )
+    )
+    .orderBy(desc(decisions.date))
+    .limit(limit);
+}

@@ -12,7 +12,16 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { spaceSlug } = await params;
   const space = await getPublicSpace(spaceSlug);
-  return { title: space ? `${space.name} — Decision Log` : "Decision Log" };
+  return {
+    title: space ? `${space.name} — Decision Log` : "Decision Log",
+    alternates: {
+      types: {
+        "application/rss+xml": [
+          { url: `/public/${spaceSlug}/feed.xml`, title: `${space?.name ?? "Glade"} decisions` },
+        ],
+      },
+    },
+  };
 }
 
 const STATUS_STYLES: Record<string, string> = {
