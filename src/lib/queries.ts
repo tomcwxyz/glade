@@ -692,22 +692,37 @@ function isDecisionNumberConflict(err: unknown): boolean {
   return msg.includes("decisions_space_number_unq") || msg.includes("duplicate key");
 }
 
+/** Either the top-level db or a transaction handle from db.transaction(). */
+export type DbOrTx = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
+
 /**
  * Insert a decision with the next per-space number, retrying on the unique
  * (space_id, number) violation so concurrent creates can't fail or duplicate.
  * The unique index is the real guarantee; this just avoids a user-facing error.
+ *
+ * Pass a transaction handle as `executor` to enlist the insert in a wider atomic
+ * write. Each attempt runs in its own (possibly nested = SAVEPOINT) transaction so
+ * a conflict rolls back just that attempt without poisoning the enclosing tx.
  */
 export async function insertDecisionWithUniqueNumber(
   spaceId: string,
-  values: Omit<typeof decisions.$inferInsert, "number" | "spaceId">
+  values: Omit<typeof decisions.$inferInsert, "number" | "spaceId">,
+  executor: DbOrTx = db
 ): Promise<{ id: string; number: number }> {
   for (let attempt = 0; attempt < 3; attempt++) {
-    const number = await getNextDecisionNumber(spaceId);
     try {
-      const [row] = await db
-        .insert(decisions)
-        .values({ ...values, spaceId, number })
-        .returning({ id: decisions.id, number: decisions.number });
+      const row = await executor.transaction(async (sp) => {
+        const [{ maxNumber }] = await sp
+          .select({ maxNumber: sql<number>`coalesce(max(${decisions.number}), 0)` })
+          .from(decisions)
+          .where(eq(decisions.spaceId, spaceId));
+        const number = (maxNumber ?? 0) + 1;
+        const [inserted] = await sp
+          .insert(decisions)
+          .values({ ...values, spaceId, number })
+          .returning({ id: decisions.id, number: decisions.number });
+        return inserted;
+      });
       return row;
     } catch (err) {
       if (attempt < 2 && isDecisionNumberConflict(err)) continue;

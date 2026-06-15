@@ -45,31 +45,6 @@ export async function createDecision(formData: FormData) {
     ? tagIdsRaw.split(",").filter(Boolean)
     : [];
 
-  const decision = await insertDecisionWithUniqueNumber(space.id, {
-    title,
-    description,
-    rationale,
-    method: method as "consent" | "majority_vote" | "advice_process" | "delegation" | "consensus" | "lazy_consensus",
-    outcome,
-    status: status as "decided" | "implemented" | "reviewed" | "learned",
-    participants,
-    date: new Date(dateStr),
-    conditions,
-    reviewDate: reviewDateStr ? new Date(reviewDateStr) : null,
-    isPublic: formData.get("hideFromPublic") !== "on",
-    createdBy: user.id,
-  });
-
-  // Add tags
-  if (tagIds.length > 0) {
-    await db.insert(decisionTags).values(
-      tagIds.map((tagId) => ({
-        decisionId: decision.id,
-        tagId,
-      }))
-    );
-  }
-
   // Add actions if provided
   const actionDescriptions = formData.getAll("actionDescription") as string[];
   const actionOwners = formData.getAll("actionOwner") as string[];
@@ -83,18 +58,48 @@ export async function createDecision(formData: FormData) {
     }))
     .filter((a) => a.description.length > 0);
 
-  if (actionValues.length > 0) {
-    await db.insert(actions).values(
-      actionValues.map((a) => ({
-        spaceId: space.id,
-        decisionId: decision.id,
-        description: a.description,
-        ownerName: a.ownerName,
-        dueDate: a.dueDate,
-        status: "open" as const,
-      }))
+  // Atomic: the decision and its tags/actions land together or not at all.
+  const decision = await db.transaction(async (tx) => {
+    const d = await insertDecisionWithUniqueNumber(
+      space.id,
+      {
+        title,
+        description,
+        rationale,
+        method: method as "consent" | "majority_vote" | "advice_process" | "delegation" | "consensus" | "lazy_consensus",
+        outcome,
+        status: status as "decided" | "implemented" | "reviewed" | "learned",
+        participants,
+        date: new Date(dateStr),
+        conditions,
+        reviewDate: reviewDateStr ? new Date(reviewDateStr) : null,
+        isPublic: formData.get("hideFromPublic") !== "on",
+        createdBy: user.id,
+      },
+      tx
     );
-  }
+
+    if (tagIds.length > 0) {
+      await tx.insert(decisionTags).values(
+        tagIds.map((tagId) => ({ decisionId: d.id, tagId }))
+      );
+    }
+
+    if (actionValues.length > 0) {
+      await tx.insert(actions).values(
+        actionValues.map((a) => ({
+          spaceId: space.id,
+          decisionId: d.id,
+          description: a.description,
+          ownerName: a.ownerName,
+          dueDate: a.dueDate,
+          status: "open" as const,
+        }))
+      );
+    }
+
+    return d;
+  });
 
   fireWebhooks(space.id, "decision.created", {
     id: decision.id,
@@ -436,14 +441,7 @@ export async function deleteDecision(decisionId: string) {
     .from(actions)
     .where(eq(actions.decisionId, decisionId));
 
-  // Nullify non-cascading FK references
-  await Promise.all([
-    db.update(proposals).set({ decidedAsDecisionId: null }).where(eq(proposals.decidedAsDecisionId, decisionId)),
-    db.update(documentVersions).set({ decisionId: null }).where(eq(documentVersions.decisionId, decisionId)),
-    db.update(insights).set({ relatedDecisionId: null }).where(eq(insights.relatedDecisionId, decisionId)),
-  ]);
-
-  // Audit log
+  // Audit log (before the delete; not part of the tx so the record survives).
   await logDeletion(
     space.id,
     "decision",
@@ -459,10 +457,15 @@ export async function deleteDecision(decisionId: string) {
     user.name ?? null
   );
 
-  // Delete — cascades handle actions, decision_tags, decision_links, meeting_decisions, document_section_links
-  await db
-    .delete(decisions)
-    .where(and(eq(decisions.id, decisionId), eq(decisions.spaceId, space.id)));
+  // Atomic: nullify non-cascading FK references, then delete (cascades handle
+  // actions, decision_tags, decision_links, meeting_decisions, section links).
+  // Sequential inside the tx — a single connection can't multiplex queries.
+  await db.transaction(async (tx) => {
+    await tx.update(proposals).set({ decidedAsDecisionId: null }).where(eq(proposals.decidedAsDecisionId, decisionId));
+    await tx.update(documentVersions).set({ decisionId: null }).where(eq(documentVersions.decisionId, decisionId));
+    await tx.update(insights).set({ relatedDecisionId: null }).where(eq(insights.relatedDecisionId, decisionId));
+    await tx.delete(decisions).where(and(eq(decisions.id, decisionId), eq(decisions.spaceId, space.id)));
+  });
 
   redirect("/decisions");
 }

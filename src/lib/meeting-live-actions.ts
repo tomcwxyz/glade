@@ -502,53 +502,54 @@ export async function recordMeetingDecision(
 ) {
   return withFacilitatorState(meetingId, async ({ user, space, state }) => {
     const deliberation = buildDeliberation(state);
-
-    const decision = await insertDecisionWithUniqueNumber(space.id, {
-      title,
-      method: method as "consent" | "majority_vote" | "advice_process" | "delegation" | "consensus" | "lazy_consensus",
-      outcome,
-      status: "decided",
-      date: new Date(),
-      createdBy: user.id,
-      deliberation,
-    });
-
-    await db.insert(meetingDecisions).values({
-      meetingId,
-      decisionId: decision.id,
-    });
-
-    // Persist the per-response deliberation record (durable audit trail).
     const responses = state.decisionFlow?.responses ?? [];
-    if (responses.length > 0) {
-      await db.insert(decisionResponses).values(
-        responses.map((r) => ({
-          decisionId: decision.id,
-          participantId: r.participantId,
-          name: r.name,
-          value: r.value,
-          comment: r.comment,
-          stage: r.stage,
-          resolution: r.resolution,
-          resolutionNote: r.resolutionNote,
-          respondedAt: r.respondedAt ? new Date(r.respondedAt) : null,
-        }))
-      );
-    }
 
-    // If this decision came from a proposal, link and update the proposal
-    if (proposalId) {
-      await db
-        .update(proposals)
-        .set({
-          decidedAsDecisionId: decision.id,
+    // Atomic: decision + meeting link + per-response record + proposal update
+    // either all land or none do.
+    const decision = await db.transaction(async (tx) => {
+      const d = await insertDecisionWithUniqueNumber(
+        space.id,
+        {
+          title,
+          method: method as "consent" | "majority_vote" | "advice_process" | "delegation" | "consensus" | "lazy_consensus",
+          outcome,
           status: "decided",
-          updatedAt: new Date(),
-        })
-        .where(eq(proposals.id, proposalId));
-      revalidatePath("/proposals");
-    }
+          date: new Date(),
+          createdBy: user.id,
+          deliberation,
+        },
+        tx
+      );
 
+      await tx.insert(meetingDecisions).values({ meetingId, decisionId: d.id });
+
+      if (responses.length > 0) {
+        await tx.insert(decisionResponses).values(
+          responses.map((r) => ({
+            decisionId: d.id,
+            participantId: r.participantId,
+            name: r.name,
+            value: r.value,
+            comment: r.comment,
+            stage: r.stage,
+            resolution: r.resolution,
+            resolutionNote: r.resolutionNote,
+            respondedAt: r.respondedAt ? new Date(r.respondedAt) : null,
+          }))
+        );
+      }
+
+      if (proposalId) {
+        await tx
+          .update(proposals)
+          .set({ decidedAsDecisionId: d.id, status: "decided", updatedAt: new Date() })
+          .where(eq(proposals.id, proposalId));
+      }
+
+      return d;
+    });
+
+    if (proposalId) revalidatePath("/proposals");
     revalidatePath(`/meetings/${meetingId}`);
     revalidatePath("/decisions");
     return { decisionId: decision.id, number: decision.number };
@@ -563,21 +564,23 @@ export async function recordMeetingAction(
   dueDate?: string
 ) {
   return withFacilitatorState(meetingId, async ({ space }) => {
-    const [newAction] = await db
-      .insert(actions)
-      .values({
-        spaceId: space.id,
-        decisionId,
-        description,
-        ownerName: ownerName || null,
-        dueDate: dueDate ? new Date(dueDate) : null,
-        status: "open",
-      })
-      .returning({ id: actions.id });
+    await db.transaction(async (tx) => {
+      const [newAction] = await tx
+        .insert(actions)
+        .values({
+          spaceId: space.id,
+          decisionId,
+          description,
+          ownerName: ownerName || null,
+          dueDate: dueDate ? new Date(dueDate) : null,
+          status: "open",
+        })
+        .returning({ id: actions.id });
 
-    await db.insert(meetingActions).values({
-      meetingId,
-      actionId: newAction.id,
+      await tx.insert(meetingActions).values({
+        meetingId,
+        actionId: newAction.id,
+      });
     });
 
     revalidatePath(`/meetings/${meetingId}`);

@@ -169,23 +169,29 @@ export async function createDecisionFromProposal(
     ? participantsRaw.split(",").map((p) => p.trim()).filter(Boolean)
     : [];
 
-  const decision = await insertDecisionWithUniqueNumber(space.id, {
-    title: proposal.title,
-    description: proposal.description,
-    rationale: proposal.rationale,
-    method: method as "consent" | "majority_vote" | "advice_process" | "delegation" | "consensus" | "lazy_consensus",
-    outcome,
-    status: "decided",
-    participants,
-    date: new Date(dateStr),
-    createdBy: user.id,
+  // Atomic: create the decision and link the proposal together.
+  const decision = await db.transaction(async (tx) => {
+    const d = await insertDecisionWithUniqueNumber(
+      space.id,
+      {
+        title: proposal.title,
+        description: proposal.description,
+        rationale: proposal.rationale,
+        method: method as "consent" | "majority_vote" | "advice_process" | "delegation" | "consensus" | "lazy_consensus",
+        outcome,
+        status: "decided",
+        participants,
+        date: new Date(dateStr),
+        createdBy: user.id,
+      },
+      tx
+    );
+    await tx
+      .update(proposals)
+      .set({ decidedAsDecisionId: d.id, updatedAt: new Date() })
+      .where(eq(proposals.id, proposalId));
+    return d;
   });
-
-  // Link proposal to decision
-  await db
-    .update(proposals)
-    .set({ decidedAsDecisionId: decision.id, updatedAt: new Date() })
-    .where(eq(proposals.id, proposalId));
 
   redirect(`/decisions/${decision.number}`);
 }

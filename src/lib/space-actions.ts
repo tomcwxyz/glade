@@ -335,18 +335,21 @@ export async function clearSpaceData() {
 
   if (membership?.role !== "admin") return { error: "Only admins can clear space data" };
 
-  // Delete all content in FK-safe order (preserving space, members, users)
+  // Delete all content in FK-safe order (preserving space, members, users).
+  // Atomic: a partial failure rolls back fully — no "some data may remain".
   try {
-    await db.delete(schema.insights).where(eq(schema.insights.spaceId, space.id));
-    await db.delete(schema.topics).where(eq(schema.topics.spaceId, space.id));
-    await db.delete(schema.proposals).where(eq(schema.proposals.spaceId, space.id));
-    await db.delete(schema.documents).where(eq(schema.documents.spaceId, space.id));
-    await db.delete(schema.actions).where(eq(schema.actions.spaceId, space.id));
-    await db.delete(schema.meetings).where(eq(schema.meetings.spaceId, space.id));
-    await db.delete(schema.decisions).where(eq(schema.decisions.spaceId, space.id));
-    await db.delete(schema.tags).where(eq(schema.tags.spaceId, space.id));
+    await db.transaction(async (tx) => {
+      await tx.delete(schema.insights).where(eq(schema.insights.spaceId, space.id));
+      await tx.delete(schema.topics).where(eq(schema.topics.spaceId, space.id));
+      await tx.delete(schema.proposals).where(eq(schema.proposals.spaceId, space.id));
+      await tx.delete(schema.documents).where(eq(schema.documents.spaceId, space.id));
+      await tx.delete(schema.actions).where(eq(schema.actions.spaceId, space.id));
+      await tx.delete(schema.meetings).where(eq(schema.meetings.spaceId, space.id));
+      await tx.delete(schema.decisions).where(eq(schema.decisions.spaceId, space.id));
+      await tx.delete(schema.tags).where(eq(schema.tags.spaceId, space.id));
+    });
   } catch {
-    return { error: "Failed to clear space data. Some data may remain." };
+    return { error: "Failed to clear space data — rolled back, nothing was deleted." };
   }
 
   revalidatePath("/", "layout");

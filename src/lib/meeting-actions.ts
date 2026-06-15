@@ -46,32 +46,7 @@ export async function createMeeting(formData: FormData) {
     ? attendeeIdsRaw.split(",").filter(Boolean)
     : [];
 
-  const [meeting] = await db
-    .insert(meetings)
-    .values({
-      spaceId: space.id,
-      title,
-      date: new Date(dateStr),
-      type,
-      status,
-      notes,
-      isPublic,
-      createdBy: user.id,
-      facilitatorId: facilitatorId || user.id,
-    })
-    .returning({ id: meetings.id });
-
-  // Add attendees
-  if (attendeeIds.length > 0) {
-    await db.insert(meetingAttendees).values(
-      attendeeIds.map((userId) => ({
-        meetingId: meeting.id,
-        userId,
-      }))
-    );
-  }
-
-  // Add agenda items
+  // Parse agenda items up front.
   const agendaTitles = formData.getAll("agendaTitle") as string[];
   const agendaDescriptions = formData.getAll("agendaDescription") as string[];
   const agendaTypes = formData.getAll("agendaType") as string[];
@@ -91,20 +66,35 @@ export async function createMeeting(formData: FormData) {
     }))
     .filter((a) => a.title.length > 0);
 
-  if (agendaValues.length > 0) {
-    await db.insert(meetingAgendaItems).values(
-      agendaValues.map((a) => ({
-        meetingId: meeting.id,
-        title: a.title,
-        description: a.description,
-        type: a.type,
-        sortOrder: a.sortOrder,
-        durationMinutes: a.durationMinutes,
-        proposalId: a.proposalId,
-        topicId: a.topicId,
-      }))
-    );
-  }
+  // Atomic: meeting + attendees + agenda items land together.
+  await db.transaction(async (tx) => {
+    const [meeting] = await tx
+      .insert(meetings)
+      .values({
+        spaceId: space.id,
+        title,
+        date: new Date(dateStr),
+        type,
+        status,
+        notes,
+        isPublic,
+        createdBy: user.id,
+        facilitatorId: facilitatorId || user.id,
+      })
+      .returning({ id: meetings.id });
+
+    if (attendeeIds.length > 0) {
+      await tx.insert(meetingAttendees).values(
+        attendeeIds.map((userId) => ({ meetingId: meeting.id, userId }))
+      );
+    }
+
+    if (agendaValues.length > 0) {
+      await tx.insert(meetingAgendaItems).values(
+        agendaValues.map((a) => ({ meetingId: meeting.id, ...a }))
+      );
+    }
+  });
 
   redirect("/meetings");
 }
@@ -139,33 +129,7 @@ export async function updateMeeting(meetingId: string, formData: FormData) {
     ? attendeeIdsRaw.split(",").filter(Boolean)
     : [];
 
-  await db
-    .update(meetings)
-    .set({
-      title,
-      date: new Date(dateStr),
-      type,
-      status,
-      notes,
-      isPublic,
-      facilitatorId,
-      updatedAt: new Date(),
-    })
-    .where(eq(meetings.id, meetingId));
-
-  // Replace attendees
-  await db.delete(meetingAttendees).where(eq(meetingAttendees.meetingId, meetingId));
-  if (attendeeIds.length > 0) {
-    await db.insert(meetingAttendees).values(
-      attendeeIds.map((userId) => ({
-        meetingId,
-        userId,
-      }))
-    );
-  }
-
-  // Replace agenda items
-  await db.delete(meetingAgendaItems).where(eq(meetingAgendaItems.meetingId, meetingId));
+  // Parse agenda items up front.
   const agendaTitles = formData.getAll("agendaTitle") as string[];
   const agendaDescriptions = formData.getAll("agendaDescription") as string[];
   const agendaTypes = formData.getAll("agendaType") as string[];
@@ -185,20 +149,36 @@ export async function updateMeeting(meetingId: string, formData: FormData) {
     }))
     .filter((a) => a.title.length > 0);
 
-  if (agendaValues.length > 0) {
-    await db.insert(meetingAgendaItems).values(
-      agendaValues.map((a) => ({
-        meetingId,
-        title: a.title,
-        description: a.description,
-        type: a.type,
-        sortOrder: a.sortOrder,
-        durationMinutes: a.durationMinutes,
-        proposalId: a.proposalId,
-        topicId: a.topicId,
-      }))
-    );
-  }
+  // Atomic: update + replace attendees + replace agenda (sequential in the tx).
+  await db.transaction(async (tx) => {
+    await tx
+      .update(meetings)
+      .set({
+        title,
+        date: new Date(dateStr),
+        type,
+        status,
+        notes,
+        isPublic,
+        facilitatorId,
+        updatedAt: new Date(),
+      })
+      .where(eq(meetings.id, meetingId));
+
+    await tx.delete(meetingAttendees).where(eq(meetingAttendees.meetingId, meetingId));
+    if (attendeeIds.length > 0) {
+      await tx.insert(meetingAttendees).values(
+        attendeeIds.map((userId) => ({ meetingId, userId }))
+      );
+    }
+
+    await tx.delete(meetingAgendaItems).where(eq(meetingAgendaItems.meetingId, meetingId));
+    if (agendaValues.length > 0) {
+      await tx.insert(meetingAgendaItems).values(
+        agendaValues.map((a) => ({ meetingId, ...a }))
+      );
+    }
+  });
 
   redirect("/meetings");
 }

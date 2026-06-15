@@ -35,62 +35,65 @@ export async function signUp(formData: FormData) {
 
   const passwordHash = await bcrypt.hash(password, 12);
 
-  const [newUser] = await db.insert(users).values({
-    name,
-    email,
-    passwordHash,
-  }).returning({ id: users.id });
+  // Atomic: create the user and accept any matching invitations together.
+  await db.transaction(async (tx) => {
+    const [newUser] = await tx.insert(users).values({
+      name,
+      email,
+      passwordHash,
+    }).returning({ id: users.id });
 
-  // Consume invite token if provided
-  if (inviteToken) {
-    const [invitation] = await db
+    // Consume invite token if provided
+    if (inviteToken) {
+      const [invitation] = await tx
+        .select()
+        .from(invitations)
+        .where(
+          and(
+            eq(invitations.token, inviteToken),
+            eq(invitations.status, "pending"),
+          )
+        )
+        .limit(1);
+
+      if (invitation && invitation.expiresAt > new Date()) {
+        await tx.insert(spaceMembers).values({
+          spaceId: invitation.spaceId,
+          userId: newUser.id,
+          role: invitation.role,
+        });
+        await tx
+          .update(invitations)
+          .set({ status: "accepted" })
+          .where(eq(invitations.id, invitation.id));
+      }
+    }
+
+    // Also consume any other pending invitations for this email
+    const pendingInvites = await tx
       .select()
       .from(invitations)
       .where(
         and(
-          eq(invitations.token, inviteToken),
+          eq(invitations.email, email.toLowerCase().trim()),
           eq(invitations.status, "pending"),
         )
-      )
-      .limit(1);
+      );
 
-    if (invitation && invitation.expiresAt > new Date()) {
-      await db.insert(spaceMembers).values({
-        spaceId: invitation.spaceId,
-        userId: newUser.id,
-        role: invitation.role,
-      });
-      await db
-        .update(invitations)
-        .set({ status: "accepted" })
-        .where(eq(invitations.id, invitation.id));
+    for (const inv of pendingInvites) {
+      if (inv.expiresAt > new Date() && inv.token !== inviteToken) {
+        await tx.insert(spaceMembers).values({
+          spaceId: inv.spaceId,
+          userId: newUser.id,
+          role: inv.role,
+        });
+        await tx
+          .update(invitations)
+          .set({ status: "accepted" })
+          .where(eq(invitations.id, inv.id));
+      }
     }
-  }
-
-  // Also consume any other pending invitations for this email
-  const pendingInvites = await db
-    .select()
-    .from(invitations)
-    .where(
-      and(
-        eq(invitations.email, email.toLowerCase().trim()),
-        eq(invitations.status, "pending"),
-      )
-    );
-
-  for (const inv of pendingInvites) {
-    if (inv.expiresAt > new Date() && inv.token !== inviteToken) {
-      await db.insert(spaceMembers).values({
-        spaceId: inv.spaceId,
-        userId: newUser.id,
-        role: inv.role,
-      });
-      await db
-        .update(invitations)
-        .set({ status: "accepted" })
-        .where(eq(invitations.id, inv.id));
-    }
-  }
+  });
 
   // Sign in immediately after registration
   await signIn("credentials", {

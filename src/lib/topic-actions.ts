@@ -49,23 +49,26 @@ export async function promoteTopic(topicId: string) {
   if (!topic) return { error: "Topic not found" };
   if (topic.promotedToProposalId) return { error: "Topic already promoted" };
 
-  // Create a proposal from the topic
-  const [proposal] = await db
-    .insert(proposals)
-    .values({
-      spaceId: space.id,
-      title: topic.title,
-      description: topic.description,
-      status: "draft",
-      createdBy: user.id,
-    })
-    .returning({ id: proposals.id });
+  // Atomic: create the proposal and link the topic to it together.
+  const proposal = await db.transaction(async (tx) => {
+    const [p] = await tx
+      .insert(proposals)
+      .values({
+        spaceId: space.id,
+        title: topic.title,
+        description: topic.description,
+        status: "draft",
+        createdBy: user.id,
+      })
+      .returning({ id: proposals.id });
 
-  // Link the topic to the proposal
-  await db
-    .update(topics)
-    .set({ promotedToProposalId: proposal.id })
-    .where(eq(topics.id, topicId));
+    await tx
+      .update(topics)
+      .set({ promotedToProposalId: p.id })
+      .where(eq(topics.id, topicId));
+
+    return p;
+  });
 
   redirect(`/proposals/${proposal.id}`);
 }
