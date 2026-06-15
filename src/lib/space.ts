@@ -1,31 +1,35 @@
-"use server";
-
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { eq, and } from "drizzle-orm";
 import { db } from "@/db";
-import { spaces, spaceMembers, users, subscriptions } from "@/db/schema";
+import { spaces, spaceMembers } from "@/db/schema";
 import { auth } from "@/lib/auth";
+
+// NOTE: read helpers are wrapped in React `cache()` so they run once per request
+// even when several pages/actions call them. The two client-invoked mutations
+// (`switchSpace`, `createSpace`) carry their own inline "use server".
 
 /**
  * Get the current user's ID from the session, or redirect to sign-in.
  */
-export async function requireUser() {
+export const requireUser = cache(async () => {
   const session = await auth();
   if (!session?.user?.id) redirect("/sign-in");
   return session.user as { id: string; name?: string | null; email?: string | null };
-}
+});
 
 /**
  * Get the current space slug from the cookie.
  */
-export async function getCurrentSpaceSlug() {
+export const getCurrentSpaceSlug = cache(async () => {
   const cookieStore = await cookies();
   return cookieStore.get("glade-space")?.value || null;
-}
+});
 
 /**
- * Set the current space slug in a cookie.
+ * Set the current space slug in a cookie. Server-only; called from the
+ * "use server" mutations below (cookie writes are allowed in that context).
  */
 export async function setCurrentSpace(slug: string) {
   const cookieStore = await cookies();
@@ -41,7 +45,7 @@ export async function setCurrentSpace(slug: string) {
  * Get the current space for the logged-in user.
  * If no space is selected or user has no spaces, returns null.
  */
-export async function getCurrentSpace() {
+export const getCurrentSpace = cache(async () => {
   const user = await requireUser();
   const slug = await getCurrentSpaceSlug();
 
@@ -85,7 +89,7 @@ export async function getCurrentSpace() {
   }
 
   return null;
-}
+});
 
 export type SpaceRole = "observer" | "member" | "admin";
 const ROLE_RANK: Record<SpaceRole, number> = { observer: 0, member: 1, admin: 2 };
@@ -106,7 +110,7 @@ type Membership = {
  * Resolve the current user's membership of the current space, or null if they
  * have no space selected or aren't a member of it.
  */
-export async function getCurrentMembership(): Promise<Membership | null> {
+export const getCurrentMembership = cache(async (): Promise<Membership | null> => {
   const user = await requireUser();
   const space = await getCurrentSpace();
   if (!space) return null;
@@ -121,7 +125,7 @@ export async function getCurrentMembership(): Promise<Membership | null> {
 
   if (!membership) return null;
   return { user, space, role: membership.role as SpaceRole };
-}
+});
 
 /**
  * Require that the current user has at least `minRole` in the current space.
@@ -175,77 +179,6 @@ export async function getSpaceMemberCount(spaceId: string) {
   return result.length;
 }
 
-/**
- * Create a new space and add the current user as admin.
- */
-export async function createSpace(formData: FormData) {
-  const user = await requireUser();
-  const name = formData.get("name") as string;
-  const description = (formData.get("description") as string) || null;
-
-  if (!name || name.trim().length === 0) {
-    return { error: "Space name is required" };
-  }
-
-  // Generate slug from name
-  let slug = name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
-
-  // Check slug uniqueness
-  const existing = await db
-    .select({ id: spaces.id })
-    .from(spaces)
-    .where(eq(spaces.slug, slug))
-    .limit(1);
-
-  if (existing.length > 0) {
-    slug = `${slug}-${Date.now().toString(36)}`;
-  }
-
-  // Create space
-  const [space] = await db
-    .insert(spaces)
-    .values({ name: name.trim(), slug, description })
-    .returning({ id: spaces.id, slug: spaces.slug });
-
-  // Add creator as admin
-  await db.insert(spaceMembers).values({
-    spaceId: space.id,
-    userId: user.id,
-    role: "admin",
-  });
-
-  // Create free subscription record
-  await db.insert(subscriptions).values({
-    spaceId: space.id,
-    planTier: "free",
-    status: "active",
-  });
-
-  // Set as current space
-  await setCurrentSpace(space.slug);
-
-  // Seed example data if requested
-  const wantExampleData = formData.get("exampleData") === "on";
-  if (wantExampleData) {
-    const [dbUser] = await db
-      .select({ name: users.name })
-      .from(users)
-      .where(eq(users.id, user.id))
-      .limit(1);
-    const { seedExampleData } = await import("@/lib/example-data");
-    await seedExampleData(space.id, user.id, dbUser?.name || "You");
-  }
-
-  redirect("/dashboard");
-}
-
-/**
- * Switch to a different space.
- */
-export async function switchSpace(slug: string) {
-  await setCurrentSpace(slug);
-  redirect("/dashboard");
-}
+// `createSpace` and `switchSpace` (the client-invoked mutations) live in
+// `@/lib/space-actions` so this module stays a plain (server-only) module that
+// can use `cache()` for the read helpers above.

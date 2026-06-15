@@ -44,3 +44,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# playwright MCP artifacts + scratch screenshots (thrash the dev watcher if tracked)
+.playwright-mcp/
+glade-*.png

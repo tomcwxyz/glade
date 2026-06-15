@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { switchSpace } from "@/lib/space";
+import { switchSpace } from "@/lib/space-actions";
 import type { SpaceInfo, UserSpace } from "./app-shell";
 import { SignOutButtonMobile } from "./sign-out-button";
 import {

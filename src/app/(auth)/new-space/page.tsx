@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { createSpace } from "@/lib/space";
+import { createSpace } from "@/lib/space-actions";
 import { Loader2, TreePine } from "lucide-react";
 import { FormError } from "@/components/form-error";
 

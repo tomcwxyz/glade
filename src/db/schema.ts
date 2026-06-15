@@ -329,6 +329,7 @@ export const decisionLinks = pgTable(
   (dl) => [
     index("decision_links_from_idx").on(dl.fromDecisionId),
     index("decision_links_to_idx").on(dl.toDecisionId),
+    unique("decision_links_unq").on(dl.fromDecisionId, dl.toDecisionId, dl.linkType),
   ]
 );
 
@@ -460,7 +461,11 @@ export const meetingAgendaItems = pgTable(
     topicId: uuid("topic_id").references(() => topics.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
   },
-  (ai) => [index("agenda_items_meeting_idx").on(ai.meetingId)]
+  (ai) => [
+    index("agenda_items_meeting_idx").on(ai.meetingId),
+    index("agenda_items_proposal_idx").on(ai.proposalId),
+    index("agenda_items_topic_idx").on(ai.topicId),
+  ]
 );
 
 export const meetingDecisions = pgTable(
@@ -537,6 +542,9 @@ export const actions = pgTable(
     index("actions_space_idx").on(a.spaceId),
     index("actions_decision_idx").on(a.decisionId),
     index("actions_status_idx").on(a.status),
+    index("actions_topic_idx").on(a.topicId),
+    index("actions_proposal_idx").on(a.proposalId),
+    index("actions_owner_idx").on(a.ownerId),
   ]
 );
 
@@ -739,6 +747,7 @@ export const subscriptions = pgTable(
   (s) => [
     index("subscriptions_space_idx").on(s.spaceId),
     index("subscriptions_stripe_customer_idx").on(s.stripeCustomerId),
+    index("subscriptions_stripe_subscription_idx").on(s.stripeSubscriptionId),
   ]
 );
 

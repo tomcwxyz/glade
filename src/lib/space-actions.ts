@@ -5,12 +5,80 @@ import { revalidatePath } from "next/cache";
 import { eq, and } from "drizzle-orm";
 import { db } from "@/db";
 import * as schema from "@/db/schema";
-import { spaces, spaceMembers, users } from "@/db/schema";
+import { spaces, spaceMembers, users, subscriptions } from "@/db/schema";
 import { getCurrentSpace, requireUser, setCurrentSpace } from "@/lib/space";
 import { canAddMember } from "@/lib/billing";
 import { randomBytes } from "crypto";
 import { invitations } from "@/db/schema";
 import { sendSpaceInviteEmail, sendAddedToSpaceEmail, isEmailConfigured } from "@/lib/email";
+
+/**
+ * Create a new space and add the current user as admin.
+ */
+export async function createSpace(formData: FormData) {
+  const user = await requireUser();
+  const name = formData.get("name") as string;
+  const description = (formData.get("description") as string) || null;
+
+  if (!name || name.trim().length === 0) {
+    return { error: "Space name is required" };
+  }
+
+  let slug = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+
+  const existing = await db
+    .select({ id: spaces.id })
+    .from(spaces)
+    .where(eq(spaces.slug, slug))
+    .limit(1);
+
+  if (existing.length > 0) {
+    slug = `${slug}-${Date.now().toString(36)}`;
+  }
+
+  const [space] = await db
+    .insert(spaces)
+    .values({ name: name.trim(), slug, description })
+    .returning({ id: spaces.id, slug: spaces.slug });
+
+  await db.insert(spaceMembers).values({
+    spaceId: space.id,
+    userId: user.id,
+    role: "admin",
+  });
+
+  await db.insert(subscriptions).values({
+    spaceId: space.id,
+    planTier: "free",
+    status: "active",
+  });
+
+  await setCurrentSpace(space.slug);
+
+  const wantExampleData = formData.get("exampleData") === "on";
+  if (wantExampleData) {
+    const [dbUser] = await db
+      .select({ name: users.name })
+      .from(users)
+      .where(eq(users.id, user.id))
+      .limit(1);
+    const { seedExampleData } = await import("@/lib/example-data");
+    await seedExampleData(space.id, user.id, dbUser?.name || "You");
+  }
+
+  redirect("/dashboard");
+}
+
+/**
+ * Switch to a different space.
+ */
+export async function switchSpace(slug: string) {
+  await setCurrentSpace(slug);
+  redirect("/dashboard");
+}
 
 export async function updateSpace(formData: FormData) {
   const user = await requireUser();

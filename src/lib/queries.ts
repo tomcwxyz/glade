@@ -485,44 +485,42 @@ export async function isMeetingSpaceMember(meetingId: string, userId: string) {
 // ============================================================
 
 export async function getSpaceStats(spaceId: string) {
-  const allDecisions = await db
-    .select({ id: decisions.id, reviewDate: decisions.reviewDate })
-    .from(decisions)
-    .where(eq(decisions.spaceId, spaceId));
-
-  const allActions = await db
-    .select({ status: actions.status })
-    .from(actions)
-    .where(eq(actions.spaceId, spaceId));
-
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  const decisionsThisMonth = await db
-    .select({ id: decisions.id })
-    .from(decisions)
-    .where(
-      and(
-        eq(decisions.spaceId, spaceId),
-        sql`${decisions.date} >= ${monthStart}`
-      )
-    );
+  // Conditional aggregates in two queries instead of fetching every row to
+  // count in JS.
+  const [[dStats], [aStats]] = await Promise.all([
+    db
+      .select({
+        total: sql<number>`count(*)::int`,
+        reviewed: sql<number>`count(*) filter (where ${decisions.reviewDate} is not null)::int`,
+        upcoming: sql<number>`count(*) filter (where ${decisions.reviewDate} > ${now})::int`,
+        thisMonth: sql<number>`count(*) filter (where ${decisions.date} >= ${monthStart})::int`,
+      })
+      .from(decisions)
+      .where(eq(decisions.spaceId, spaceId)),
+    db
+      .select({
+        total: sql<number>`count(*)::int`,
+        completed: sql<number>`count(*) filter (where ${actions.status} = 'complete')::int`,
+      })
+      .from(actions)
+      .where(eq(actions.spaceId, spaceId)),
+  ]);
 
-  const totalDecisions = allDecisions.length;
-  const reviewedDecisions = allDecisions.filter((d) => d.reviewDate).length;
-  const completedActions = allActions.filter((a) => a.status === "complete").length;
-  const activeActions = allActions.filter((a) => a.status !== "complete").length;
-  const upcomingReviews = allDecisions.filter(
-    (d) => d.reviewDate && new Date(d.reviewDate) > now
-  ).length;
+  const totalDecisions = Number(dStats?.total ?? 0);
+  const reviewedDecisions = Number(dStats?.reviewed ?? 0);
+  const totalActions = Number(aStats?.total ?? 0);
+  const completedActions = Number(aStats?.completed ?? 0);
 
   return {
     totalDecisions,
     reviewRate: totalDecisions > 0 ? reviewedDecisions / totalDecisions : 0,
-    actionCompletionRate: allActions.length > 0 ? completedActions / allActions.length : 0,
-    activeActions,
-    decisionsThisMonth: decisionsThisMonth.length,
-    upcomingReviews,
+    actionCompletionRate: totalActions > 0 ? completedActions / totalActions : 0,
+    activeActions: totalActions - completedActions,
+    decisionsThisMonth: Number(dStats?.thisMonth ?? 0),
+    upcomingReviews: Number(dStats?.upcoming ?? 0),
   };
 }
 
@@ -1363,7 +1361,11 @@ export async function getPublicGladeDecisions(spaceId: string) {
 }
 
 export async function getGovernanceHealthStats(spaceId: string) {
-  const [participantRows, methodRows, revisionRows, docRows, proposalRows, memberCount] =
+  // Stale if a document hasn't been updated in 6+ months.
+  const sixMonthsAgo = new Date();
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+  const [participantRows, methodRows, revisionRows, docStats, proposalRows, memberCount] =
     await Promise.all([
       // Participation: all participant arrays
       db
@@ -1387,9 +1389,12 @@ export async function getGovernanceHealthStats(spaceId: string) {
             sql`${decisionLinks.linkType} in ('amends', 'supersedes')`
           )
         ),
-      // Document currency
+      // Document currency (aggregate, not all rows)
       db
-        .select({ updatedAt: documents.updatedAt })
+        .select({
+          total: sql<number>`count(*)::int`,
+          stale: sql<number>`count(*) filter (where ${documents.updatedAt} < ${sixMonthsAgo})::int`,
+        })
         .from(documents)
         .where(eq(documents.spaceId, spaceId)),
       // Time-to-decision: proposals with decidedAsDecisionId
@@ -1417,10 +1422,8 @@ export async function getGovernanceHealthStats(spaceId: string) {
   const revisedCount = revisionRows.length;
   const revisionRate = totalDecisions > 0 ? revisedCount / totalDecisions : 0;
 
-  // Document currency — stale if not updated in 6+ months
-  const sixMonthsAgo = new Date();
-  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-  const staleDocCount = docRows.filter((d) => d.updatedAt < sixMonthsAgo).length;
+  const docTotal = Number(docStats[0]?.total ?? 0);
+  const staleDocCount = Number(docStats[0]?.stale ?? 0);
 
   // Median days from proposal to decision
   let medianDaysToDecision: number | null = null;
@@ -1443,7 +1446,7 @@ export async function getGovernanceHealthStats(spaceId: string) {
     totalMembers: memberCount,
     methodsUsed: methodRows.length,
     revisionRate,
-    documentCurrency: { total: docRows.length, stale: staleDocCount },
+    documentCurrency: { total: docTotal, stale: staleDocCount },
     medianDaysToDecision,
   };
 }
