@@ -429,8 +429,8 @@ export const meetingAgendaItems = pgTable(
     sortOrder: integer("sort_order").default(0).notNull(),
     durationMinutes: integer("duration_minutes"),
     status: agendaItemStatusEnum("status").default("pending").notNull(),
-    proposalId: uuid("proposal_id").references(() => proposals.id),
-    topicId: uuid("topic_id").references(() => topics.id),
+    proposalId: uuid("proposal_id").references(() => proposals.id, { onDelete: "set null" }),
+    topicId: uuid("topic_id").references(() => topics.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
   },
   (ai) => [index("agenda_items_meeting_idx").on(ai.meetingId)]
@@ -479,18 +479,7 @@ export const meetingDocuments = pgTable(
   (md) => [primaryKey({ columns: [md.meetingId, md.documentId] })]
 );
 
-export const meetingProposals = pgTable(
-  "meeting_proposals",
-  {
-    meetingId: uuid("meeting_id")
-      .notNull()
-      .references(() => meetings.id, { onDelete: "cascade" }),
-    proposalId: uuid("proposal_id")
-      .notNull()
-      .references(() => proposals.id, { onDelete: "cascade" }),
-  },
-  (mp) => [primaryKey({ columns: [mp.meetingId, mp.proposalId] })]
-);
+// (meeting_proposals removed — proposals link to meetings via agenda items.)
 
 // --- Actions ---
 
@@ -859,7 +848,6 @@ export const meetingsRelations = relations(meetings, ({ one, many }) => ({
   decisions: many(meetingDecisions),
   actions: many(meetingActions),
   documents: many(meetingDocuments),
-  proposals: many(meetingProposals),
 }));
 
 export const meetingAttendeesRelations = relations(meetingAttendees, ({ one }) => ({
@@ -888,10 +876,6 @@ export const meetingDocumentsRelations = relations(meetingDocuments, ({ one }) =
   document: one(documents, { fields: [meetingDocuments.documentId], references: [documents.id] }),
 }));
 
-export const meetingProposalsRelations = relations(meetingProposals, ({ one }) => ({
-  meeting: one(meetings, { fields: [meetingProposals.meetingId], references: [meetings.id] }),
-  proposal: one(proposals, { fields: [meetingProposals.proposalId], references: [proposals.id] }),
-}));
 
 export const actionsRelations = relations(actions, ({ one }) => ({
   space: one(spaces, { fields: [actions.spaceId], references: [spaces.id] }),

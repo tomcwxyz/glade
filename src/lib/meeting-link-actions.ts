@@ -6,14 +6,18 @@ import {
   meetingDecisions,
   meetingActions,
   meetingDocuments,
-  meetingProposals,
+  meetingAgendaItems,
 } from "@/db/schema";
 import { getCurrentSpace } from "@/lib/space";
+import { addProposalToAgenda } from "@/lib/meeting-actions";
 import { eq, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 type EntityType = "decision" | "action" | "document" | "proposal";
 
+// Decisions/actions/documents use dedicated junction tables. Proposals are NOT
+// here: a proposal is linked to a meeting by being an agenda item (single source
+// of truth), so the proposal case routes through the agenda instead.
 const entityConfig = {
   decision: {
     table: meetingDecisions,
@@ -33,12 +37,6 @@ const entityConfig = {
     meetingCol: meetingDocuments.meetingId,
     revalidate: ["/documents"],
   },
-  proposal: {
-    table: meetingProposals,
-    entityCol: meetingProposals.proposalId,
-    meetingCol: meetingProposals.meetingId,
-    revalidate: ["/proposals"],
-  },
 } as const;
 
 export async function linkToMeeting(
@@ -46,6 +44,11 @@ export async function linkToMeeting(
   entityType: EntityType,
   entityId: string
 ) {
+  // Proposals live on the agenda, not a separate link table.
+  if (entityType === "proposal") {
+    return addProposalToAgenda(entityId, meetingId);
+  }
+
   const space = await getCurrentSpace();
   if (!space) return { error: "No space selected" };
 
@@ -71,7 +74,6 @@ export async function linkToMeeting(
   if (entityType === "decision") values.decisionId = entityId;
   else if (entityType === "action") values.actionId = entityId;
   else if (entityType === "document") values.documentId = entityId;
-  else if (entityType === "proposal") values.proposalId = entityId;
 
   await db.insert(config.table).values(values as never);
 
@@ -84,6 +86,32 @@ export async function unlinkFromMeeting(
   entityType: EntityType,
   entityId: string
 ) {
+  // Unlinking a proposal removes its agenda item.
+  if (entityType === "proposal") {
+    const space = await getCurrentSpace();
+    if (!space) return { error: "No space selected" };
+    const [meeting] = await db
+      .select({ id: meetings.id })
+      .from(meetings)
+      .where(and(eq(meetings.id, meetingId), eq(meetings.spaceId, space.id)))
+      .limit(1);
+    if (!meeting) return { error: "Meeting not found" };
+
+    await db
+      .delete(meetingAgendaItems)
+      .where(
+        and(
+          eq(meetingAgendaItems.meetingId, meetingId),
+          eq(meetingAgendaItems.proposalId, entityId)
+        )
+      );
+
+    revalidatePath(`/meetings/${meetingId}`);
+    revalidatePath(`/proposals/${entityId}`);
+    revalidatePath("/proposals");
+    return;
+  }
+
   const config = entityConfig[entityType];
 
   await db

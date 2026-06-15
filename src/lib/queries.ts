@@ -12,7 +12,6 @@ import {
   meetingDecisions,
   meetingActions,
   meetingDocuments,
-  meetingProposals,
   spaceMembers,
   users,
   documents,
@@ -362,14 +361,14 @@ export async function getMeetingById(spaceId: string, meetingId: string) {
       .innerJoin(documents, eq(documents.id, meetingDocuments.documentId))
       .where(eq(meetingDocuments.meetingId, m.id)),
     db
-      .select({
+      .selectDistinct({
         id: proposals.id,
         title: proposals.title,
         status: proposals.status,
       })
-      .from(meetingProposals)
-      .innerJoin(proposals, eq(proposals.id, meetingProposals.proposalId))
-      .where(eq(meetingProposals.meetingId, m.id)),
+      .from(meetingAgendaItems)
+      .innerJoin(proposals, eq(proposals.id, meetingAgendaItems.proposalId))
+      .where(eq(meetingAgendaItems.meetingId, m.id)),
   ]);
 
   return {
@@ -651,15 +650,16 @@ export async function getDocumentMeetings(documentId: string) {
 }
 
 export async function getProposalMeetings(proposalId: string) {
+  // Single source of truth: a proposal is "on" a meeting when it's an agenda item.
   return db
-    .select({
+    .selectDistinct({
       meetingId: meetings.id,
       title: meetings.title,
       date: meetings.date,
     })
-    .from(meetingProposals)
-    .innerJoin(meetings, eq(meetings.id, meetingProposals.meetingId))
-    .where(eq(meetingProposals.proposalId, proposalId));
+    .from(meetingAgendaItems)
+    .innerJoin(meetings, eq(meetings.id, meetingAgendaItems.meetingId))
+    .where(eq(meetingAgendaItems.proposalId, proposalId));
 }
 
 // ============================================================
