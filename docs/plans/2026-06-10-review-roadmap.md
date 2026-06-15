@@ -14,7 +14,7 @@
 | 4b | Sharing/transparency (readable public docs, decision permalinks, RSS, sitemap, per-item action hide, export) | _tbd_ | _tbd_ | ⏳ Not started |
 | 4c | Canvas (stable hashId jitter, drag-pan, legend filters, memoised layers, distinct status colours) | _tbd_ | _tbd_ | ⏳ Not started |
 | 4d | AI (structured outputs + model upgrade, error handling, input caps → governance Q&A, agenda drafting, auto-tagging) | _tbd_ | _tbd_ | ⏳ Not started |
-| 4e | Engagement (notifications + review-due digest, pending-invite mgmt, global search/command palette, user profile) | _tbd_ | _tbd_ | ⏳ Not started |
+| 4e | Engagement (notifications + review-due digest, pending-invite mgmt, global search/command palette, user profile) | `~/.claude/plans/steady-frolicking-eagle.md` | `tranche-4e-engagement` | ✅ Implemented — stacked on Tranche 4a |
 
 ## Sequencing rationale
 

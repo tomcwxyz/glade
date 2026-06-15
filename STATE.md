@@ -212,6 +212,17 @@ Branch `tranche-4a-performance` (stacked on 3b). Four phases, all build/lint cle
 
 New dependency: `ws`. New Neon migration: P1 indexes. DB driver is now neon-serverless (app runtime); migration/seed `.cjs` scripts still use neon-http.
 
+## Engagement (2026-06-15)
+
+Branch `tranche-4e-engagement` (stacked on 4a). Four phases, build/lint clean, commit per phase:
+
+- **P1:** pending-invite management — `resendInvitation`/`revokeInvitation` (admin) + a "Pending invitations" section on the members page.
+- **P2:** user account page — `/account` (edit name via `updateProfile`, read-only email, reused change-password form); sidebar/mobile "Account" link; settings links to it.
+- **P3:** review-due notifications — `review_due` notification type (migrated); `notifyReviewsDue` fired lazily from the dashboard via `after()` (deduped one summary per member per week) + best-effort email digest (`sendReviewDigestEmail`).
+- **P4:** global ⌘K command palette — `searchSpace` cross-entity server search + `globalSearch` action + `CommandPalette` (mounted in AppShell) + sidebar Search trigger.
+
+New Neon migration: `notification_type += review_due`. No new dependencies.
+
 ## Known Issues
 
 - **Deployment:** app is **live** (per owner) — set `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` in Vercel for rate limiting (fails open without them). Earlier "deploy pending" notes in PLAN/CLAUDE are stale.
