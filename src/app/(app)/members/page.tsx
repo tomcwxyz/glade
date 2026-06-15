@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { getCurrentSpace, requireUser } from "@/lib/space";
-import { getSpaceMembers } from "@/lib/queries";
+import { getSpaceMembers, getPendingInvitationsForSpace } from "@/lib/queries";
 import { canAddMember } from "@/lib/billing";
 import { Users } from "lucide-react";
 
@@ -12,9 +12,10 @@ export default async function MembersPage() {
   const space = await getCurrentSpace();
   if (!space) return null;
 
-  const [members, canInvite] = await Promise.all([
+  const [members, canInvite, pendingInvites] = await Promise.all([
     getSpaceMembers(space.id),
     canAddMember(space.id),
+    getPendingInvitationsForSpace(space.id),
   ]);
   const currentMember = members.find((m) => m.userId === user.id || m.email === user.email);
   const isAdmin = currentMember?.role === "admin";
@@ -48,6 +49,12 @@ export default async function MembersPage() {
         currentUserId={user.id!}
         isAdmin={isAdmin}
         canInvite={canInvite}
+        pendingInvitations={pendingInvites.map((i) => ({
+          id: i.id,
+          email: i.email,
+          role: i.role,
+          expiresAt: i.expiresAt ? i.expiresAt.toISOString() : null,
+        }))}
       />
     </div>
   );

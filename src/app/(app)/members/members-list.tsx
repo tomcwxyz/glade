@@ -2,8 +2,9 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Plus, Shield, ShieldCheck, Eye, X, UserPlus } from "lucide-react";
-import { updateMemberRole, removeMember, inviteMember } from "@/lib/space-actions";
+import { Loader2, Plus, Shield, ShieldCheck, Eye, X, UserPlus, Mail, RefreshCw } from "lucide-react";
+import { updateMemberRole, removeMember, inviteMember, resendInvitation, revokeInvitation } from "@/lib/space-actions";
+import { formatDate } from "@/lib/utils";
 
 interface Member {
   id: string;
@@ -12,6 +13,13 @@ interface Member {
   email: string;
   role: string;
   joinedAt: string;
+}
+
+interface PendingInvite {
+  id: string;
+  email: string;
+  role: string;
+  expiresAt: string | null;
 }
 
 const ROLE_CONFIG: Record<
@@ -30,11 +38,13 @@ export function MembersList({
   currentUserId,
   isAdmin,
   canInvite = true,
+  pendingInvitations = [],
 }: {
   members: Member[];
   currentUserId: string;
   isAdmin: boolean;
   canInvite?: boolean;
+  pendingInvitations?: PendingInvite[];
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -56,6 +66,21 @@ export function MembersList({
     if (!confirm("Remove this member from the space?")) return;
     startTransition(async () => {
       await removeMember(memberId);
+      router.refresh();
+    });
+  }
+
+  function handleResendInvite(invitationId: string) {
+    startTransition(async () => {
+      await resendInvitation(invitationId);
+      router.refresh();
+    });
+  }
+
+  function handleRevokeInvite(invitationId: string) {
+    if (!confirm("Revoke this pending invitation?")) return;
+    startTransition(async () => {
+      await revokeInvitation(invitationId);
       router.refresh();
     });
   }
@@ -227,6 +252,52 @@ export function MembersList({
           );
         })}
       </div>
+
+      {/* Pending invitations (admin only) */}
+      {isAdmin && pendingInvitations.length > 0 && (
+        <div className="mt-10">
+          <h2 className="text-sm font-semibold text-bark-muted uppercase tracking-wider mb-3">
+            Pending invitations ({pendingInvitations.length})
+          </h2>
+          <div className="space-y-1">
+            {pendingInvitations.map((invite) => (
+              <div
+                key={invite.id}
+                className="flex items-center gap-4 py-3 border-b border-border last:border-b-0"
+              >
+                <div className="w-9 h-9 rounded-full bg-paper-deep border border-border flex items-center justify-center shrink-0 text-bark-muted">
+                  <Mail size={15} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium text-bark truncate">{invite.email}</div>
+                  <div className="text-xs text-bark-muted">
+                    {ROLE_CONFIG[invite.role]?.label || invite.role}
+                    {invite.expiresAt && ` · expires ${formatDate(invite.expiresAt)}`}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleResendInvite(invite.id)}
+                  className="flex items-center gap-1 text-xs text-bark-muted hover:text-canopy transition-colors"
+                  title="Resend invitation"
+                >
+                  <RefreshCw size={13} />
+                  Resend
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleRevokeInvite(invite.id)}
+                  className="text-bark-muted hover:text-earth transition-colors"
+                  title="Revoke invitation"
+                  aria-label="Revoke invitation"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

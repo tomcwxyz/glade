@@ -6,7 +6,7 @@ import { eq, and } from "drizzle-orm";
 import { db } from "@/db";
 import * as schema from "@/db/schema";
 import { spaces, spaceMembers, users, subscriptions } from "@/db/schema";
-import { getCurrentSpace, requireUser, setCurrentSpace } from "@/lib/space";
+import { getCurrentSpace, requireUser, setCurrentSpace, requireSpaceRole } from "@/lib/space";
 import { canAddMember } from "@/lib/billing";
 import { randomBytes } from "crypto";
 import { invitations } from "@/db/schema";
@@ -318,6 +318,57 @@ export async function inviteMember(email: string) {
 
   revalidatePath("/members");
   return { success: true, message: "Invitation sent!" };
+}
+
+/** Refresh a pending invitation's expiry and re-send the email (admin only). */
+export async function resendInvitation(invitationId: string) {
+  const auth = await requireSpaceRole("admin");
+  if ("error" in auth) return auth;
+  const { user, space } = auth;
+
+  const [invite] = await db
+    .select()
+    .from(invitations)
+    .where(and(eq(invitations.id, invitationId), eq(invitations.spaceId, space.id)))
+    .limit(1);
+  if (!invite) return { error: "Invitation not found" };
+
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  await db
+    .update(invitations)
+    .set({ status: "pending", expiresAt })
+    .where(eq(invitations.id, invitationId));
+
+  if (isEmailConfigured()) {
+    try {
+      await sendSpaceInviteEmail(
+        invite.email,
+        space.name,
+        user.name || user.email || "A space admin",
+        invite.token,
+      );
+    } catch {
+      // Don't fail the action if email fails
+    }
+  }
+
+  revalidatePath("/members");
+  return { success: true, message: "Invitation re-sent." };
+}
+
+/** Delete a pending invitation (admin only). */
+export async function revokeInvitation(invitationId: string) {
+  const auth = await requireSpaceRole("admin");
+  if ("error" in auth) return auth;
+  const { space } = auth;
+
+  // Scope the delete to the caller's space.
+  await db
+    .delete(invitations)
+    .where(and(eq(invitations.id, invitationId), eq(invitations.spaceId, space.id)));
+
+  revalidatePath("/members");
+  return { success: true };
 }
 
 export async function clearSpaceData() {
