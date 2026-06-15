@@ -25,6 +25,7 @@ import {
   Settings,
   Shield,
   TreePine,
+  UserCircle,
   Users,
 } from "lucide-react";
 
@@ -41,6 +42,7 @@ const NAV_ITEMS = [
 
 const BOTTOM_ITEMS = [
   { href: "/members", label: "Members", icon: Users },
+  { href: "/account", label: "Account", icon: UserCircle },
   { href: "/help", label: "Help", icon: HelpCircle },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
