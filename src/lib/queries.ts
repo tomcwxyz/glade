@@ -2,6 +2,7 @@ import { db } from "@/db";
 import {
   decisions,
   decisionLinks,
+  decisionResponses,
   decisionTags,
   tags,
   actions,
@@ -1760,4 +1761,13 @@ export async function getInsightsByDecision(decisionId: string) {
       )
     )
     .orderBy(desc(insights.createdAt));
+}
+
+/** The persisted per-response deliberation record for a decision (audit trail). */
+export async function getDecisionResponses(decisionId: string) {
+  return db
+    .select()
+    .from(decisionResponses)
+    .where(eq(decisionResponses.decisionId, decisionId))
+    .orderBy(asc(decisionResponses.respondedAt));
 }

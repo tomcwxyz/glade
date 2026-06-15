@@ -321,6 +321,30 @@ export const decisionLinks = pgTable(
   ]
 );
 
+// Normalized, durable record of each deliberation response that produced a
+// decision (the `decisions.deliberation` jsonb is the denormalized read-model).
+export const decisionResponses = pgTable(
+  "decision_responses",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    decisionId: uuid("decision_id")
+      .notNull()
+      .references(() => decisions.id, { onDelete: "cascade" }),
+    // Live participant ids are user ids, but kept FK-free so deleting a user
+    // never erases the historical record of who responded.
+    participantId: uuid("participant_id"),
+    name: varchar("name", { length: 255 }).notNull(),
+    value: varchar("value", { length: 100 }).notNull(),
+    comment: text("comment"),
+    stage: varchar("stage", { length: 50 }),
+    resolution: varchar("resolution", { length: 20 }),
+    resolutionNote: text("resolution_note"),
+    respondedAt: timestamp("responded_at", { mode: "date" }),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (dr) => [index("decision_responses_decision_idx").on(dr.decisionId)]
+);
+
 // --- Tags ---
 
 export const tags = pgTable(

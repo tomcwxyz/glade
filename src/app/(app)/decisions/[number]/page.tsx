@@ -10,6 +10,7 @@ import {
   getTopicByProposal,
   getDocumentsByDecision,
   getInsightsByDecision,
+  getDecisionResponses,
 } from "@/lib/queries";
 import { isAiEnabled } from "@/lib/ai";
 import { formatDate } from "@/lib/utils";
@@ -199,6 +200,7 @@ export default async function DecisionDetailPage({
     originProposal,
     changedDocuments,
     relatedInsights,
+    decisionResponses,
   ] = await Promise.all([
     getDecisionLinksWithIds(decision.id),
     getDecisionMeetings(decision.id),
@@ -208,6 +210,7 @@ export default async function DecisionDetailPage({
     getProposalByDecision(decision.id),
     getDocumentsByDecision(decision.id),
     getInsightsByDecision(decision.id),
+    getDecisionResponses(decision.id),
   ]);
 
   // Topic→proposal→decision lineage: topic depends on the proposal id.
@@ -452,8 +455,13 @@ export default async function DecisionDetailPage({
           {/* Deliberation record (snapshot from the live meeting) */}
           {decision.deliberation && (
             <section>
-              <h2 className="text-xs uppercase tracking-wider text-bark-muted font-medium mb-3">
+              <h2 className="text-xs uppercase tracking-wider text-bark-muted font-medium mb-3 flex items-center gap-2">
                 How this was decided
+                {decisionResponses.length > 0 && (
+                  <span className="normal-case tracking-normal text-bark-muted/70 font-normal">
+                    · {decisionResponses.length} response{decisionResponses.length === 1 ? "" : "s"} recorded
+                  </span>
+                )}
               </h2>
               <div className="bg-paper-warm rounded-xl px-5 py-4 border border-border space-y-4">
                 {decision.deliberation.tallies.length > 0 && (

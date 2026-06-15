@@ -10,6 +10,7 @@ import {
   actions,
   meetingAgendaItems,
   proposals,
+  decisionResponses,
 } from "@/db/schema";
 import { getCurrentSpace, requireUser } from "@/lib/space";
 import { insertDecisionWithUniqueNumber, updateMeetingSessionState } from "@/lib/queries";
@@ -516,6 +517,24 @@ export async function recordMeetingDecision(
       meetingId,
       decisionId: decision.id,
     });
+
+    // Persist the per-response deliberation record (durable audit trail).
+    const responses = state.decisionFlow?.responses ?? [];
+    if (responses.length > 0) {
+      await db.insert(decisionResponses).values(
+        responses.map((r) => ({
+          decisionId: decision.id,
+          participantId: r.participantId,
+          name: r.name,
+          value: r.value,
+          comment: r.comment,
+          stage: r.stage,
+          resolution: r.resolution,
+          resolutionNote: r.resolutionNote,
+          respondedAt: r.respondedAt ? new Date(r.respondedAt) : null,
+        }))
+      );
+    }
 
     // If this decision came from a proposal, link and update the proposal
     if (proposalId) {
