@@ -120,6 +120,13 @@ export const notificationTypeEnum = pgEnum("notification_type", [
   "meeting_started",
 ]);
 
+export const reviewOutcomeEnum = pgEnum("review_outcome", [
+  "keep",
+  "amend",
+  "supersede",
+  "retire",
+]);
+
 export const planTierEnum = pgEnum("plan_tier", [
   "free",
   "pro",
@@ -289,6 +296,10 @@ export const decisions = pgTable(
     date: timestamp("date", { mode: "date" }).notNull(),
     conditions: text("conditions"),
     reviewDate: timestamp("review_date", { mode: "date" }),
+    // What we learned (captured at review / on "learned"); feeds pattern analysis.
+    learnings: text("learnings"),
+    // Set when a review outcome retires the decision (terminal, off the lifecycle).
+    retiredAt: timestamp("retired_at", { mode: "date" }),
     isPublic: boolean("is_public").default(true).notNull(),
     createdBy: uuid("created_by").references(() => users.id),
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
@@ -343,6 +354,22 @@ export const decisionResponses = pgTable(
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
   },
   (dr) => [index("decision_responses_decision_idx").on(dr.decisionId)]
+);
+
+// History of review events on a decision (due queue → recorded outcome).
+export const decisionReviews = pgTable(
+  "decision_reviews",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    decisionId: uuid("decision_id")
+      .notNull()
+      .references(() => decisions.id, { onDelete: "cascade" }),
+    outcome: reviewOutcomeEnum("outcome").notNull(),
+    note: text("note"),
+    reviewedBy: uuid("reviewed_by").references(() => users.id),
+    reviewedAt: timestamp("reviewed_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (dr) => [index("decision_reviews_decision_idx").on(dr.decisionId)]
 );
 
 // --- Tags ---

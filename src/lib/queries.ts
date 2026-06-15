@@ -3,6 +3,7 @@ import {
   decisions,
   decisionLinks,
   decisionResponses,
+  decisionReviews,
   decisionTags,
   tags,
   actions,
@@ -30,7 +31,7 @@ import {
   invitations,
   notifications,
 } from "@/db/schema";
-import { eq, and, or, desc, asc, count, sql, inArray } from "drizzle-orm";
+import { eq, and, or, desc, asc, count, sql, inArray, lt, isNull, notInArray } from "drizzle-orm";
 import { deriveActionStatus } from "@/lib/utils";
 
 // ============================================================
@@ -1770,4 +1771,46 @@ export async function getDecisionResponses(decisionId: string) {
     .from(decisionResponses)
     .where(eq(decisionResponses.decisionId, decisionId))
     .orderBy(asc(decisionResponses.respondedAt));
+}
+
+/**
+ * Decisions whose review date has passed and that haven't been reviewed,
+ * learned from, or retired — the overdue-review queue.
+ */
+export async function getReviewsDue(spaceId: string) {
+  const now = new Date();
+  return db
+    .select({
+      id: decisions.id,
+      number: decisions.number,
+      title: decisions.title,
+      reviewDate: decisions.reviewDate,
+      status: decisions.status,
+    })
+    .from(decisions)
+    .where(
+      and(
+        eq(decisions.spaceId, spaceId),
+        lt(decisions.reviewDate, now),
+        isNull(decisions.retiredAt),
+        notInArray(decisions.status, ["reviewed", "learned"])
+      )
+    )
+    .orderBy(asc(decisions.reviewDate));
+}
+
+/** Review history for a decision (most recent first). */
+export async function getDecisionReviews(decisionId: string) {
+  return db
+    .select({
+      id: decisionReviews.id,
+      outcome: decisionReviews.outcome,
+      note: decisionReviews.note,
+      reviewedAt: decisionReviews.reviewedAt,
+      reviewerName: users.name,
+    })
+    .from(decisionReviews)
+    .leftJoin(users, eq(users.id, decisionReviews.reviewedBy))
+    .where(eq(decisionReviews.decisionId, decisionId))
+    .orderBy(desc(decisionReviews.reviewedAt));
 }

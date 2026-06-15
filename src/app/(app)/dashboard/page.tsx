@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { getCurrentSpace, getSpaceMemberCount } from "@/lib/space";
 
 export const metadata: Metadata = { title: "Dashboard" };
-import { getDecisions, getActions, getMeetings, getSpaceStats, getActiveInsights, getGovernanceHealthStats } from "@/lib/queries";
+import { getDecisions, getActions, getMeetings, getSpaceStats, getActiveInsights, getGovernanceHealthStats, getReviewsDue } from "@/lib/queries";
 import { isAiEnabled } from "@/lib/ai";
 import { getSpacePlan } from "@/lib/billing";
 import { PLAN_LIMITS } from "@/lib/plans";
@@ -94,13 +94,14 @@ export default async function DashboardPage() {
   const planLimits = PLAN_LIMITS[planTier];
   const aiEnabled = planLimits.canUseAi && isAiEnabled(space.settings);
 
-  const [allDecisions, allActions, allMeetings, stats, activeInsights, healthStats] = await Promise.all([
+  const [allDecisions, allActions, allMeetings, stats, activeInsights, healthStats, reviewsDue] = await Promise.all([
     getDecisions(space.id),
     getActions(space.id),
     getMeetings(space.id),
     getSpaceStats(space.id),
     aiEnabled ? getActiveInsights(space.id) : Promise.resolve([]),
     getGovernanceHealthStats(space.id),
+    getReviewsDue(space.id),
   ]);
 
   const recentDecisions = allDecisions.slice(0, 4);
@@ -111,7 +112,11 @@ export default async function DashboardPage() {
       return (order[a.status] ?? 3) - (order[b.status] ?? 3);
     })
     .slice(0, 4);
-  const nextReviews = allDecisions.filter((d) => d.reviewDate).slice(0, 3);
+  // "Coming up" = future-dated reviews; overdue ones live in their own queue below.
+  const reviewCutoff = Date.now();
+  const nextReviews = allDecisions
+    .filter((d) => d.reviewDate && new Date(d.reviewDate).getTime() > reviewCutoff)
+    .slice(0, 3);
 
   // Build decision lookup for insights
   const relatedDecisions: Record<string, { number: number; title: string }> = {};
@@ -445,6 +450,38 @@ export default async function DashboardPage() {
               </div>
             )}
           </section>
+
+          {/* Overdue reviews — actionable due queue */}
+          {reviewsDue.length > 0 && (
+            <section>
+              <h2
+                className="text-base font-medium tracking-tight mb-4 flex items-center gap-2 text-earth"
+                style={{ fontFamily: "var(--font-display)" }}
+              >
+                <TriangleAlert size={16} />
+                Reviews overdue ({reviewsDue.length})
+              </h2>
+              <div className="space-y-2.5">
+                {reviewsDue.slice(0, 5).map((decision) => (
+                  <Link
+                    key={decision.id}
+                    href={`/decisions/${decision.number}`}
+                    className="flex items-start gap-2.5 py-2 group"
+                  >
+                    <CalendarClock size={14} className="text-earth mt-0.5 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[0.8125rem] text-bark leading-snug group-hover:text-canopy transition-colors">
+                        #{decision.number} {decision.title}
+                      </p>
+                      <p className="text-xs text-earth mt-0.5">
+                        Review was due {formatDate(decision.reviewDate!.toISOString())}
+                      </p>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          )}
 
           {/* Upcoming reviews */}
           <section>

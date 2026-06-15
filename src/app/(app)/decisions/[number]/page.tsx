@@ -11,6 +11,7 @@ import {
   getDocumentsByDecision,
   getInsightsByDecision,
   getDecisionResponses,
+  getDecisionReviews,
 } from "@/lib/queries";
 import { isAiEnabled } from "@/lib/ai";
 import { formatDate } from "@/lib/utils";
@@ -34,6 +35,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { StatusAdvance } from "./status-advance";
+import { RecordReview } from "./record-review";
 import { DeleteDecision } from "./delete-decision";
 import { DeleteAction } from "./delete-action";
 import { DecisionLinksEditor } from "./decision-links-editor";
@@ -201,6 +203,7 @@ export default async function DecisionDetailPage({
     changedDocuments,
     relatedInsights,
     decisionResponses,
+    reviewHistory,
   ] = await Promise.all([
     getDecisionLinksWithIds(decision.id),
     getDecisionMeetings(decision.id),
@@ -211,6 +214,7 @@ export default async function DecisionDetailPage({
     getDocumentsByDecision(decision.id),
     getInsightsByDecision(decision.id),
     getDecisionResponses(decision.id),
+    getDecisionReviews(decision.id),
   ]);
 
   // Topic→proposal→decision lineage: topic depends on the proposal id.
@@ -255,6 +259,11 @@ export default async function DecisionDetailPage({
                 <TriangleAlert size={10} />
                 Superseded by #{supersededBy[0].number}
               </Link>
+            )}
+            {decision.retiredAt && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[0.625rem] font-medium bg-bark/10 text-bark-muted border border-bark/20">
+                Retired
+              </span>
             )}
             {!decision.isPublic && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[0.625rem] font-medium bg-bark/8 text-bark-muted border border-bark/20">
@@ -452,6 +461,20 @@ export default async function DecisionDetailPage({
             </div>
           </section>
 
+          {/* Learnings (captured at review) */}
+          {decision.learnings && (
+            <section>
+              <h2 className="text-xs uppercase tracking-wider text-bark-muted font-medium mb-3">
+                What we learned
+              </h2>
+              <div className="border-l-2 border-amber/40 pl-4">
+                <p className="text-[0.9375rem] text-bark leading-relaxed">
+                  {decision.learnings}
+                </p>
+              </div>
+            </section>
+          )}
+
           {/* Deliberation record (snapshot from the live meeting) */}
           {decision.deliberation && (
             <section>
@@ -596,6 +619,33 @@ export default async function DecisionDetailPage({
               </div>
             </section>
           )}
+
+          {/* Review — record an outcome + history */}
+          <section>
+            <h2 className="text-xs uppercase tracking-wider text-bark-muted font-medium mb-3">
+              Review
+            </h2>
+            <RecordReview
+              decisionId={decision.id}
+              decisions={allDecisions.map((d) => ({ id: d.id, number: d.number, title: d.title }))}
+            />
+            {reviewHistory.length > 0 && (
+              <ul className="mt-3 space-y-2">
+                {reviewHistory.map((r) => (
+                  <li key={r.id} className="text-xs">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-medium text-bark capitalize">{r.outcome}</span>
+                      <span className="text-bark-muted">
+                        · {formatDate(r.reviewedAt.toISOString())}
+                        {r.reviewerName ? ` · ${r.reviewerName}` : ""}
+                      </span>
+                    </div>
+                    {r.note && <p className="text-bark-muted mt-0.5">{r.note}</p>}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
 
           {/* Participants */}
           <section>

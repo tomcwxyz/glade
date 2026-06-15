@@ -1,9 +1,10 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { eq, and, count } from "drizzle-orm";
 import { db } from "@/db";
-import { decisions, decisionLinks, decisionTags, tags, actions, meetingDecisions, meetings, proposals, documentVersions, insights } from "@/db/schema";
+import { decisions, decisionLinks, decisionReviews, decisionTags, tags, actions, meetingDecisions, meetings, proposals, documentVersions, insights } from "@/db/schema";
 import { requireSpaceRole } from "@/lib/space";
 import { insertDecisionWithUniqueNumber } from "@/lib/queries";
 import { canAddDecision } from "@/lib/billing";
@@ -203,6 +204,86 @@ export async function updateDecisionStatus(
     id: decisionId,
     status,
   });
+}
+
+/**
+ * Record the outcome of reviewing a decision. Captures a review-history row and
+ * applies the outcome: keep/amend/supersede → status "reviewed"; retire also sets
+ * retiredAt; amend/supersede auto-link the decision that replaces/amends this one.
+ * Optional learnings are captured on the decision (feeds pattern analysis).
+ */
+export async function recordDecisionReview(
+  decisionId: string,
+  outcome: "keep" | "amend" | "supersede" | "retire",
+  note?: string,
+  learnings?: string,
+  linkedDecisionId?: string
+) {
+  const auth = await requireSpaceRole("member");
+  if ("error" in auth) return auth;
+  const { user, space } = auth;
+
+  const [decision] = await db
+    .select({ id: decisions.id })
+    .from(decisions)
+    .where(and(eq(decisions.id, decisionId), eq(decisions.spaceId, space.id)))
+    .limit(1);
+  if (!decision) return { error: "Decision not found" };
+
+  // Record the review event (history).
+  await db.insert(decisionReviews).values({
+    decisionId,
+    outcome,
+    note: note?.trim() || null,
+    reviewedBy: user.id,
+  });
+
+  // Apply the outcome to the decision.
+  const update: {
+    status: "reviewed";
+    updatedAt: Date;
+    learnings?: string;
+    retiredAt?: Date;
+  } = { status: "reviewed", updatedAt: new Date() };
+  if (learnings && learnings.trim()) update.learnings = learnings.trim();
+  if (outcome === "retire") update.retiredAt = new Date();
+  await db
+    .update(decisions)
+    .set(update)
+    .where(and(eq(decisions.id, decisionId), eq(decisions.spaceId, space.id)));
+
+  // amend/supersede: link the replacing decision → this one (drives the badge).
+  if ((outcome === "amend" || outcome === "supersede") && linkedDecisionId) {
+    const [linked] = await db
+      .select({ id: decisions.id })
+      .from(decisions)
+      .where(and(eq(decisions.id, linkedDecisionId), eq(decisions.spaceId, space.id)))
+      .limit(1);
+    if (linked) {
+      const linkType = outcome === "supersede" ? "supersedes" : "amends";
+      const [existing] = await db
+        .select({ id: decisionLinks.id })
+        .from(decisionLinks)
+        .where(
+          and(
+            eq(decisionLinks.fromDecisionId, linkedDecisionId),
+            eq(decisionLinks.toDecisionId, decisionId),
+            eq(decisionLinks.linkType, linkType)
+          )
+        );
+      if (!existing) {
+        await db.insert(decisionLinks).values({
+          fromDecisionId: linkedDecisionId,
+          toDecisionId: decisionId,
+          linkType,
+        });
+      }
+    }
+  }
+
+  fireWebhooks(space.id, "decision.status_changed", { id: decisionId, status: "reviewed" });
+  revalidatePath(`/decisions`);
+  return { success: true };
 }
 
 export async function addDecisionLink(
