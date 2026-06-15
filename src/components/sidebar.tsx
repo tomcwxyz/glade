@@ -8,6 +8,7 @@ import { switchSpace } from "@/lib/space-actions";
 import type { SpaceInfo, UserSpace } from "./app-shell";
 import { SignOutButton } from "./sign-out-button";
 import { NotificationBell } from "./notification-bell";
+import { OPEN_SEARCH_EVENT } from "./command-palette";
 import {
   BookOpen,
   Calendar,
@@ -22,6 +23,7 @@ import {
   ListChecks,
   MessageSquare,
   Plus,
+  Search,
   Settings,
   Shield,
   TreePine,
@@ -152,6 +154,15 @@ export function Sidebar({ currentSpace, userSpaces, isSuperAdmin }: SidebarProps
                 Glade
               </span>
             </div>
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new Event(OPEN_SEARCH_EVENT))}
+              aria-label="Search (Cmd+K)"
+              title="Search (⌘K)"
+              className="flex items-center justify-center w-8 h-8 rounded-lg text-bark-muted hover:text-bark hover:bg-paper-deep transition-colors"
+            >
+              <Search size={17} strokeWidth={1.8} aria-hidden="true" />
+            </button>
             <NotificationBell />
           </>
         )}

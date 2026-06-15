@@ -5,6 +5,7 @@ import { MobileNav } from "./mobile-nav";
 import { Walkthrough } from "./walkthrough";
 import { SkipLink } from "./skip-link";
 import { LiveRegionProvider } from "./live-region";
+import { CommandPalette } from "./command-palette";
 
 export interface SpaceInfo {
   id: string;
@@ -39,6 +40,7 @@ export function AppShell({ children, currentSpace, userSpaces, isSuperAdmin }: A
         </div>
         <main id="main-content" className="flex-1 overflow-y-auto" tabIndex={-1}>{children}</main>
         <Walkthrough />
+        <CommandPalette />
       </div>
     </LiveRegionProvider>
   );

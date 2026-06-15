@@ -31,7 +31,7 @@ import {
   invitations,
   notifications,
 } from "@/db/schema";
-import { eq, and, or, desc, asc, count, sql, inArray, lt, isNull, notInArray } from "drizzle-orm";
+import { eq, and, or, desc, asc, count, sql, inArray, lt, isNull, notInArray, ilike } from "drizzle-orm";
 import { deriveActionStatus } from "@/lib/utils";
 
 // ============================================================
@@ -1891,4 +1891,115 @@ export async function getDecisionReviews(decisionId: string) {
     .leftJoin(users, eq(users.id, decisionReviews.reviewedBy))
     .where(eq(decisionReviews.decisionId, decisionId))
     .orderBy(desc(decisionReviews.reviewedAt));
+}
+
+// ============================================================
+// Global search (command palette)
+// ============================================================
+
+export type SearchResult = {
+  type: "decision" | "meeting" | "proposal" | "topic" | "document" | "action";
+  id: string;
+  title: string;
+  subtitle: string;
+  href: string;
+};
+
+/**
+ * Cross-entity, space-scoped search for the command palette. Case-insensitive
+ * substring match on the primary text of each entity; capped per type.
+ */
+export async function searchSpace(spaceId: string, query: string): Promise<SearchResult[]> {
+  const term = `%${query.trim()}%`;
+  const LIMIT = 5;
+
+  const [decisionRows, meetingRows, proposalRows, topicRows, documentRows, actionRows] =
+    await Promise.all([
+      db
+        .select({ id: decisions.id, number: decisions.number, title: decisions.title })
+        .from(decisions)
+        .where(and(eq(decisions.spaceId, spaceId), or(ilike(decisions.title, term), ilike(decisions.outcome, term))))
+        .orderBy(desc(decisions.date))
+        .limit(LIMIT),
+      db
+        .select({ id: meetings.id, title: meetings.title })
+        .from(meetings)
+        .where(and(eq(meetings.spaceId, spaceId), ilike(meetings.title, term)))
+        .orderBy(desc(meetings.date))
+        .limit(LIMIT),
+      db
+        .select({ id: proposals.id, title: proposals.title })
+        .from(proposals)
+        .where(and(eq(proposals.spaceId, spaceId), ilike(proposals.title, term)))
+        .orderBy(desc(proposals.updatedAt))
+        .limit(LIMIT),
+      db
+        .select({ id: topics.id, title: topics.title, promotedToProposalId: topics.promotedToProposalId })
+        .from(topics)
+        .where(and(eq(topics.spaceId, spaceId), ilike(topics.title, term)))
+        .orderBy(desc(topics.createdAt))
+        .limit(LIMIT),
+      db
+        .select({ id: documents.id, title: documents.title })
+        .from(documents)
+        .where(and(eq(documents.spaceId, spaceId), ilike(documents.title, term)))
+        .orderBy(desc(documents.updatedAt))
+        .limit(LIMIT),
+      db
+        .select({
+          id: actions.id,
+          description: actions.description,
+          decisionNumber: decisions.number,
+        })
+        .from(actions)
+        .leftJoin(decisions, eq(decisions.id, actions.decisionId))
+        .where(and(eq(actions.spaceId, spaceId), ilike(actions.description, term)))
+        .orderBy(desc(actions.createdAt))
+        .limit(LIMIT),
+    ]);
+
+  return [
+    ...decisionRows.map((d) => ({
+      type: "decision" as const,
+      id: d.id,
+      title: d.title,
+      subtitle: `Decision #${d.number}`,
+      href: `/decisions/${d.number}`,
+    })),
+    ...proposalRows.map((p) => ({
+      type: "proposal" as const,
+      id: p.id,
+      title: p.title,
+      subtitle: "Proposal",
+      href: `/proposals/${p.id}`,
+    })),
+    ...meetingRows.map((m) => ({
+      type: "meeting" as const,
+      id: m.id,
+      title: m.title,
+      subtitle: "Meeting",
+      href: `/meetings/${m.id}`,
+    })),
+    ...topicRows.map((t) => ({
+      type: "topic" as const,
+      id: t.id,
+      title: t.title,
+      subtitle: t.promotedToProposalId ? "Topic · promoted" : "Topic",
+      href: t.promotedToProposalId ? `/proposals/${t.promotedToProposalId}` : `/topics/${t.id}`,
+    })),
+    ...documentRows.map((doc) => ({
+      type: "document" as const,
+      id: doc.id,
+      title: doc.title,
+      subtitle: "Document",
+      href: `/documents/${doc.id}`,
+    })),
+    ...actionRows.map((a) => ({
+      type: "action" as const,
+      id: a.id,
+      title: a.description,
+      subtitle: "Action",
+      href: a.decisionNumber != null ? `/decisions/${a.decisionNumber}` : "/actions",
+    })),
+  ];
 }
