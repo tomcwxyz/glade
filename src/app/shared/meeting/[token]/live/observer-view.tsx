@@ -134,6 +134,7 @@ export function ObserverView({
   if (flow) {
     const counts = new Map<string, number>();
     for (const r of flow.responses) {
+      if (r.stage === "clarify") continue; // questions, not votes
       counts.set(r.value, (counts.get(r.value) ?? 0) + 1);
     }
     for (const [value, count] of counts) tally.push({ value, count });

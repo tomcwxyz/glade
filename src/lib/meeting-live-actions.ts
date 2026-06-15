@@ -13,7 +13,7 @@ import {
 } from "@/db/schema";
 import { getCurrentSpace, requireUser } from "@/lib/space";
 import { insertDecisionWithUniqueNumber, updateMeetingSessionState } from "@/lib/queries";
-import type { MeetingSessionState } from "@/lib/meeting-state";
+import type { MeetingSessionState, Deliberation } from "@/lib/meeting-state";
 import { advanceItem, skipItem, goToItem, startDecisionFlow } from "@/lib/meeting-state";
 
 async function getMeetingState(meetingId: string, spaceId: string) {
@@ -54,6 +54,41 @@ async function applyStateChange(
     current = fresh.sessionState as MeetingSessionState;
   }
   throw new Error("Could not save meeting state — too many concurrent updates");
+}
+
+/**
+ * Snapshot the live deliberation (tallies, objections + resolutions, clarifying
+ * questions, speaker notes) so it survives onto the recorded decision. Returns
+ * undefined when there's no active flow (e.g. a quick manual record).
+ */
+function buildDeliberation(state: MeetingSessionState): Deliberation | undefined {
+  const flow = state.decisionFlow;
+  if (!flow) return undefined;
+
+  const counts = new Map<string, number>();
+  for (const r of flow.responses) {
+    if (r.stage === "clarify") continue; // questions, not votes
+    counts.set(r.value, (counts.get(r.value) ?? 0) + 1);
+  }
+
+  return {
+    method: flow.method,
+    tallies: [...counts].map(([value, count]) => ({ value, count })),
+    objections: flow.responses
+      .filter((r) => r.value === "objection")
+      .map((o) => ({
+        name: o.name,
+        comment: o.comment,
+        resolution: o.resolution,
+        resolutionNote: o.resolutionNote,
+      })),
+    clarifyingQuestions: flow.responses
+      .filter((r) => r.stage === "clarify" && (r.comment || r.value))
+      .map((r) => ({ name: r.name, question: r.comment || r.value })),
+    speakers: state.speakerStack
+      .filter((s) => s.note)
+      .map((s) => ({ name: s.name, note: s.note })),
+  };
 }
 
 async function getAgendaCount(meetingId: string) {
@@ -285,6 +320,50 @@ export async function withdrawResponse(meetingId: string) {
   });
 }
 
+/**
+ * Record how an objection was resolved (consent integrate stage). The facilitator
+ * may set any resolution; an objector may withdraw their own objection (which
+ * preserves the record as "withdrawn" rather than deleting it).
+ */
+export async function resolveObjection(
+  meetingId: string,
+  participantId: string,
+  resolution: "addressed" | "integrated" | "withdrawn" | "stands",
+  note?: string
+) {
+  return withMeetingState(meetingId, async ({ state, space, user, meeting }) => {
+    if (!state.decisionFlow) return { error: "No decision flow active" };
+
+    const isSelfWithdraw = participantId === user.id && resolution === "withdrawn";
+    if (!isSelfWithdraw) {
+      const authoritative = meeting.facilitatorId ?? meeting.createdBy;
+      if (authoritative && user.id !== authoritative) {
+        return { error: "Only the facilitator can resolve objections" };
+      }
+    }
+
+    const newState = await applyStateChange(meetingId, space.id, state, (s) => {
+      if (!s.decisionFlow) return s;
+      return {
+        ...s,
+        decisionFlow: {
+          ...s.decisionFlow,
+          responses: s.decisionFlow.responses.map((r) =>
+            r.participantId === participantId &&
+            r.stage === "object" &&
+            r.value === "objection"
+              ? { ...r, resolution, resolutionNote: note?.trim() || r.resolutionNote }
+              : r
+          ),
+        },
+        version: s.version + 1,
+        updatedAt: new Date().toISOString(),
+      };
+    });
+    return { state: newState };
+  });
+}
+
 export async function requestToSpeak(meetingId: string) {
   return withMeetingState(meetingId, async ({ state, space, user }) => {
     if (state.speakerStack.some((s) => s.participantId === user.id)) {
@@ -420,7 +499,9 @@ export async function recordMeetingDecision(
   outcome?: string,
   proposalId?: string
 ) {
-  return withFacilitatorState(meetingId, async ({ user, space }) => {
+  return withFacilitatorState(meetingId, async ({ user, space, state }) => {
+    const deliberation = buildDeliberation(state);
+
     const decision = await insertDecisionWithUniqueNumber(space.id, {
       title,
       method: method as "consent" | "majority_vote" | "advice_process" | "delegation" | "consensus" | "lazy_consensus",
@@ -428,6 +509,7 @@ export async function recordMeetingDecision(
       status: "decided",
       date: new Date(),
       createdBy: user.id,
+      deliberation,
     });
 
     await db.insert(meetingDecisions).values({

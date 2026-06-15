@@ -10,6 +10,7 @@ import {
   advanceDecisionStage,
   submitResponse,
   withdrawResponse,
+  resolveObjection,
   recordMeetingDecision,
   advanceAgendaItem,
   cancelDecisionFlow,
@@ -69,6 +70,18 @@ export function DecisionFlowContainer({
     if ("state" in result && result.state) mutate(result.state);
   }, [meetingId, mutate]);
 
+  const handleResolveObjection = useCallback(
+    async (
+      participantId: string,
+      resolution: "addressed" | "integrated" | "withdrawn" | "stands",
+      note?: string
+    ) => {
+      const result = await resolveObjection(meetingId, participantId, resolution, note);
+      if ("state" in result && result.state) mutate(result.state);
+    },
+    [meetingId, mutate]
+  );
+
   const handleCloseFlow = useCallback(async () => {
     const result = await cancelDecisionFlow(meetingId);
     if ("state" in result && result.state) mutate(result.state);
@@ -117,6 +130,7 @@ export function DecisionFlowContainer({
         onAdvanceStage={handleAdvanceStage}
         onSubmit={handleSubmitResponse}
         onWithdraw={handleWithdrawResponse}
+        onResolveObjection={handleResolveObjection}
         onRecord={handleRecordAndAdvance}
       />
     );

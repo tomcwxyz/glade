@@ -56,6 +56,29 @@ const STATUS_LABELS: Record<DecisionStatus, string> = {
   learned: "Learned",
 };
 
+const VALUE_LABELS: Record<string, string> = {
+  for: "For",
+  against: "Against",
+  abstain: "Abstain",
+  support: "Support",
+  concern: "Concern",
+  neutral: "Neutral",
+  objection: "Objection",
+  no_objection: "No objection",
+  advice: "Advice",
+  hot: "Hot",
+  warm: "Warm",
+  lukewarm: "Lukewarm",
+  cold: "Cold",
+};
+
+const RESOLUTION_LABELS: Record<string, string> = {
+  addressed: "Addressed",
+  integrated: "Integrated",
+  withdrawn: "Withdrawn",
+  stands: "Still stands",
+};
+
 function StatusBadge({ status }: { status: DecisionStatus }) {
   const config: Record<DecisionStatus, { bg: string; text: string; border: string }> = {
     decided: { bg: "bg-status-decided/8", text: "text-status-decided", border: "border-status-decided/20" },
@@ -273,6 +296,82 @@ export default async function DecisionDetailPage({
               </p>
             </div>
           </section>
+
+          {/* Deliberation record (snapshot from the live meeting) */}
+          {decision.deliberation && (
+            <section>
+              <h2 className="text-xs uppercase tracking-wider text-bark-muted font-medium mb-3">
+                How this was decided
+              </h2>
+              <div className="bg-paper-warm rounded-xl px-5 py-4 border border-border space-y-4">
+                {decision.deliberation.tallies.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {decision.deliberation.tallies.map((t) => (
+                      <span
+                        key={t.value}
+                        className="px-2.5 py-1 rounded-full text-xs bg-paper text-bark border border-border"
+                      >
+                        {VALUE_LABELS[t.value] || t.value}:{" "}
+                        <span className="font-medium">{t.count}</span>
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {decision.deliberation.objections.length > 0 && (
+                  <div>
+                    <h3 className="text-xs font-medium text-bark-muted mb-1.5">Objections</h3>
+                    <ul className="space-y-1.5">
+                      {decision.deliberation.objections.map((o, i) => (
+                        <li key={i} className="text-sm text-bark">
+                          <span className="font-medium">{o.name}</span>
+                          {o.comment ? `: ${o.comment}` : ""}
+                          {o.resolution && (
+                            <span
+                              className={`ml-2 text-xs ${
+                                o.resolution === "stands" ? "text-earth" : "text-canopy"
+                              }`}
+                            >
+                              — {RESOLUTION_LABELS[o.resolution] || o.resolution}
+                              {o.resolutionNote ? `: ${o.resolutionNote}` : ""}
+                            </span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {decision.deliberation.clarifyingQuestions.length > 0 && (
+                  <div>
+                    <h3 className="text-xs font-medium text-bark-muted mb-1.5">
+                      Clarifying questions
+                    </h3>
+                    <ul className="space-y-1 list-disc list-inside">
+                      {decision.deliberation.clarifyingQuestions.map((q, i) => (
+                        <li key={i} className="text-sm text-bark">
+                          <span className="font-medium">{q.name}:</span> {q.question}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {decision.deliberation.speakers.length > 0 && (
+                  <div>
+                    <h3 className="text-xs font-medium text-bark-muted mb-1.5">Speaker notes</h3>
+                    <ul className="space-y-1">
+                      {decision.deliberation.speakers.map((s, i) => (
+                        <li key={i} className="text-sm text-bark">
+                          <span className="font-medium">{s.name}:</span> {s.note}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </section>
+          )}
 
           {/* Actions */}
           {decision.actions.length > 0 && (

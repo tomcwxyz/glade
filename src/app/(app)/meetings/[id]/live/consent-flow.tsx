@@ -24,6 +24,7 @@ export function ConsentFlow({
   onAdvanceStage,
   onSubmit,
   onWithdraw,
+  onResolveObjection,
   onRecord,
 }: {
   meetingId: string;
@@ -35,6 +36,11 @@ export function ConsentFlow({
   onAdvanceStage: (stage: string) => Promise<void>;
   onSubmit?: (value: string, comment?: string) => Promise<void>;
   onWithdraw?: () => Promise<void>;
+  onResolveObjection?: (
+    participantId: string,
+    resolution: "addressed" | "integrated" | "withdrawn" | "stands",
+    note?: string
+  ) => Promise<void>;
   onRecord: (title: string, method: string, outcome?: string) => Promise<void>;
 }) {
   const { announce } = useLiveRegion();
@@ -81,6 +87,18 @@ export function ConsentFlow({
   }, [flow?.stage, announce]);
   const objections = flow.responses.filter((r) => r.value === "objection");
   const hasObjections = objections.length > 0;
+  // An objection blocks consent until it's addressed, integrated, or withdrawn.
+  const unresolvedObjections = objections.filter(
+    (o) => !o.resolution || o.resolution === "stands"
+  );
+  const consentBlocked = unresolvedObjections.length > 0;
+
+  const RESOLUTIONS: { key: "addressed" | "integrated" | "withdrawn" | "stands"; label: string }[] = [
+    { key: "addressed", label: "Addressed" },
+    { key: "integrated", label: "Integrated" },
+    { key: "withdrawn", label: "Withdrawn" },
+    { key: "stands", label: "Stands" },
+  ];
 
   function nextStage() {
     const next = CONSENT_STAGES[currentStageIndex + 1];
@@ -179,17 +197,129 @@ export function ConsentFlow({
         </div>
       )}
 
-      {/* Objections summary */}
+      {/* Objection resolution (integrate stage) */}
       {flow.stage === "integrate" && hasObjections && (
-        <div className="p-3 bg-earth/5 border border-earth/20 rounded-lg mb-4">
-          <h4 className="text-xs font-medium text-earth mb-1">
+        <div className="p-3 bg-earth/5 border border-earth/20 rounded-lg mb-4 space-y-3">
+          <h4 className="text-xs font-medium text-earth">
             Objections to address ({objections.length})
           </h4>
-          {objections.map((o, i) => (
-            <p key={i} className="text-sm text-bark-muted">
-              {o.name}: {o.comment || "(no details)"}
-            </p>
-          ))}
+          {objections.map((o) => {
+            const isMine = o.participantId === currentUserId;
+            return (
+              <div key={o.participantId} className="bg-paper rounded-lg border border-border p-2.5">
+                <p className="text-sm text-bark">
+                  <span className="font-medium">{o.name}</span>
+                  {isMine && <span className="text-bark-muted"> (you)</span>}: {o.comment || "(no details)"}
+                </p>
+
+                {/* Facilitator: set resolution + note */}
+                {isFacilitator && onResolveObjection && (
+                  <div className="mt-2 space-y-2">
+                    <div className="flex flex-wrap gap-1.5">
+                      {RESOLUTIONS.map((r) => {
+                        const active = o.resolution === r.key;
+                        return (
+                          <button
+                            key={r.key}
+                            type="button"
+                            aria-pressed={active}
+                            onClick={() => onResolveObjection(o.participantId, r.key, o.resolutionNote)}
+                            className={`px-2.5 py-1 text-xs rounded-full transition-colors ${
+                              active
+                                ? r.key === "stands"
+                                  ? "bg-earth text-paper"
+                                  : "bg-canopy text-paper"
+                                : "border border-border text-bark-muted hover:bg-paper-deep"
+                            }`}
+                          >
+                            {r.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <input
+                      type="text"
+                      defaultValue={o.resolutionNote ?? ""}
+                      placeholder="How was it resolved? (optional note)"
+                      onBlur={(e) => {
+                        const note = e.target.value.trim();
+                        if (note !== (o.resolutionNote ?? "") && o.resolution) {
+                          onResolveObjection(o.participantId, o.resolution, note);
+                        }
+                      }}
+                      className="w-full px-2 py-1 text-xs border border-border rounded-md bg-paper focus:outline-none focus:ring-2 focus:ring-canopy/20"
+                    />
+                  </div>
+                )}
+
+                {/* Status line + objector self-withdraw */}
+                <div className="mt-1.5 flex items-center gap-3">
+                  {o.resolution ? (
+                    <span
+                      className={`text-xs font-medium ${
+                        o.resolution === "stands" ? "text-earth" : "text-canopy"
+                      }`}
+                    >
+                      {o.resolution === "stands"
+                        ? "Still stands"
+                        : o.resolution.charAt(0).toUpperCase() + o.resolution.slice(1)}
+                      {o.resolutionNote ? ` — ${o.resolutionNote}` : ""}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-bark-muted">Unresolved</span>
+                  )}
+                  {isMine && !isFacilitator && onResolveObjection && o.resolution !== "withdrawn" && (
+                    <button
+                      type="button"
+                      onClick={() => onResolveObjection(o.participantId, "withdrawn")}
+                      className="text-xs text-bark-muted hover:text-earth transition-colors"
+                    >
+                      Withdraw my objection
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Participant: clarify round — ask clarifying questions */}
+      {flow.stage === "clarify" && !isFacilitator && onSubmit && (
+        <div className="mb-4">
+          <h4 className="text-xs text-bark-muted font-medium mb-2">
+            Ask a clarifying question
+          </h4>
+          <textarea
+            placeholder="What would you like clarified before reacting?"
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            rows={2}
+            className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-paper resize-none focus:outline-none focus:ring-2 focus:ring-canopy/20 mb-2"
+          />
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => submit("question", comment)}
+              disabled={submitting || !comment.trim()}
+              className="px-4 py-2 text-sm bg-canopy text-paper rounded-lg font-medium hover:bg-canopy-light transition-colors disabled:opacity-50"
+            >
+              {myResponse ? "Update question" : "Ask question"}
+            </button>
+            {myResponse && onWithdraw && (
+              <button
+                type="button"
+                onClick={withdraw}
+                disabled={submitting}
+                className="text-xs text-bark-muted hover:text-earth transition-colors disabled:opacity-50"
+              >
+                Withdraw
+              </button>
+            )}
+          </div>
+          {myResponse?.comment && (
+            <p className="text-sm text-canopy mt-2">Submitted: {myResponse.comment}</p>
+          )}
         </div>
       )}
 
@@ -306,6 +436,23 @@ export function ConsentFlow({
       {/* Record decision form (decide stage) */}
       {flow.stage === "decide" && isFacilitator && (
         <div className="space-y-3 mb-4">
+          {consentBlocked && (
+            <div className="flex items-start gap-2 p-3 bg-earth/5 border border-earth/20 rounded-lg">
+              <AlertTriangle size={14} className="text-earth mt-0.5 shrink-0" />
+              <div className="text-sm text-earth">
+                Consent not reached — {unresolvedObjections.length} objection
+                {unresolvedObjections.length === 1 ? "" : "s"} still stand
+                {unresolvedObjections.length === 1 ? "s" : ""}.
+                <button
+                  type="button"
+                  onClick={() => onAdvanceStage("integrate")}
+                  className="ml-2 underline hover:no-underline"
+                >
+                  Resolve in Integrate
+                </button>
+              </div>
+            </div>
+          )}
           <input
             type="text"
             placeholder="Decision title"
@@ -323,7 +470,8 @@ export function ConsentFlow({
           <button
             type="button"
             onClick={() => onRecord(title, "consent", outcome || undefined)}
-            disabled={!title.trim()}
+            disabled={!title.trim() || consentBlocked}
+            title={consentBlocked ? "Resolve or withdraw all objections first" : undefined}
             className="px-4 py-2 text-sm bg-canopy text-paper rounded-lg font-medium hover:bg-canopy-light transition-colors disabled:opacity-50"
           >
             Record decision

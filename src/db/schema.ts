@@ -14,6 +14,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import type { AdapterAccountType } from "next-auth/adapters";
+import type { Deliberation } from "@/lib/meeting-state";
 
 // ============================================================
 // Enums
@@ -282,6 +283,9 @@ export const decisions = pgTable(
     outcome: text("outcome"),
     status: decisionStatusEnum("status").default("decided").notNull(),
     participants: jsonb("participants").default([]).$type<string[]>(),
+    // Snapshot of the live deliberation that produced this decision (tallies,
+    // objections + resolutions, clarifying questions, speaker notes).
+    deliberation: jsonb("deliberation").$type<Deliberation>(),
     date: timestamp("date", { mode: "date" }).notNull(),
     conditions: text("conditions"),
     reviewDate: timestamp("review_date", { mode: "date" }),

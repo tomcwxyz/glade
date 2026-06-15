@@ -6,6 +6,12 @@ export interface MeetingTimer {
   elapsed: number; // seconds elapsed before pause
 }
 
+export type ObjectionResolution =
+  | "addressed" // concern talked through, objector satisfied
+  | "integrated" // proposal amended to address it
+  | "withdrawn" // objector withdrew it
+  | "stands"; // unresolved — blocks consent
+
 export interface DecisionResponse {
   participantId: string;
   name: string;
@@ -13,6 +19,8 @@ export interface DecisionResponse {
   comment?: string;
   stage?: string; // flow stage the response was given in (dedupe key per participant+stage)
   respondedAt: string;
+  resolution?: ObjectionResolution; // set on objections during the integrate stage
+  resolutionNote?: string;
 }
 
 export interface DecisionFlow {
@@ -20,6 +28,21 @@ export interface DecisionFlow {
   stage: string;
   proposalText?: string;
   responses: DecisionResponse[];
+}
+
+/** Lightweight, human-readable snapshot of a live deliberation, persisted onto
+ * the resulting decision so the record is visible after the meeting. */
+export interface Deliberation {
+  method: string;
+  tallies: { value: string; count: number }[];
+  objections: {
+    name: string;
+    comment?: string;
+    resolution?: ObjectionResolution;
+    resolutionNote?: string;
+  }[];
+  clarifyingQuestions: { name: string; question: string }[];
+  speakers: { name: string; note?: string }[];
 }
 
 export type SpeakerStatus = "waiting" | "speaking" | "spoke";
