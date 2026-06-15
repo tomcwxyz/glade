@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { switchSpace } from "@/lib/space";
 import type { SpaceInfo, UserSpace } from "./app-shell";
 import { SignOutButton } from "./sign-out-button";
+import { NotificationBell } from "./notification-bell";
 import {
   BookOpen,
   Calendar,
@@ -140,14 +141,17 @@ export function Sidebar({ currentSpace, userSpaces, isSuperAdmin }: SidebarProps
           <TreePine size={18} strokeWidth={2.5} aria-hidden="true" />
         </div>
         {!collapsed && (
-          <div className="overflow-hidden">
-            <span
-              className="text-lg tracking-tight font-semibold"
-              style={{ fontFamily: "var(--font-display)" }}
-            >
-              Glade
-            </span>
-          </div>
+          <>
+            <div className="overflow-hidden flex-1">
+              <span
+                className="text-lg tracking-tight font-semibold"
+                style={{ fontFamily: "var(--font-display)" }}
+              >
+                Glade
+              </span>
+            </div>
+            <NotificationBell />
+          </>
         )}
       </div>
 

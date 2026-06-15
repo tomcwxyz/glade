@@ -115,6 +115,10 @@ export const agendaItemStatusEnum = pgEnum("agenda_item_status", [
   "skipped",
 ]);
 
+export const notificationTypeEnum = pgEnum("notification_type", [
+  "meeting_started",
+]);
+
 export const planTierEnum = pgEnum("plan_tier", [
   "free",
   "pro",
@@ -913,4 +917,36 @@ export const insightsRelations = relations(insights, ({ one }) => ({
 
 export const subscriptionsRelations = relations(subscriptions, ({ one }) => ({
   space: one(spaces, { fields: [subscriptions.spaceId], references: [spaces.id] }),
+}));
+
+// --- Notifications ---
+
+export const notifications = pgTable(
+  "notifications",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    spaceId: uuid("space_id")
+      .notNull()
+      .references(() => spaces.id, { onDelete: "cascade" }),
+    type: notificationTypeEnum("type").notNull(),
+    title: varchar("title", { length: 500 }).notNull(),
+    body: text("body"),
+    link: varchar("link", { length: 1000 }),
+    referenceId: uuid("reference_id"),
+    read: boolean("read").default(false).notNull(),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (n) => [
+    // Drives the unread-count and the recipient's notification list.
+    index("notifications_user_read_idx").on(n.userId, n.read),
+    index("notifications_user_created_idx").on(n.userId, n.createdAt),
+  ]
+);
+
+export const notificationsRelations = relations(notifications, ({ one }) => ({
+  user: one(users, { fields: [notifications.userId], references: [users.id] }),
+  space: one(spaces, { fields: [notifications.spaceId], references: [spaces.id] }),
 }));

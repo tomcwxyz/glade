@@ -20,6 +20,7 @@ import { createInitialState } from "@/lib/meeting-state";
 import { canUseLiveMeetings } from "@/lib/billing";
 import { logDeletion } from "@/lib/audit";
 import { insertDecisionWithUniqueNumber } from "@/lib/queries";
+import { notifyMeetingStarted } from "@/lib/notification-actions";
 
 type MeetingStatus = "draft" | "scheduled" | "in_progress" | "completed";
 
@@ -321,6 +322,13 @@ export async function initializeMeetingState(meetingId: string) {
     })
     .where(and(eq(meetings.id, meetingId), eq(meetings.spaceId, space.id)));
 
+  await notifyMeetingStarted(
+    meetingId,
+    space.id,
+    user.id,
+    user.name || user.email || "Someone"
+  );
+
   return { success: true };
 }
 
@@ -353,6 +361,13 @@ export async function startMeeting(meetingId: string) {
       updatedAt: new Date(),
     })
     .where(eq(meetings.id, meetingId));
+
+  await notifyMeetingStarted(
+    meetingId,
+    space.id,
+    user.id,
+    user.name || user.email || "Someone"
+  );
 
   revalidatePath(`/meetings/${meetingId}`);
   return { success: true };

@@ -28,6 +28,7 @@ import {
   webhooks,
   auditLog,
   invitations,
+  notifications,
 } from "@/db/schema";
 import { eq, and, or, desc, asc, count, sql, inArray } from "drizzle-orm";
 import { deriveActionStatus } from "@/lib/utils";
@@ -1581,4 +1582,108 @@ export async function getPendingInvitationsForSpace(spaceId: string) {
         eq(invitations.status, "pending")
       )
     );
+}
+
+// ============================================================
+// Notifications
+// ============================================================
+
+export type NewNotification = {
+  userId: string;
+  spaceId: string;
+  type: "meeting_started";
+  title: string;
+  body?: string | null;
+  link?: string | null;
+  referenceId?: string | null;
+};
+
+export async function createNotifications(rows: NewNotification[]) {
+  if (rows.length === 0) return;
+  await db.insert(notifications).values(rows);
+}
+
+export async function getNotifications(
+  userId: string,
+  spaceId: string,
+  limit = 20
+) {
+  return db
+    .select()
+    .from(notifications)
+    .where(and(eq(notifications.userId, userId), eq(notifications.spaceId, spaceId)))
+    .orderBy(desc(notifications.createdAt))
+    .limit(limit);
+}
+
+export async function getUnreadNotificationCount(userId: string, spaceId: string) {
+  const [row] = await db
+    .select({ value: count() })
+    .from(notifications)
+    .where(
+      and(
+        eq(notifications.userId, userId),
+        eq(notifications.spaceId, spaceId),
+        eq(notifications.read, false)
+      )
+    );
+  return row?.value ?? 0;
+}
+
+export async function markNotificationRead(id: string, userId: string) {
+  // Scope to the recipient so a user can only mark their own notifications.
+  await db
+    .update(notifications)
+    .set({ read: true })
+    .where(and(eq(notifications.id, id), eq(notifications.userId, userId)));
+}
+
+export async function markAllNotificationsRead(userId: string, spaceId: string) {
+  await db
+    .update(notifications)
+    .set({ read: true })
+    .where(
+      and(
+        eq(notifications.userId, userId),
+        eq(notifications.spaceId, spaceId),
+        eq(notifications.read, false)
+      )
+    );
+}
+
+/**
+ * Recipients for a "meeting started" notification: the meeting's invited
+ * attendees, or — if none were set — all space members. The starter is excluded.
+ * Returns the meeting title alongside the recipient user ids.
+ */
+export async function getMeetingStartRecipients(
+  meetingId: string,
+  spaceId: string,
+  excludeUserId: string
+): Promise<{ title: string; userIds: string[] } | null> {
+  const [meeting] = await db
+    .select({ title: meetings.title })
+    .from(meetings)
+    .where(and(eq(meetings.id, meetingId), eq(meetings.spaceId, spaceId)))
+    .limit(1);
+  if (!meeting) return null;
+
+  const attendeeRows = await db
+    .select({ userId: meetingAttendees.userId })
+    .from(meetingAttendees)
+    .where(eq(meetingAttendees.meetingId, meetingId));
+
+  let userIds = attendeeRows.map((r) => r.userId);
+
+  // Fall back to all space members when no explicit attendees were invited.
+  if (userIds.length === 0) {
+    const memberRows = await db
+      .select({ userId: spaceMembers.userId })
+      .from(spaceMembers)
+      .where(eq(spaceMembers.spaceId, spaceId));
+    userIds = memberRows.map((r) => r.userId);
+  }
+
+  userIds = userIds.filter((id) => id !== excludeUserId);
+  return { title: meeting.title, userIds };
 }
