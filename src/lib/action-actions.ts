@@ -82,6 +82,21 @@ export async function updateActionStatus(
   revalidatePath("/dashboard");
 }
 
+/** Toggle whether an action appears on the space's public actions page. */
+export async function setActionPublic(actionId: string, isPublic: boolean) {
+  const auth = await requireSpaceRole("member");
+  if ("error" in auth) return auth;
+  const { space } = auth;
+
+  await db
+    .update(actions)
+    .set({ isPublic, updatedAt: new Date() })
+    .where(and(eq(actions.id, actionId), eq(actions.spaceId, space.id)));
+
+  revalidatePath("/actions");
+  return { success: true };
+}
+
 export async function deleteAction(actionId: string) {
   const auth = await requireSpaceRole("member");
   if ("error" in auth) return auth;

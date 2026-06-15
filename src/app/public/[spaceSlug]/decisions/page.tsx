@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getPublicSpace, getPublicDecisions } from "@/lib/queries";
 import { formatDate } from "@/lib/utils";
-import { BookOpen } from "lucide-react";
+import { BookOpen, Download } from "lucide-react";
 
 export async function generateMetadata({
   params,
@@ -56,19 +56,31 @@ export default async function PublicDecisionsPage({
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-8 py-6 sm:py-10">
-      <header className="mb-8">
-        <div className="flex items-center gap-2.5 mb-1.5">
-          <BookOpen size={20} className="text-bark-muted" />
-          <h2
-            className="text-2xl font-light tracking-tight"
-            style={{ fontFamily: "var(--font-display)" }}
-          >
-            Decision Log
-          </h2>
+      <header className="mb-8 flex items-start justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2.5 mb-1.5">
+            <BookOpen size={20} className="text-bark-muted" />
+            <h2
+              className="text-2xl font-light tracking-tight"
+              style={{ fontFamily: "var(--font-display)" }}
+            >
+              Decision Log
+            </h2>
+          </div>
+          <p className="text-bark-muted text-sm">
+            {decisions.length} decision{decisions.length !== 1 ? "s" : ""} recorded
+          </p>
         </div>
-        <p className="text-bark-muted text-sm">
-          {decisions.length} decision{decisions.length !== 1 ? "s" : ""} recorded
-        </p>
+        {decisions.length > 0 && (
+          <a
+            href={`/public/${spaceSlug}/decisions/export`}
+            download
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm border border-border rounded-lg text-bark-muted hover:text-bark hover:bg-paper-warm transition-colors shrink-0"
+          >
+            <Download size={14} />
+            Export CSV
+          </a>
+        )}
       </header>
 
       {decisions.length === 0 ? (

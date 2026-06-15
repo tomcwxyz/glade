@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { getCurrentSpace } from "@/lib/space";
 import { getDecisions } from "@/lib/queries";
@@ -19,7 +19,7 @@ function formatDate(date: Date | null): string {
   return date.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -31,6 +31,34 @@ export async function GET() {
   }
 
   const decisions = await getDecisions(space.id);
+  const format = request.nextUrl.searchParams.get("format");
+
+  // Structured JSON export alongside CSV.
+  if (format === "json") {
+    const data = decisions.map((d) => ({
+      number: d.number,
+      title: d.title,
+      date: d.date,
+      status: d.status,
+      method: d.method,
+      outcome: d.outcome,
+      description: d.description,
+      rationale: d.rationale,
+      conditions: d.conditions,
+      participants: (d.participants as string[]) || [],
+      tags: d.tags,
+      reviewDate: d.reviewDate,
+      actionsTotal: d.actionsCount,
+      actionsComplete: d.actionsComplete,
+    }));
+    const filename = `${space.slug}-decisions-${new Date().toISOString().slice(0, 10)}.json`;
+    return new NextResponse(JSON.stringify({ space: space.slug, decisions: data }, null, 2), {
+      headers: {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Disposition": `attachment; filename="${filename}"`,
+      },
+    });
+  }
 
   const headers = [
     "Number",

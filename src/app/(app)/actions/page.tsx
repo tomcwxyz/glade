@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getCurrentSpace } from "@/lib/space";
+import { getCurrentSpace, requireUser } from "@/lib/space";
 import { getActions, getDecisionsList, getTopics, getProposals, getSpaceMembers } from "@/lib/queries";
 import { formatDate } from "@/lib/utils";
 
@@ -8,6 +8,7 @@ import { CheckCircle2, Circle, Clock, ListChecks, TriangleAlert } from "lucide-r
 import Link from "next/link";
 import { EmptyState } from "@/components/empty-state";
 import { ActionToggle } from "./action-toggle";
+import { ActionVisibilityToggle } from "./action-visibility";
 import { AddActionWithParent } from "@/components/add-action-with-parent";
 import { Pagination, PAGE_SIZE, parsePage } from "@/components/pagination";
 
@@ -25,6 +26,7 @@ export default async function ActionsPage({
 }) {
   const space = await getCurrentSpace();
   if (!space) return null;
+  const user = await requireUser();
 
   const page = parsePage((await searchParams).page);
   const offset = (page - 1) * PAGE_SIZE;
@@ -40,6 +42,10 @@ export default async function ActionsPage({
 
   const hasMore = actionsPage.length > PAGE_SIZE;
   const actions = actionsPage.slice(0, PAGE_SIZE);
+
+  // Only members+ can change an action's public visibility.
+  const currentMember = members.find((m) => m.userId === user.id || m.email === user.email);
+  const canEdit = currentMember?.role !== "observer";
 
   const parents = [
     ...allDecisions.map((d) => ({
@@ -148,6 +154,9 @@ export default async function ActionsPage({
                   </span>
                 </div>
               </div>
+              {canEdit && (
+                <ActionVisibilityToggle actionId={action.id} isPublic={action.isPublic} />
+              )}
             </div>
           );
         })}
