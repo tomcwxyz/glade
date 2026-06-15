@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import { formatDate, formatDateMonth } from "@/lib/utils";
 import { ChevronDown, ChevronUp, ListChecks, Search, X } from "lucide-react";
 import Link from "next/link";
+import { loadMoreDecisions } from "@/lib/decision-actions";
 
 interface SerializedDecision {
   id: string;
@@ -68,9 +69,25 @@ interface DecisionListProps {
   decisions: SerializedDecision[];
   tags: string[];
   participants: string[];
+  initialHasMore: boolean;
 }
 
-export function DecisionList({ decisions, tags, participants }: DecisionListProps) {
+export function DecisionList({ decisions: initialDecisions, tags, participants, initialHasMore }: DecisionListProps) {
+  // Loaded set grows via "Load more"; client-side filters apply to what's loaded.
+  const [decisions, setDecisions] = useState(initialDecisions);
+  const [hasMore, setHasMore] = useState(initialHasMore);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  async function handleLoadMore() {
+    setLoadingMore(true);
+    const res = await loadMoreDecisions(decisions.length);
+    setLoadingMore(false);
+    if (res && "decisions" in res) {
+      setDecisions((prev) => [...prev, ...res.decisions]);
+      setHasMore(res.hasMore);
+    }
+  }
+
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [showMoreFilters, setShowMoreFilters] = useState(false);
@@ -443,6 +460,22 @@ export function DecisionList({ decisions, tags, participants }: DecisionListProp
           </section>
         ))}
       </div>
+
+      {hasMore && (
+        <div className="mt-8 text-center">
+          <button
+            type="button"
+            onClick={handleLoadMore}
+            disabled={loadingMore}
+            className="px-4 py-2.5 text-sm border border-border rounded-lg text-bark-muted hover:text-bark hover:bg-paper-warm transition-colors disabled:opacity-50"
+          >
+            {loadingMore ? "Loading…" : "Load more"}
+          </button>
+          <p className="text-xs text-bark-muted/70 mt-2">
+            {decisions.length} loaded{hasAnyFilter ? " · filters apply to loaded decisions" : ""}
+          </p>
+        </div>
+      )}
     </>
   );
 }

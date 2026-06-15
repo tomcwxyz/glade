@@ -38,12 +38,19 @@ import { deriveActionStatus } from "@/lib/utils";
 // Decisions
 // ============================================================
 
-export async function getDecisions(spaceId: string) {
-  const rows = await db
+export async function getDecisions(
+  spaceId: string,
+  opts: { limit?: number; offset?: number } = {}
+) {
+  let dq = db
     .select()
     .from(decisions)
     .where(eq(decisions.spaceId, spaceId))
-    .orderBy(desc(decisions.date), desc(decisions.number));
+    .orderBy(desc(decisions.date), desc(decisions.number))
+    .$dynamic();
+  if (opts.limit != null) dq = dq.limit(opts.limit);
+  if (opts.offset != null) dq = dq.offset(opts.offset);
+  const rows = await dq;
 
   const ids = rows.map((d) => d.id);
   if (ids.length === 0) return [];
@@ -186,8 +193,11 @@ export async function getDecisionByNumber(spaceId: string, number: number) {
 // Actions
 // ============================================================
 
-export async function getActions(spaceId: string) {
-  const rows = await db
+export async function getActions(
+  spaceId: string,
+  opts: { limit?: number; offset?: number } = {}
+) {
+  let q = db
     .select({
       id: actions.id,
       description: actions.description,
@@ -206,7 +216,12 @@ export async function getActions(spaceId: string) {
     .leftJoin(decisions, eq(decisions.id, actions.decisionId))
     .leftJoin(topics, eq(topics.id, actions.topicId))
     .leftJoin(proposals, eq(proposals.id, actions.proposalId))
-    .where(eq(actions.spaceId, spaceId));
+    .where(eq(actions.spaceId, spaceId))
+    .orderBy(desc(actions.createdAt))
+    .$dynamic();
+  if (opts.limit != null) q = q.limit(opts.limit);
+  if (opts.offset != null) q = q.offset(opts.offset);
+  const rows = await q;
 
   return rows.map((r) => {
     let parentType: "decision" | "topic" | "proposal" = "decision";
@@ -264,12 +279,19 @@ export async function getActionsByProposal(proposalId: string) {
 // Meetings
 // ============================================================
 
-export async function getMeetings(spaceId: string) {
-  const rows = await db
+export async function getMeetings(
+  spaceId: string,
+  opts: { limit?: number; offset?: number } = {}
+) {
+  let mq = db
     .select()
     .from(meetings)
     .where(eq(meetings.spaceId, spaceId))
-    .orderBy(desc(meetings.date));
+    .orderBy(desc(meetings.date))
+    .$dynamic();
+  if (opts.limit != null) mq = mq.limit(opts.limit);
+  if (opts.offset != null) mq = mq.offset(opts.offset);
+  const rows = await mq;
 
   const ids = rows.map((m) => m.id);
   if (ids.length === 0) return [];
@@ -755,8 +777,11 @@ export async function getSpaceMembers(spaceId: string) {
 // Documents
 // ============================================================
 
-export async function getDocuments(spaceId: string) {
-  const rows = await db
+export async function getDocuments(
+  spaceId: string,
+  opts: { limit?: number; offset?: number } = {}
+) {
+  let q = db
     .select({
       id: documents.id,
       title: documents.title,
@@ -769,9 +794,11 @@ export async function getDocuments(spaceId: string) {
     .from(documents)
     .leftJoin(users, eq(users.id, documents.createdBy))
     .where(eq(documents.spaceId, spaceId))
-    .orderBy(desc(documents.updatedAt));
-
-  return rows;
+    .orderBy(desc(documents.updatedAt))
+    .$dynamic();
+  if (opts.limit != null) q = q.limit(opts.limit);
+  if (opts.offset != null) q = q.offset(opts.offset);
+  return q;
 }
 
 export async function getDocumentById(spaceId: string, documentId: string) {
@@ -870,8 +897,11 @@ export async function getDocumentVersionAtDate(documentId: string, targetDate: D
 // Proposals
 // ============================================================
 
-export async function getProposals(spaceId: string) {
-  const rows = await db
+export async function getProposals(
+  spaceId: string,
+  opts: { limit?: number; offset?: number } = {}
+) {
+  let pq = db
     .select({
       id: proposals.id,
       title: proposals.title,
@@ -884,7 +914,11 @@ export async function getProposals(spaceId: string) {
     .from(proposals)
     .leftJoin(users, eq(users.id, proposals.createdBy))
     .where(eq(proposals.spaceId, spaceId))
-    .orderBy(desc(proposals.updatedAt));
+    .orderBy(desc(proposals.updatedAt))
+    .$dynamic();
+  if (opts.limit != null) pq = pq.limit(opts.limit);
+  if (opts.offset != null) pq = pq.offset(opts.offset);
+  const rows = await pq;
 
   const ids = rows.map((p) => p.id);
   if (ids.length === 0) return [];
@@ -970,8 +1004,11 @@ export async function getProposalById(spaceId: string, proposalId: string) {
 // Topics
 // ============================================================
 
-export async function getTopics(spaceId: string) {
-  return db
+export async function getTopics(
+  spaceId: string,
+  opts: { limit?: number; offset?: number } = {}
+) {
+  let q = db
     .select({
       id: topics.id,
       title: topics.title,
@@ -984,7 +1021,11 @@ export async function getTopics(spaceId: string) {
     .from(topics)
     .leftJoin(users, eq(users.id, topics.createdBy))
     .where(eq(topics.spaceId, spaceId))
-    .orderBy(desc(topics.createdAt));
+    .orderBy(desc(topics.createdAt))
+    .$dynamic();
+  if (opts.limit != null) q = q.limit(opts.limit);
+  if (opts.offset != null) q = q.offset(opts.offset);
+  return q;
 }
 
 // ============================================================

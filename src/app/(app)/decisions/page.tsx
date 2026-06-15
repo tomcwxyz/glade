@@ -7,14 +7,17 @@ import { BookOpen, Download, Plus } from "lucide-react";
 import Link from "next/link";
 import { EmptyState } from "@/components/empty-state";
 import { DecisionList } from "./decision-list";
+import { PAGE_SIZE } from "@/components/pagination";
 
 export default async function DecisionsPage() {
   const space = await getCurrentSpace();
   if (!space) return null;
-  const [allDecisions, spaceTags] = await Promise.all([
-    getDecisions(space.id),
+  const [fetchedDecisions, spaceTags] = await Promise.all([
+    getDecisions(space.id, { limit: PAGE_SIZE + 1 }),
     getSpaceTags(space.id),
   ]);
+  const initialHasMore = fetchedDecisions.length > PAGE_SIZE;
+  const allDecisions = fetchedDecisions.slice(0, PAGE_SIZE);
 
   // Serialize for client component
   const serialized = allDecisions.map((d) => ({
@@ -72,7 +75,8 @@ export default async function DecisionsPage() {
             Decision Log
           </h1>
           <p className="text-bark-muted">
-            {allDecisions.length} decisions recorded
+            {allDecisions.length}
+            {initialHasMore ? "+" : ""} decision{allDecisions.length !== 1 ? "s" : ""} recorded
           </p>
         </div>
         <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
@@ -94,7 +98,7 @@ export default async function DecisionsPage() {
         </div>
       </header>
 
-      <DecisionList decisions={serialized} tags={tagNames} participants={allParticipants} />
+      <DecisionList decisions={serialized} tags={tagNames} participants={allParticipants} initialHasMore={initialHasMore} />
     </div>
   );
 }

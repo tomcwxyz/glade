@@ -6,6 +6,7 @@ import { Plus, Lightbulb, HelpCircle, Zap, CalendarPlus, ArrowRight } from "luci
 export const metadata: Metadata = { title: "Topics" };
 import Link from "next/link";
 import { formatDateRelative } from "@/lib/utils";
+import { Pagination, PAGE_SIZE, parsePage } from "@/components/pagination";
 
 const TYPE_CONFIG: Record<string, { label: string; icon: typeof HelpCircle; color: string }> = {
   question: { label: "Question", icon: HelpCircle, color: "text-sky" },
@@ -13,10 +14,18 @@ const TYPE_CONFIG: Record<string, { label: string; icon: typeof HelpCircle; colo
   agenda_suggestion: { label: "Agenda", icon: CalendarPlus, color: "text-canopy" },
 };
 
-export default async function TopicsPage() {
+export default async function TopicsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
   const space = await getCurrentSpace();
   if (!space) return null;
-  const allTopics = await getTopics(space.id);
+  const page = parsePage((await searchParams).page);
+  const offset = (page - 1) * PAGE_SIZE;
+  const fetched = await getTopics(space.id, { limit: PAGE_SIZE + 1, offset });
+  const hasMore = fetched.length > PAGE_SIZE;
+  const allTopics = fetched.slice(0, PAGE_SIZE);
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-8 py-6 sm:py-10">
@@ -92,6 +101,8 @@ export default async function TopicsPage() {
           })}
         </div>
       )}
+
+      <Pagination page={page} hasMore={hasMore} basePath="/topics" />
     </div>
   );
 }

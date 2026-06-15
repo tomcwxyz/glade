@@ -6,7 +6,7 @@ import { eq, and, count } from "drizzle-orm";
 import { db } from "@/db";
 import { decisions, decisionLinks, decisionReviews, decisionTags, tags, actions, meetingDecisions, meetings, proposals, documentVersions, insights } from "@/db/schema";
 import { requireSpaceRole } from "@/lib/space";
-import { insertDecisionWithUniqueNumber } from "@/lib/queries";
+import { insertDecisionWithUniqueNumber, getDecisions } from "@/lib/queries";
 import { canAddDecision } from "@/lib/billing";
 import { fireWebhooks } from "@/lib/webhooks";
 import { logDeletion } from "@/lib/audit";
@@ -152,34 +152,33 @@ export async function updateDecision(decisionId: string, formData: FormData) {
     ? tagIdsRaw.split(",").filter(Boolean)
     : [];
 
-  await db
-    .update(decisions)
-    .set({
-      title,
-      description,
-      rationale,
-      method: method as "consent" | "majority_vote" | "advice_process" | "delegation" | "consensus" | "lazy_consensus",
-      outcome,
-      status: status as "decided" | "implemented" | "reviewed" | "learned",
-      participants,
-      date: new Date(dateStr),
-      conditions,
-      reviewDate: reviewDateStr ? new Date(reviewDateStr) : null,
-      isPublic: formData.get("hideFromPublic") !== "on",
-      updatedAt: new Date(),
-    })
-    .where(eq(decisions.id, decisionId));
+  // Atomic: the update and tag-replace land together.
+  await db.transaction(async (tx) => {
+    await tx
+      .update(decisions)
+      .set({
+        title,
+        description,
+        rationale,
+        method: method as "consent" | "majority_vote" | "advice_process" | "delegation" | "consensus" | "lazy_consensus",
+        outcome,
+        status: status as "decided" | "implemented" | "reviewed" | "learned",
+        participants,
+        date: new Date(dateStr),
+        conditions,
+        reviewDate: reviewDateStr ? new Date(reviewDateStr) : null,
+        isPublic: formData.get("hideFromPublic") !== "on",
+        updatedAt: new Date(),
+      })
+      .where(eq(decisions.id, decisionId));
 
-  // Replace tags
-  await db.delete(decisionTags).where(eq(decisionTags.decisionId, decisionId));
-  if (tagIds.length > 0) {
-    await db.insert(decisionTags).values(
-      tagIds.map((tagId) => ({
-        decisionId,
-        tagId,
-      }))
-    );
-  }
+    await tx.delete(decisionTags).where(eq(decisionTags.decisionId, decisionId));
+    if (tagIds.length > 0) {
+      await tx.insert(decisionTags).values(
+        tagIds.map((tagId) => ({ decisionId, tagId }))
+      );
+    }
+  });
 
   fireWebhooks(space.id, "decision.updated", {
     id: decisionId,
@@ -468,4 +467,52 @@ export async function deleteDecision(decisionId: string) {
   });
 
   redirect("/decisions");
+}
+
+/** Page size for the decision log's "load more" (matches the shared PAGE_SIZE). */
+const DECISIONS_PAGE_SIZE = 50;
+
+type SerializedDecision = {
+  id: string;
+  number: number;
+  title: string;
+  description: string;
+  outcome: string;
+  method: string;
+  status: string;
+  participants: string[];
+  date: string;
+  tags: string[];
+  actionsCount: number;
+  actionsComplete: number;
+};
+
+/**
+ * Fetch the next page of decisions for the client-side decision log.
+ * Read-only — any space member (observer+) may call it.
+ */
+export async function loadMoreDecisions(
+  offset: number
+): Promise<{ decisions: SerializedDecision[]; hasMore: boolean } | { error: string }> {
+  const auth = await requireSpaceRole("observer");
+  if ("error" in auth) return auth;
+  const { space } = auth;
+
+  const rows = await getDecisions(space.id, { limit: DECISIONS_PAGE_SIZE + 1, offset });
+  const hasMore = rows.length > DECISIONS_PAGE_SIZE;
+  const decisions = rows.slice(0, DECISIONS_PAGE_SIZE).map((d) => ({
+    id: d.id,
+    number: d.number,
+    title: d.title,
+    description: d.description || "",
+    outcome: d.outcome || "",
+    method: d.method,
+    status: d.status,
+    participants: (d.participants as string[]) || [],
+    date: d.date.toISOString(),
+    tags: d.tags,
+    actionsCount: d.actionsCount,
+    actionsComplete: d.actionsComplete,
+  }));
+  return { decisions, hasMore };
 }

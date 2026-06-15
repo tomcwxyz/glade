@@ -17,6 +17,8 @@ export function useMeetingPoll(meetingId: string, intervalMs = 2000): PollResult
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const versionRef = useRef(0);
+  // Once the meeting completes there's nothing more to poll for.
+  const completedRef = useRef(false);
 
   const fetchState = useCallback(async () => {
     try {
@@ -39,6 +41,9 @@ export function useMeetingPoll(meetingId: string, intervalMs = 2000): PollResult
       }
       setStatus(data.status);
       setError(null);
+      if (data.status === "completed" || serverState?.phase === "completed") {
+        completedRef.current = true;
+      }
     } catch {
       // Silently ignore network errors during polling
     } finally {
@@ -48,7 +53,13 @@ export function useMeetingPoll(meetingId: string, intervalMs = 2000): PollResult
 
   useEffect(() => {
     fetchState();
-    const interval = setInterval(fetchState, intervalMs);
+    const interval = setInterval(() => {
+      // Don't poll once completed, or while the tab is hidden (saves the server
+      // and the client; review noted polling never stopped or backed off).
+      if (completedRef.current) return;
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+      fetchState();
+    }, intervalMs);
     return () => clearInterval(interval);
   }, [fetchState, intervalMs]);
 

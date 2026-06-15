@@ -8,6 +8,7 @@ import { Plus, FileText } from "lucide-react";
 import Link from "next/link";
 import { formatDateRelative } from "@/lib/utils";
 import { StaleDocumentChecker } from "./stale-document-checker";
+import { Pagination, PAGE_SIZE, parsePage } from "@/components/pagination";
 
 const TYPE_LABELS: Record<string, string> = {
   constitution: "Constitution",
@@ -18,11 +19,19 @@ const TYPE_LABELS: Record<string, string> = {
   custom: "Other",
 };
 
-export default async function DocumentsPage() {
+export default async function DocumentsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
   const space = await getCurrentSpace();
   if (!space) return null;
   const aiEnabled = isAiEnabled(space.settings);
-  const allDocuments = await getDocuments(space.id);
+  const page = parsePage((await searchParams).page);
+  const offset = (page - 1) * PAGE_SIZE;
+  const fetchedDocs = await getDocuments(space.id, { limit: PAGE_SIZE + 1, offset });
+  const hasMore = fetchedDocs.length > PAGE_SIZE;
+  const allDocuments = fetchedDocs.slice(0, PAGE_SIZE);
   const staleInsights = aiEnabled
     ? (await getActiveInsights(space.id)).filter(
         (i) =>
@@ -142,6 +151,8 @@ export default async function DocumentsPage() {
           })}
         </div>
       )}
+
+      <Pagination page={page} hasMore={hasMore} basePath="/documents" />
     </div>
   );
 }

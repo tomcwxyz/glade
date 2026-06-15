@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { after } from "next/server";
 import { db } from "@/db";
 import { webhooks } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -60,17 +61,20 @@ export function validateWebhookUrl(
 }
 
 /**
- * Fire webhooks for a space event. Runs asynchronously — does not block the caller.
+ * Fire webhooks for a space event. Runs after the response via `after()` so the
+ * delivery isn't cut off when the serverless function returns, while never
+ * blocking the caller.
  */
 export function fireWebhooks(
   spaceId: string,
   event: WebhookEvent,
   data: Record<string, unknown>
 ) {
-  // Fire and forget — don't await
-  deliverWebhooks(spaceId, event, data).catch((err) => {
-    console.error("Webhook delivery error:", err);
-  });
+  after(() =>
+    deliverWebhooks(spaceId, event, data).catch((err) => {
+      console.error("Webhook delivery error:", err);
+    })
+  );
 }
 
 async function deliverWebhooks(

@@ -6,6 +6,7 @@ import { Plus, MessageSquare } from "lucide-react";
 export const metadata: Metadata = { title: "Proposals" };
 import Link from "next/link";
 import { formatDateRelative } from "@/lib/utils";
+import { Pagination, PAGE_SIZE, parsePage } from "@/components/pagination";
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   draft: { label: "Draft", color: "bg-paper-deep text-bark-muted" },
@@ -23,10 +24,18 @@ const STATUS_ORDER = [
   "implemented",
 ];
 
-export default async function ProposalsPage() {
+export default async function ProposalsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
   const space = await getCurrentSpace();
   if (!space) return null;
-  const allProposals = await getProposals(space.id);
+  const page = parsePage((await searchParams).page);
+  const offset = (page - 1) * PAGE_SIZE;
+  const fetched = await getProposals(space.id, { limit: PAGE_SIZE + 1, offset });
+  const hasMore = fetched.length > PAGE_SIZE;
+  const allProposals = fetched.slice(0, PAGE_SIZE);
 
   // Group by status
   const grouped = allProposals.reduce<Record<string, typeof allProposals>>(
@@ -121,6 +130,8 @@ export default async function ProposalsPage() {
           })}
         </div>
       )}
+
+      <Pagination page={page} hasMore={hasMore} basePath="/proposals" />
     </div>
   );
 }

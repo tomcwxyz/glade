@@ -83,6 +83,8 @@ export function ObserverView({
     return () => clearInterval(tick);
   }, []);
 
+  const completedRef = useRef(false);
+
   const fetchState = useCallback(async () => {
     try {
       // Public observer polls the token-scoped endpoint (no auth required).
@@ -96,6 +98,7 @@ export function ObserverView({
         versionRef.current = serverState.version;
         setState(serverState);
       }
+      if (serverState?.phase === "completed") completedRef.current = true;
     } catch {
       // Ignore
     }
@@ -103,7 +106,11 @@ export function ObserverView({
 
   useEffect(() => {
     fetchState();
-    const interval = setInterval(fetchState, 3000);
+    const interval = setInterval(() => {
+      if (completedRef.current) return;
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+      fetchState();
+    }, 3000);
     return () => clearInterval(interval);
   }, [fetchState]);
 

@@ -19,6 +19,8 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = request.nextUrl;
   const statusFilter = searchParams.get("status");
+  const limit = Math.min(parseInt(searchParams.get("limit") || "50", 10), 200);
+  const offset = parseInt(searchParams.get("offset") || "0", 10);
 
   // Build where conditions
   const conditions = [eq(actions.spaceId, auth.spaceId)];
@@ -48,7 +50,9 @@ export async function GET(request: NextRequest) {
     .leftJoin(topics, eq(topics.id, actions.topicId))
     .leftJoin(proposals, eq(proposals.id, actions.proposalId))
     .where(and(...conditions))
-    .orderBy(desc(actions.createdAt));
+    .orderBy(desc(actions.createdAt))
+    .limit(limit)
+    .offset(offset);
 
   const data = rows.map((r) => ({
     id: r.id,
@@ -71,7 +75,7 @@ export async function GET(request: NextRequest) {
   }));
 
   return NextResponse.json(
-    { data },
+    { data, meta: { limit, offset, count: data.length } },
     { headers: { "Cache-Control": "no-store" } }
   );
 }

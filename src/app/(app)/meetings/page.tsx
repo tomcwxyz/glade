@@ -9,14 +9,23 @@ import { getMeetings } from "@/lib/queries";
 import { canUseAi } from "@/lib/billing";
 import { isAiEnabled } from "@/lib/ai";
 import { EmptyState } from "@/components/empty-state";
+import { Pagination, PAGE_SIZE, parsePage } from "@/components/pagination";
 
-export default async function MeetingsPage() {
+export default async function MeetingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
   const space = await getCurrentSpace();
   if (!space) return null;
-  const [meetings, aiCanUse] = await Promise.all([
-    getMeetings(space.id),
+  const page = parsePage((await searchParams).page);
+  const offset = (page - 1) * PAGE_SIZE;
+  const [fetchedMeetings, aiCanUse] = await Promise.all([
+    getMeetings(space.id, { limit: PAGE_SIZE + 1, offset }),
     canUseAi(space.id),
   ]);
+  const hasMore = fetchedMeetings.length > PAGE_SIZE;
+  const meetings = fetchedMeetings.slice(0, PAGE_SIZE);
   const aiAvailable = aiCanUse && isAiEnabled(space.settings);
 
   if (meetings.length === 0) {
@@ -119,6 +128,8 @@ export default async function MeetingsPage() {
           </Link>
         ))}
       </div>
+
+      <Pagination page={page} hasMore={hasMore} basePath="/meetings" />
     </div>
   );
 }

@@ -9,6 +9,7 @@ import Link from "next/link";
 import { EmptyState } from "@/components/empty-state";
 import { ActionToggle } from "./action-toggle";
 import { AddActionWithParent } from "@/components/add-action-with-parent";
+import { Pagination, PAGE_SIZE, parsePage } from "@/components/pagination";
 
 const STATUS_CONFIG = {
   overdue: { icon: TriangleAlert, label: "Overdue", color: "text-earth", bg: "bg-earth/8" },
@@ -17,17 +18,28 @@ const STATUS_CONFIG = {
   complete: { icon: CheckCircle2, label: "Complete", color: "text-canopy", bg: "bg-canopy-pale/50" },
 };
 
-export default async function ActionsPage() {
+export default async function ActionsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
   const space = await getCurrentSpace();
   if (!space) return null;
 
-  const [actions, allDecisions, allTopics, allProposals, members] = await Promise.all([
-    getActions(space.id),
+  const page = parsePage((await searchParams).page);
+  const offset = (page - 1) * PAGE_SIZE;
+
+  // getActions paginated; the topic/proposal picker calls stay unbounded.
+  const [actionsPage, allDecisions, allTopics, allProposals, members] = await Promise.all([
+    getActions(space.id, { limit: PAGE_SIZE + 1, offset }),
     getDecisionsList(space.id),
     getTopics(space.id),
     getProposals(space.id),
     getSpaceMembers(space.id),
   ]);
+
+  const hasMore = actionsPage.length > PAGE_SIZE;
+  const actions = actionsPage.slice(0, PAGE_SIZE);
 
   const parents = [
     ...allDecisions.map((d) => ({
@@ -95,7 +107,8 @@ export default async function ActionsPage() {
           Actions
         </h1>
         <p className="text-bark-muted">
-          {openCount} open action{openCount !== 1 ? "s" : ""} across {actions.length} total
+          {openCount} open action{openCount !== 1 ? "s" : ""}
+          {page > 1 ? ` · page ${page}` : ""}
         </p>
       </header>
 
@@ -139,6 +152,8 @@ export default async function ActionsPage() {
           );
         })}
       </div>
+
+      <Pagination page={page} hasMore={hasMore} basePath="/actions" />
 
       {parents.length > 0 && (
         <div className="mt-8">
