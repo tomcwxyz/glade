@@ -1652,7 +1652,7 @@ export async function getPendingInvitationsForSpace(spaceId: string) {
 export type NewNotification = {
   userId: string;
   spaceId: string;
-  type: "meeting_started";
+  type: "meeting_started" | "review_due";
   title: string;
   body?: string | null;
   link?: string | null;
@@ -1662,6 +1662,25 @@ export type NewNotification = {
 export async function createNotifications(rows: NewNotification[]) {
   if (rows.length === 0) return;
   await db.insert(notifications).values(rows);
+}
+
+/** User ids in a space who already have a notification of `type` since `since` (dedupe). */
+export async function getRecentNotificationUserIds(
+  spaceId: string,
+  type: "meeting_started" | "review_due",
+  since: Date
+): Promise<string[]> {
+  const rows = await db
+    .selectDistinct({ userId: notifications.userId })
+    .from(notifications)
+    .where(
+      and(
+        eq(notifications.spaceId, spaceId),
+        eq(notifications.type, type),
+        sql`${notifications.createdAt} > ${since}`
+      )
+    );
+  return rows.map((r) => r.userId);
 }
 
 export async function getNotifications(

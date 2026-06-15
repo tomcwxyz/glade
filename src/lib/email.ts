@@ -78,3 +78,26 @@ export async function sendAddedToSpaceEmail(
     }),
   });
 }
+
+export async function sendReviewDigestEmail(
+  email: string,
+  spaceName: string,
+  count: number,
+) {
+  const resend = getResend();
+  const url = `${getBaseUrl()}/dashboard`;
+  const noun = count === 1 ? "decision is" : "decisions are";
+
+  await resend.emails.send({
+    from: "Glade <noreply@ourglade.app>",
+    to: email,
+    subject: `${count} ${count === 1 ? "decision" : "decisions"} due for review in ${spaceName}`,
+    html: gladeEmail({
+      preview: `${count} ${noun} due for review`,
+      heading: "Reviews due",
+      body: `<strong>${count}</strong> ${noun} due for review in <strong>${spaceName}</strong>. Revisiting decisions keeps your governance record honest — open the dashboard to review them.`,
+      cta: { label: "Review decisions", url },
+      footer: "You're receiving this because you're a member of this space on Glade.",
+    }),
+  });
+}

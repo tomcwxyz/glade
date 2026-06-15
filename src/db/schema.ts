@@ -118,6 +118,7 @@ export const agendaItemStatusEnum = pgEnum("agenda_item_status", [
 
 export const notificationTypeEnum = pgEnum("notification_type", [
   "meeting_started",
+  "review_due",
 ]);
 
 export const reviewOutcomeEnum = pgEnum("review_outcome", [

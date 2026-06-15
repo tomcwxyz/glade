@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import { after } from "next/server";
 import { getCurrentSpace, getSpaceMemberCount } from "@/lib/space";
+import { notifyReviewsDue } from "@/lib/notification-actions";
 
 export const metadata: Metadata = { title: "Dashboard" };
 import { getDecisions, getActions, getMeetings, getSpaceStats, getActiveInsights, getGovernanceHealthStats, getReviewsDue } from "@/lib/queries";
@@ -103,6 +105,11 @@ export default async function DashboardPage() {
     getGovernanceHealthStats(space.id),
     getReviewsDue(space.id),
   ]);
+
+  // Nudge members about overdue reviews — runs after the response, deduped weekly.
+  if (reviewsDue.length > 0) {
+    after(() => notifyReviewsDue(space.id, space.name));
+  }
 
   const recentDecisions = allDecisions.slice(0, 4);
   const urgentActions = allActions
