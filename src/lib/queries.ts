@@ -69,6 +69,27 @@ async function withActionOwners<T extends { id: string; ownerName: string | null
   });
 }
 
+/**
+ * Map action ids → their linked meeting (first one), so actions captured in the
+ * meeting dialogue (which have no decision/topic/proposal parent) can still show
+ * a meaningful parent on the actions list.
+ */
+async function meetingParentMap(
+  actionIds: string[]
+): Promise<Map<string, { meetingId: string; title: string }>> {
+  const map = new Map<string, { meetingId: string; title: string }>();
+  if (actionIds.length === 0) return map;
+  const links = await db
+    .select({ actionId: meetingActions.actionId, meetingId: meetings.id, title: meetings.title })
+    .from(meetingActions)
+    .innerJoin(meetings, eq(meetings.id, meetingActions.meetingId))
+    .where(inArray(meetingActions.actionId, actionIds));
+  for (const link of links) {
+    if (!map.has(link.actionId)) map.set(link.actionId, { meetingId: link.meetingId, title: link.title });
+  }
+  return map;
+}
+
 // ============================================================
 // Decisions
 // ============================================================
@@ -258,6 +279,11 @@ export async function getActions(
   if (opts.offset != null) q = q.offset(opts.offset);
   const rows = await q;
 
+  const parentless = rows
+    .filter((r) => !r.decisionId && !r.topicId && !r.proposalId)
+    .map((r) => r.id);
+  const meetingParents = await meetingParentMap(parentless);
+
   return withActionOwners(rows.map((r) => {
     let parentType: "decision" | "topic" | "proposal" = "decision";
     let parentTitle = "";
@@ -275,6 +301,12 @@ export async function getActions(
       parentType = "proposal";
       parentTitle = `Proposal: ${r.proposalTitle}`;
       parentHref = `/proposals/${r.proposalId}`;
+    } else {
+      const meeting = meetingParents.get(r.id);
+      if (meeting) {
+        parentTitle = `Meeting: ${meeting.title}`;
+        parentHref = `/meetings/${meeting.meetingId}`;
+      }
     }
 
     return {
@@ -1293,13 +1325,23 @@ export async function getPublicActions(spaceId: string) {
     .where(and(eq(actions.spaceId, spaceId), eq(actions.isPublic, true)))
     .orderBy(desc(actions.createdAt));
 
+  const parentless = rows
+    .filter((r) => !r.decisionId && !r.topicId && !r.proposalId)
+    .map((r) => r.id);
+  const meetingParents = await meetingParentMap(parentless);
+
   return withActionOwners(rows.map((r) => {
     const parentType = r.decisionId ? "decision" : r.topicId ? "topic" : "proposal";
+    const meeting = meetingParents.get(r.id);
     const parentTitle = r.decisionId
       ? `#${r.decisionNumber} ${r.decisionTitle}`
       : r.topicId
         ? `Topic: ${r.topicTitle}`
-        : `Proposal: ${r.proposalTitle}`;
+        : r.proposalId
+          ? `Proposal: ${r.proposalTitle}`
+          : meeting
+            ? `Meeting: ${meeting.title}`
+            : "";
 
     return {
       id: r.id,

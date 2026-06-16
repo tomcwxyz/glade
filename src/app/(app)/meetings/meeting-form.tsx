@@ -3,13 +3,42 @@
 import { useState } from "react";
 import { createMeeting, updateMeeting } from "@/lib/meeting-actions";
 import { inputClass } from "@/lib/utils";
-import { Check, Clock, FileText, EyeOff, Loader2, Plus, X, MessageSquarePlus } from "lucide-react";
+import { Check, Clock, FileText, EyeOff, Loader2, Plus, X, MessageSquarePlus, Gavel, ListChecks } from "lucide-react";
 import Link from "next/link";
 import { FormError } from "@/components/form-error";
+import { OwnerSelect } from "@/components/owner-select";
 
 interface Member {
   id: string;
   name: string;
+}
+
+interface DecisionOption {
+  id: string;
+  number: number;
+  title: string;
+}
+
+const DECISION_METHODS = [
+  { value: "consent", label: "Consent" },
+  { value: "majority_vote", label: "Majority Vote" },
+  { value: "advice_process", label: "Advice Process" },
+  { value: "delegation", label: "Delegation" },
+  { value: "consensus", label: "Consensus" },
+  { value: "lazy_consensus", label: "Lazy Consensus" },
+];
+
+interface NewDecisionDraft {
+  title: string;
+  method: string;
+  outcome: string;
+}
+
+interface MeetingActionDraft {
+  description: string;
+  ownerName: string;
+  ownerIds: string[];
+  dueDate: string;
 }
 
 interface Topic {
@@ -84,12 +113,14 @@ export function MeetingForm({
   meeting,
   topics,
   proposals,
+  decisions = [],
   publicEnabled,
 }: {
   members: Member[];
   meeting?: MeetingData;
   topics?: Topic[];
   proposals?: Proposal[];
+  decisions?: DecisionOption[];
   publicEnabled?: boolean;
 }) {
   const isEditing = !!meeting;
@@ -104,6 +135,48 @@ export function MeetingForm({
   const [addedTopicIds, setAddedTopicIds] = useState<Set<string>>(new Set());
   const [showTopicPicker, setShowTopicPicker] = useState(false);
   const [showProposalPicker, setShowProposalPicker] = useState(false);
+
+  // Decision + action capture (add-only; persisted on save).
+  const [linkedDecisionIds, setLinkedDecisionIds] = useState<string[]>([]);
+  const [showDecisionPicker, setShowDecisionPicker] = useState(false);
+  const [newDecisions, setNewDecisions] = useState<NewDecisionDraft[]>([]);
+  const [meetingActionDrafts, setMeetingActionDrafts] = useState<MeetingActionDraft[]>([]);
+
+  const availableDecisions = decisions.filter((d) => !linkedDecisionIds.includes(d.id));
+
+  function updateNewDecision(index: number, field: keyof NewDecisionDraft, value: string) {
+    setNewDecisions((prev) => {
+      const next = [...prev];
+      next[index] = { ...next[index], [field]: value };
+      return next;
+    });
+  }
+
+  function updateMeetingAction(
+    index: number,
+    field: keyof MeetingActionDraft,
+    value: string | string[]
+  ) {
+    setMeetingActionDrafts((prev) => {
+      const next = [...prev];
+      next[index] = { ...next[index], [field]: value };
+      return next;
+    });
+  }
+
+  function toggleActionOwner(index: number, ownerId: string) {
+    setMeetingActionDrafts((prev) => {
+      const next = [...prev];
+      const current = next[index].ownerIds;
+      next[index] = {
+        ...next[index],
+        ownerIds: current.includes(ownerId)
+          ? current.filter((o) => o !== ownerId)
+          : [...current, ownerId],
+      };
+      return next;
+    });
+  }
 
   const availableTopics = (topics || []).filter((t) => !addedTopicIds.has(t.id));
   const availableProposals = (proposals || []).filter(
@@ -171,6 +244,28 @@ export function MeetingForm({
         formData.append("agendaDuration", item.durationMinutes);
         formData.append("agendaProposalId", item.proposalId);
         formData.append("agendaTopicId", item.topicId);
+      }
+    }
+
+    // Decisions: link existing + record new.
+    for (const id of linkedDecisionIds) {
+      formData.append("linkDecisionId", id);
+    }
+    for (const d of newDecisions) {
+      if (d.title.trim()) {
+        formData.append("newDecisionTitle", d.title);
+        formData.append("newDecisionMethod", d.method);
+        formData.append("newDecisionOutcome", d.outcome);
+      }
+    }
+
+    // Actions attached to the meeting.
+    for (const a of meetingActionDrafts) {
+      if (a.description.trim()) {
+        formData.append("mActionDescription", a.description);
+        formData.append("mActionOwnerName", a.ownerName);
+        formData.append("mActionOwnerIds", a.ownerIds.join(";"));
+        formData.append("mActionDueDate", a.dueDate);
       }
     }
 
@@ -529,6 +624,217 @@ export function MeetingForm({
                   }
                   className="text-bark-muted hover:text-earth transition-colors mt-2"
                   aria-label="Remove agenda item"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Decisions */}
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <span className="flex items-center gap-2 text-sm font-medium text-bark">
+              <Gavel size={14} className="text-bark-muted" />
+              Decisions <span className="font-normal text-bark-muted">(optional)</span>
+            </span>
+            <div className="flex items-center gap-3">
+              {availableDecisions.length > 0 && (
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setShowDecisionPicker(!showDecisionPicker)}
+                    className="flex items-center gap-1 text-xs text-canopy hover:text-canopy-light transition-colors"
+                  >
+                    <FileText size={14} />
+                    Link decision
+                  </button>
+                  {showDecisionPicker && (
+                    <div className="absolute right-0 top-full mt-1 w-72 bg-paper border border-border rounded-lg shadow-lg z-10 py-1 max-h-60 overflow-y-auto">
+                      {availableDecisions.map((d) => (
+                        <button
+                          key={d.id}
+                          type="button"
+                          onClick={() => {
+                            setLinkedDecisionIds((prev) => [...prev, d.id]);
+                            setShowDecisionPicker(false);
+                          }}
+                          className="w-full text-left px-3 py-2 hover:bg-paper-warm transition-colors"
+                        >
+                          <span className="text-sm text-bark block truncate">
+                            #{d.number} {d.title}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={() =>
+                  setNewDecisions((prev) => [...prev, { title: "", method: "consent", outcome: "" }])
+                }
+                className="flex items-center gap-1 text-xs text-canopy hover:text-canopy-light transition-colors"
+              >
+                <Plus size={14} />
+                Record decision
+              </button>
+            </div>
+          </div>
+
+          {linkedDecisionIds.length > 0 && (
+            <div className="space-y-1.5 mb-3">
+              {linkedDecisionIds.map((id) => {
+                const d = decisions.find((x) => x.id === id);
+                return (
+                  <div
+                    key={id}
+                    className="flex items-center gap-2 px-3 py-2 bg-paper-warm rounded-lg border border-border"
+                  >
+                    <Gavel size={12} className="text-canopy shrink-0" />
+                    <span className="text-sm text-bark flex-1 truncate">
+                      {d ? `#${d.number} ${d.title}` : "Decision"}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setLinkedDecisionIds((prev) => prev.filter((x) => x !== id))
+                      }
+                      className="text-bark-muted hover:text-earth transition-colors"
+                      aria-label="Unlink decision"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          <div className="space-y-3">
+            {newDecisions.map((d, i) => (
+              <div
+                key={i}
+                className="flex gap-3 items-start p-3 bg-paper-warm rounded-lg border border-border"
+              >
+                <div className="flex-1 space-y-2">
+                  <input
+                    type="text"
+                    value={d.title}
+                    onChange={(e) => updateNewDecision(i, "title", e.target.value)}
+                    placeholder="Decision title"
+                    className={inputClass}
+                  />
+                  <div className="grid grid-cols-[auto_1fr] gap-2">
+                    <select
+                      value={d.method}
+                      onChange={(e) => updateNewDecision(i, "method", e.target.value)}
+                      className={`${inputClass} w-auto`}
+                    >
+                      {DECISION_METHODS.map((m) => (
+                        <option key={m.value} value={m.value}>
+                          {m.label}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      type="text"
+                      value={d.outcome}
+                      onChange={(e) => updateNewDecision(i, "outcome", e.target.value)}
+                      placeholder="Outcome (optional)"
+                      className={inputClass}
+                    />
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setNewDecisions((prev) => prev.filter((_, idx) => idx !== i))}
+                  className="text-bark-muted hover:text-earth transition-colors mt-2"
+                  aria-label="Remove decision"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {linkedDecisionIds.length === 0 && newDecisions.length === 0 && (
+            <p className="text-sm text-bark-muted/60 py-1">
+              Link decisions made in this meeting, or record new ones.
+            </p>
+          )}
+        </div>
+
+        {/* Actions */}
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <span className="flex items-center gap-2 text-sm font-medium text-bark">
+              <ListChecks size={14} className="text-bark-muted" />
+              Actions <span className="font-normal text-bark-muted">(optional)</span>
+            </span>
+            <button
+              type="button"
+              onClick={() =>
+                setMeetingActionDrafts((prev) => [
+                  ...prev,
+                  { description: "", ownerName: "", ownerIds: [], dueDate: "" },
+                ])
+              }
+              className="flex items-center gap-1 text-xs text-canopy hover:text-canopy-light transition-colors"
+            >
+              <Plus size={14} />
+              Add action
+            </button>
+          </div>
+
+          {meetingActionDrafts.length === 0 && (
+            <p className="text-sm text-bark-muted/60 py-1">
+              Capture follow-up actions and who is responsible.
+            </p>
+          )}
+
+          <div className="space-y-3">
+            {meetingActionDrafts.map((a, i) => (
+              <div
+                key={i}
+                className="flex gap-3 items-start p-3 bg-paper-warm rounded-lg border border-border"
+              >
+                <div className="flex-1 space-y-2">
+                  <input
+                    type="text"
+                    value={a.description}
+                    onChange={(e) => updateMeetingAction(i, "description", e.target.value)}
+                    placeholder="What needs to be done?"
+                    className={inputClass}
+                  />
+                  <div className="flex gap-2 items-start">
+                    <div className="flex-1">
+                      <OwnerSelect
+                        members={members}
+                        selectedIds={a.ownerIds}
+                        onToggle={(id) => toggleActionOwner(i, id)}
+                        ownerName={a.ownerName}
+                        onOwnerNameChange={(v) => updateMeetingAction(i, "ownerName", v)}
+                      />
+                    </div>
+                    <input
+                      type="date"
+                      value={a.dueDate}
+                      onChange={(e) => updateMeetingAction(i, "dueDate", e.target.value)}
+                      className={`${inputClass} w-auto`}
+                      title="Due date"
+                    />
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setMeetingActionDrafts((prev) => prev.filter((_, idx) => idx !== i))
+                  }
+                  className="text-bark-muted hover:text-earth transition-colors mt-2"
+                  aria-label="Remove action"
                 >
                   <X size={16} />
                 </button>
