@@ -47,6 +47,41 @@ export function formatDateMonth(dateString: string): string {
   });
 }
 
+// ============================================================
+// Tag colour palette — shared across the Tag Manager and every
+// tag picker/chip so the colour set stays in one place.
+// ============================================================
+
+export const TAG_COLORS: { value: string; label: string }[] = [
+  { value: "canopy", label: "Green" },
+  { value: "amber", label: "Amber" },
+  { value: "earth", label: "Earth" },
+  { value: "sky", label: "Sky" },
+  { value: "moss", label: "Moss" },
+  { value: "plum", label: "Plum" },
+  { value: "teal", label: "Teal" },
+  { value: "rose", label: "Rose" },
+  { value: "slate", label: "Slate" },
+];
+
+// Colour token → background dot class. Literal strings so Tailwind's JIT
+// keeps the utilities; bare tokens map to the matching @theme colour.
+const TAG_DOT_CLASS: Record<string, string> = {
+  canopy: "bg-canopy",
+  amber: "bg-amber",
+  earth: "bg-earth",
+  sky: "bg-sky",
+  moss: "bg-moss",
+  plum: "bg-plum",
+  teal: "bg-teal",
+  rose: "bg-rose",
+  slate: "bg-slate",
+};
+
+export function tagDotClass(color: string | null | undefined): string {
+  return (color && TAG_DOT_CLASS[color]) || "bg-bark-muted";
+}
+
 export type ActionStatus = "open" | "in_progress" | "complete" | "overdue";
 
 /**

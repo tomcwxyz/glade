@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createDecision, updateDecision } from "@/lib/decision-actions";
-import { inputClass, textareaClass } from "@/lib/utils";
+import { inputClass, textareaClass, tagDotClass } from "@/lib/utils";
 import {
   EyeOff,
   Loader2,
@@ -18,15 +18,6 @@ interface Tag {
   name: string;
   color: string | null;
 }
-
-// Tag colour token → dot class (literal classes so Tailwind JIT keeps them).
-const TAG_DOT: Record<string, string> = {
-  canopy: "bg-canopy",
-  amber: "bg-amber",
-  earth: "bg-earth",
-  sky: "bg-sky",
-  moss: "bg-moss",
-};
 
 interface Member {
   id: string;
@@ -405,7 +396,7 @@ export function DecisionForm({
                         : "bg-paper-warm text-bark-muted border-border hover:border-canopy/30 hover:text-bark"
                     }`}
                   >
-                    <span className={`w-2 h-2 rounded-full shrink-0 ${TAG_DOT[tag.color ?? ""] ?? "bg-bark-muted"}`} />
+                    <span className={`w-2 h-2 rounded-full shrink-0 ${tagDotClass(tag.color)}`} />
                     {tag.name}
                   </button>
                 );

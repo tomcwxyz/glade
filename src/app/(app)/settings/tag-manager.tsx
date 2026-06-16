@@ -2,24 +2,13 @@
 
 import { useState, useTransition } from "react";
 import { createTag, renameTag, deleteTag } from "@/lib/tag-actions";
+import { TAG_COLORS, tagDotClass } from "@/lib/utils";
 import { Tag as TagIcon, Plus, Trash2, Check, X, Loader2, Pencil } from "lucide-react";
 
 interface Tag {
   id: string;
   name: string;
   color: string | null;
-}
-
-const TAG_COLORS: { value: string; dot: string; label: string }[] = [
-  { value: "canopy", dot: "bg-canopy", label: "Green" },
-  { value: "amber", dot: "bg-amber", label: "Amber" },
-  { value: "earth", dot: "bg-earth", label: "Earth" },
-  { value: "sky", dot: "bg-sky", label: "Sky" },
-  { value: "moss", dot: "bg-moss", label: "Moss" },
-];
-
-function dotClass(color: string | null): string {
-  return TAG_COLORS.find((c) => c.value === color)?.dot ?? "bg-bark-muted";
 }
 
 function ColorPicker({
@@ -38,7 +27,7 @@ function ColorPicker({
           onClick={() => onChange(c.value)}
           aria-label={c.label}
           aria-pressed={value === c.value}
-          className={`w-5 h-5 rounded-full ${c.dot} transition-transform ${
+          className={`w-5 h-5 rounded-full ${tagDotClass(c.value)} transition-transform ${
             value === c.value ? "ring-2 ring-offset-1 ring-bark scale-110" : "opacity-60 hover:opacity-100"
           }`}
         />
@@ -148,7 +137,7 @@ export function TagManager({ tags }: { tags: Tag[] }) {
               key={tag.id}
               className="flex items-center gap-2.5 p-2.5 rounded-lg bg-paper-warm border border-border"
             >
-              <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${dotClass(tag.color)}`} />
+              <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${tagDotClass(tag.color)}`} />
               <span className="text-sm text-bark flex-1 truncate">{tag.name}</span>
               <button
                 type="button"
