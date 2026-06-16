@@ -144,6 +144,33 @@ Governance documents:
 ${documentsJson}`;
 }
 
+export function agendaDraftPrompt(
+  meetingTitle: string,
+  date: string,
+  proposalsJson: string,
+  topicsJson: string,
+  recentDecisionsJson: string
+): string {
+  return `Draft a focused meeting agenda for the meeting below, drawing on the open proposals, topics, and recent decisions provided.
+
+Guidelines:
+- Suggest 3-7 agenda items in a sensible order (proposals ready for a decision first, then discussion, then information).
+- For each item give: a short title, a one-sentence description, a type (one of for_decision, for_discussion, for_information), and an estimated duration in minutes.
+- Turn proposals that are ready into "for_decision" items and open topics into "for_discussion" items. Only add a "for_information" item if genuinely warranted.
+- Keep it realistic for a single meeting. Use British English.
+
+Meeting: ${meetingTitle} (${date})
+
+Open proposals:
+${proposalsJson}
+
+Topics:
+${topicsJson}
+
+Recent decisions:
+${recentDecisionsJson}`;
+}
+
 export function governanceQaPrompt(
   question: string,
   decisionsJson: string,

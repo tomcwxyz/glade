@@ -1,4 +1,5 @@
 import { getCurrentSpace } from "@/lib/space";
+import { isAiEnabled } from "@/lib/ai";
 import { getMeetingById, getSpaceMembers, getAvailableTopics, getProposals, getDecisionsList } from "@/lib/queries";
 import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/breadcrumbs";
@@ -50,6 +51,7 @@ export default async function EditMeetingPage({
         proposals={agendaProposals}
         decisions={decisions.map((d) => ({ id: d.id, number: d.number, title: d.title }))}
         publicEnabled={((space.settings as Record<string, unknown>) || {}).publicMeetings === true}
+        aiEnabled={isAiEnabled(space.settings)}
         meeting={{
           id: meeting.id,
           title: meeting.title,

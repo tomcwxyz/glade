@@ -17,9 +17,10 @@ import {
   draftDocumentUpdatePrompt,
   governanceDigestPrompt,
   governanceQaPrompt,
+  agendaDraftPrompt,
   transcriptExtractionPrompt,
 } from "@/lib/ai-prompts";
-import { getDecisions, getDocuments, getDecisionByNumber, getActions, getDocumentById, getMeetingById } from "@/lib/queries";
+import { getDecisions, getDocuments, getDecisionByNumber, getActions, getDocumentById, getMeetingById, getProposals, getAvailableTopics, getDecisionsList, getSpaceTags } from "@/lib/queries";
 import { tiptapToText } from "@/lib/tiptap-utils";
 
 /** Friendly error string from a thrown AI/SDK error. */
@@ -141,6 +142,28 @@ const TRANSCRIPT_SCHEMA = {
       },
     },
     summary: { type: "string" },
+  },
+} as const;
+
+const AGENDA_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["items"],
+  properties: {
+    items: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["title", "description", "type", "durationMinutes"],
+        properties: {
+          title: { type: "string" },
+          description: { type: "string" },
+          type: { type: "string", enum: ["for_decision", "for_discussion", "for_information"] },
+          durationMinutes: { type: "integer" },
+        },
+      },
+    },
   },
 } as const;
 
@@ -680,6 +703,59 @@ export async function generateGovernanceDigest() {
 
   revalidatePath("/dashboard");
   return { content: response };
+}
+
+export type DraftedAgendaItem = {
+  title: string;
+  description: string;
+  type: "for_decision" | "for_discussion" | "for_information";
+  durationMinutes: number;
+};
+
+export async function draftMeetingAgenda(title: string, date: string) {
+  const { error, space } = await checkAiEnabled();
+  if (error || !space) return { error: error || "No space" };
+  if (!title.trim()) return { error: "Add a meeting title first" };
+
+  const [proposals, topics, recentDecisions] = await Promise.all([
+    getProposals(space.id),
+    getAvailableTopics(space.id),
+    getDecisionsList(space.id),
+  ]);
+
+  const openProposals = proposals.filter(
+    (p) =>
+      p.status === "draft" ||
+      p.status === "open_for_discussion" ||
+      p.status === "ready_for_decision"
+  );
+
+  const proposalsJson = JSON.stringify(
+    openProposals.map((p) => ({ title: p.title, status: p.status, description: p.description }))
+  );
+  const topicsJson = JSON.stringify(
+    topics.map((t) => ({ title: t.title, type: t.type, description: t.description }))
+  );
+  const decisionsJson = JSON.stringify(
+    recentDecisions.slice(0, 10).map((d) => ({ number: d.number, title: d.title, status: d.status }))
+  );
+
+  try {
+    const result = await generateStructured<{ items: DraftedAgendaItem[] }>(
+      SYSTEM_PROMPT,
+      agendaDraftPrompt(
+        title.trim(),
+        date,
+        capInput(proposalsJson),
+        capInput(topicsJson),
+        capInput(decisionsJson)
+      ),
+      AGENDA_SCHEMA
+    );
+    return { items: result.items };
+  } catch (e) {
+    return aiError(e);
+  }
 }
 
 export type ExtractedDecision = {
