@@ -4,7 +4,7 @@ import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { formatDate } from "@/lib/utils";
 import { useLiveRegion } from "@/components/live-region";
-import { ListChecks, Minus, Plus, RotateCcw, X } from "lucide-react";
+import { ListChecks, Minus, Plus, RotateCcw, Search, X } from "lucide-react";
 
 // --- Types & Constants ---
 
@@ -511,7 +511,13 @@ function getRootConnections(nodes: TreeNode[], stableNow: number): RootConnectio
 
 // --- Legend ---
 
-function Legend() {
+function Legend({
+  activeStatuses,
+  onToggleStatus,
+}: {
+  activeStatuses: Set<DecisionStatus>;
+  onToggleStatus: (status: DecisionStatus) => void;
+}) {
   return (
     <div className="absolute bottom-3 sm:bottom-6 left-3 sm:left-6 right-3 sm:right-auto z-10">
       {/* Desktop: single row */}
@@ -526,14 +532,24 @@ function Legend() {
             ["reviewed", "Autumn reflection"],
             ["learned", "Deep roots"],
           ] as const
-        ).map(([status, label]) => (
-          <div key={status} className="flex items-center gap-1.5">
-            <svg width="10" height="10">
-              <circle cx="5" cy="5" r="4.5" fill={STATUS_COLORS[status].fill} />
-            </svg>
-            <span>{label}</span>
-          </div>
-        ))}
+        ).map(([status, label]) => {
+          const active = activeStatuses.has(status);
+          return (
+            <button
+              key={status}
+              type="button"
+              onClick={() => onToggleStatus(status)}
+              aria-pressed={active}
+              title={active ? `Hide ${label}` : `Show ${label}`}
+              className={`flex items-center gap-1.5 transition-opacity hover:opacity-100 ${active ? "" : "opacity-35"}`}
+            >
+              <svg width="10" height="10">
+                <circle cx="5" cy="5" r="4.5" fill={STATUS_COLORS[status].fill} />
+              </svg>
+              <span>{label}</span>
+            </button>
+          );
+        })}
         <span className="text-border-strong">|</span>
         <span className="font-medium text-bark" style={{ fontFamily: "var(--font-display)" }}>
           Roots
@@ -588,14 +604,23 @@ function Legend() {
               ["reviewed", "Reviewed"],
               ["learned", "Learned"],
             ] as const
-          ).map(([status, label]) => (
-            <div key={status} className="flex items-center gap-1">
-              <svg width="8" height="8" className="shrink-0">
-                <circle cx="4" cy="4" r="3.5" fill={STATUS_COLORS[status].fill} />
-              </svg>
-              <span>{label}</span>
-            </div>
-          ))}
+          ).map(([status, label]) => {
+            const active = activeStatuses.has(status);
+            return (
+              <button
+                key={status}
+                type="button"
+                onClick={() => onToggleStatus(status)}
+                aria-pressed={active}
+                className={`flex items-center gap-1 transition-opacity ${active ? "" : "opacity-35"}`}
+              >
+                <svg width="8" height="8" className="shrink-0">
+                  <circle cx="4" cy="4" r="3.5" fill={STATUS_COLORS[status].fill} />
+                </svg>
+                <span>{label}</span>
+              </button>
+            );
+          })}
         </div>
         {/* Row 2: Roots + Size */}
         <div className="flex items-center gap-2.5">
@@ -808,6 +833,8 @@ interface ViewBox {
 const MIN_ZOOM = 1;
 const MAX_ZOOM = 4;
 const ZOOM_STEP = 0.3;
+
+const ALL_STATUSES: DecisionStatus[] = ["decided", "implemented", "reviewed", "learned"];
 
 function clampViewBox(vb: ViewBox, fullW: number, fullH: number): ViewBox {
   const w = Math.max(fullW / MAX_ZOOM, Math.min(fullW, vb.w));
@@ -1033,6 +1060,8 @@ export function GladeCanvas({ decisions, readOnly = false, now }: { decisions: D
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [focusedId, setFocusedId] = useState<string | null>(null);
+  const [activeStatuses, setActiveStatuses] = useState<Set<DecisionStatus>>(() => new Set(ALL_STATUSES));
+  const [query, setQuery] = useState("");
   const [hoveredRootIndex, setHoveredRootIndex] = useState<number | null>(null);
   const [rootTooltip, setRootTooltip] = useState<{ x: number; y: number; label: string } | null>(null);
   const [viewMode, setViewMode] = useState<"trees" | "rings" | "silhouettes">("trees");
@@ -1180,6 +1209,58 @@ export function GladeCanvas({ decisions, readOnly = false, now }: { decisions: D
     [nodes, centerOn, announce]
   );
 
+  // Status filter (legend). Never allow an empty set (would hide everything).
+  const toggleStatus = useCallback((status: DecisionStatus) => {
+    setActiveStatuses((prev) => {
+      const next = new Set(prev);
+      if (next.has(status)) next.delete(status);
+      else next.add(status);
+      return next.size === 0 ? new Set(ALL_STATUSES) : next;
+    });
+  }, []);
+
+  const hiddenIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const n of nodes) if (!activeStatuses.has(n.decision.status)) ids.add(n.decision.id);
+    return ids;
+  }, [nodes, activeStatuses]);
+
+  const connHidden = useCallback(
+    (conn: RootConnection) =>
+      hiddenIds.has(conn.from.decision.id) || hiddenIds.has(conn.to.decision.id),
+    [hiddenIds]
+  );
+
+  // Search: null = inactive; otherwise the set of matching decision ids.
+  const normalizedQuery = query.trim().toLowerCase();
+  const matchedIds = useMemo(() => {
+    if (!normalizedQuery) return null;
+    const numQuery = normalizedQuery.replace(/^#/, "");
+    const ids = new Set<string>();
+    for (const n of nodes) {
+      const d = n.decision;
+      if (
+        d.title.toLowerCase().includes(normalizedQuery) ||
+        String(d.number) === numQuery ||
+        `#${d.number}`.includes(normalizedQuery)
+      ) {
+        ids.add(d.id);
+      }
+    }
+    return ids;
+  }, [normalizedQuery, nodes]);
+
+  const runSearch = useCallback(() => {
+    if (!matchedIds || matchedIds.size === 0) return;
+    const firstId = orderedIds.find((id) => matchedIds.has(id) && !hiddenIds.has(id));
+    if (!firstId) return;
+    const node = nodes.find((n) => n.decision.id === firstId);
+    if (!node) return;
+    centerOn(node.x, node.y, 1.8);
+    setSelectedId(firstId);
+    announce(`${matchedIds.size} match${matchedIds.size === 1 ? "" : "es"}. Showing #${node.decision.number} ${node.decision.title}`);
+  }, [matchedIds, orderedIds, hiddenIds, nodes, centerOn, announce]);
+
   const handleCanvasKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (orderedIds.length === 0) return;
@@ -1260,21 +1341,59 @@ export function GladeCanvas({ decisions, readOnly = false, now }: { decisions: D
           </p>
         </div>
 
-        {/* View mode toggle */}
-        <div className="flex items-center gap-1 bg-paper/90 backdrop-blur-sm rounded-lg border border-border px-1 py-1 self-start shrink-0">
-          {(["trees", "rings", "silhouettes"] as const).map((mode) => (
-            <button
-              key={mode}
-              onClick={() => setViewMode(mode)}
-              className={`px-2.5 sm:px-3 py-1.5 text-xs rounded-md transition-colors ${
-                viewMode === mode
-                  ? "bg-canopy text-paper font-medium"
-                  : "text-bark-muted hover:text-bark hover:bg-paper-deep"
-              }`}
-            >
-              {mode === "trees" ? "Canopy" : mode === "rings" ? "Rings" : "Silhouette"}
-            </button>
-          ))}
+        <div className="flex flex-col items-stretch sm:items-end gap-2 shrink-0">
+          {/* View mode toggle */}
+          <div className="flex items-center gap-1 bg-paper/90 backdrop-blur-sm rounded-lg border border-border px-1 py-1 self-start sm:self-auto">
+            {(["trees", "rings", "silhouettes"] as const).map((mode) => (
+              <button
+                key={mode}
+                onClick={() => setViewMode(mode)}
+                className={`px-2.5 sm:px-3 py-1.5 text-xs rounded-md transition-colors ${
+                  viewMode === mode
+                    ? "bg-canopy text-paper font-medium"
+                    : "text-bark-muted hover:text-bark hover:bg-paper-deep"
+                }`}
+              >
+                {mode === "trees" ? "Canopy" : mode === "rings" ? "Rings" : "Silhouette"}
+              </button>
+            ))}
+          </div>
+
+          {/* Search */}
+          <div className="flex items-center gap-1.5 bg-paper/90 backdrop-blur-sm rounded-lg border border-border px-2.5 py-1.5 w-full sm:w-56">
+            <Search size={14} className="text-bark-muted shrink-0" />
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  runSearch();
+                } else if (e.key === "Escape") {
+                  setQuery("");
+                }
+              }}
+              placeholder="Search decisions…"
+              aria-label="Search decisions on the canvas"
+              className="flex-1 min-w-0 bg-transparent text-xs text-bark placeholder:text-bark-muted/60 focus:outline-none"
+            />
+            {matchedIds && (
+              <span className="text-[0.625rem] text-bark-muted tabular-nums shrink-0">
+                {matchedIds.size}
+              </span>
+            )}
+            {query && (
+              <button
+                type="button"
+                onClick={() => setQuery("")}
+                aria-label="Clear search"
+                className="text-bark-muted hover:text-bark shrink-0"
+              >
+                <X size={13} />
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -1408,6 +1527,7 @@ export function GladeCanvas({ decisions, readOnly = false, now }: { decisions: D
 
         {/* Root paths — non-highlighted (below nodes) */}
         {connections.map((conn, ci) => {
+          if (connHidden(conn)) return null;
           const style = ROOT_STYLES[conn.relation];
           const isHighlighted =
             highlightedConnections.has(ci) || hoveredRootIndex === ci;
@@ -1440,6 +1560,7 @@ export function GladeCanvas({ decisions, readOnly = false, now }: { decisions: D
 
         {/* Root paths — highlighted (above non-highlighted, below nodes) */}
         {connections.map((conn, ci) => {
+          if (connHidden(conn)) return null;
           const style = ROOT_STYLES[conn.relation];
           const isHighlighted =
             highlightedConnections.has(ci) || hoveredRootIndex === ci;
@@ -1472,6 +1593,7 @@ export function GladeCanvas({ decisions, readOnly = false, now }: { decisions: D
 
         {/* Invisible fat hit-area paths for root hover */}
         {connections.map((conn, ci) => {
+          if (connHidden(conn)) return null;
           const style = ROOT_STYLES[conn.relation];
           return rootPaths[ci].map((d, pi) => (
             <path
@@ -1600,15 +1722,22 @@ export function GladeCanvas({ decisions, readOnly = false, now }: { decisions: D
 
         {/* Tree nodes */}
         {nodes.map((node) => {
+          // Status filter — hidden statuses don't render at all.
+          if (hiddenIds.has(node.decision.id)) return null;
+
           const isHovered = hoveredId === node.decision.id;
           const isSelected = selectedId === node.decision.id;
           const isActive = isHovered || isSelected;
           const isConnected = connectedIds.has(node.decision.id);
           const scale = isActive ? 1.08 : 1;
+          const isMatch = matchedIds ? matchedIds.has(node.decision.id) : true;
 
-          // Dim non-connected nodes when there's an active highlight
-          const nodeOpacity =
-            hasActiveHighlight && !isActive && !isConnected ? 0.4 : 1;
+          // Dim non-matching (search) and non-connected (hover/focus) nodes.
+          const nodeOpacity = !isMatch
+            ? 0.12
+            : hasActiveHighlight && !isActive && !isConnected
+              ? 0.4
+              : 1;
 
           const params = TREE_PARAMS[node.decision.status];
           const trunkH = node.radius * params.trunkScale;
@@ -1965,6 +2094,7 @@ export function GladeCanvas({ decisions, readOnly = false, now }: { decisions: D
         <h2>Decision relationships</h2>
         <ul>
           {nodes.map((node) => {
+            if (hiddenIds.has(node.decision.id)) return null;
             const d = node.decision;
             const linked = d.linkedDecisions || [];
             return (
@@ -2009,7 +2139,7 @@ export function GladeCanvas({ decisions, readOnly = false, now }: { decisions: D
       })()}
 
       {/* Legend */}
-      <Legend />
+      <Legend activeStatuses={activeStatuses} onToggleStatus={toggleStatus} />
     </div>
   );
 }
