@@ -12,12 +12,10 @@ Things that went wrong and what to do instead. This file is the most important f
 
 ## Mistakes Log
 
-<!--
-### [date]
-**What happened:** [What Claude did wrong]
-**Why it was wrong:** [Why this was a problem in this context]
-**Rule:** [What Claude should do instead — be specific and actionable]
--->
+### 2026-06-16
+**What happened:** A user on the deployed app hit "server-side exception" opening any meeting or proposal. Root cause: tranche-3b's migration **dropped `meeting_proposals` directly on the shared Neon DB** while the deployed code (old `main`) still queried that table (`getMeetingById`, `getProposalMeetings`). The destructive migration reached production *ahead of* the code that no longer needed it.
+**Why it was wrong:** Applying a destructive schema change (DROP/RENAME/type-change) to a shared DB before the matching code is deployed breaks the currently-running version. Additive changes (new tables/columns) are safe for old code; destructive ones are not.
+**Rule:** Sequence destructive migrations *after* the code that stops using the old shape is live (expand → migrate → contract). When applying migrations directly via `.cjs`, confirm whether the deployed code still references the dropped/renamed object first. Prefer additive-only migrations whenever the change can be staged.
 
 ---
 

@@ -1,3 +1,23 @@
+# Handoff — 2026-06-16 (Tags, meeting capture, multi-owner actions)
+
+## What happened this session
+
+Two parts. **First**, diagnosed a production crash a user reported (server-side exception opening meetings/proposals) → root cause was tranche-3b's `DROP meeting_proposals` reaching the shared Neon DB ahead of the deployed code. Confirmed no data loss (it was a pure join table, backfilled into `meeting_agenda_items` in the same migration). Fixed by **merging the full 7-PR stack into `main` via fast-forward** (`main` now at `fe3c173`, all of tranches 1–4b live). Logged the deploy-ordering lesson in MISTAKES.md.
+
+**Second**, built four user-requested features on branch `feature-tags-meeting-capture` (off `main`, 4 commits, build/lint clean throughout, plan at `~/.claude/plans/cosmic-painting-gray.md`):
+
+- **Wider tag colours** — added plum/teal/rose/slate (+pale) tokens; centralised the colour-token→class map into `tagDotClass`/`TAG_COLORS` in `utils.ts` (Tag Manager + decision form share it).
+- **Proposal tags + filter** — new `proposal_tags` join (reuses space tags); tag picker on the proposal form; chips on list/detail; server-side `?tag=` filter bar (Pagination extended with a `params` prop to preserve the filter).
+- **Multi-owner actions** — new `action_owners` join + free-text `ownerName` fallback; shared `OwnerSelect` (member multi-select + "other owner"); reads fold all owners into the displayed `ownerName` via `withActionOwners` (no per-site churn).
+- **Meeting dialogue captures decisions + actions** — meeting form gains Decisions (link existing / record new inline) and Actions sections, persisted add-only inside the existing create/update transaction (`persistMeetingCapture`); meeting-only actions resolve the meeting as parent via `meetingParentMap`.
+
+Migrations applied to Neon (additive): `proposal_tags`, `action_owners`. **Verified end-to-end** via Playwright on the demo account (recorded a new decision + multi-owner action through the meeting form; confirmed decision #48 in the log and the action showing all three owners + meeting parent), then deleted the smoke-test data.
+
+### Next steps
+- Branch `feature-tags-meeting-capture` is being pushed + PR'd into `main` (clean FF base). Deferred in this work: linking a meeting-form action to an inline-created decision; an edit-owners UI for existing actions; the legacy single `actions.ownerId` column stays unused (no destructive change).
+
+---
+
 # Handoff — 2026-06-15 (Sharing & Transparency)
 
 ## What happened this session
