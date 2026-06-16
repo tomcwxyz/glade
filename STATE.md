@@ -1,6 +1,6 @@
 # State
 
-> Last updated: 2026-03-03
+> Last updated: 2026-06-16
 
 ## System State Diagram
 
@@ -232,6 +232,21 @@ Branch `tranche-4b-sharing` (stacked on 4e). Three phases, build/lint clean, com
 - **P3:** per-action public/hide toggle (`setActionPublic`); `?format=json` on decisions export + public CSV export; **middleware fix** — `/sitemap.xml` + `/robots.txt` were behind auth (302), now public.
 
 No new dependencies, no migration. Verified via curl against the `test-event` space.
+
+## Tranches 1–4b merged to main (2026-06-16)
+
+The full 7-PR review/feature stack (security hardening → broken-features → meeting-flow → traceability → performance → engagement → sharing) was fast-forwarded into `main` (`fe3c173`). This fixed a production crash for users on old code: tranche-3b dropped `meeting_proposals` on the shared Neon DB while deployed code still queried it. No data lost (pure join table, backfilled into `meeting_agenda_items`). See MISTAKES.md for the deploy-ordering lesson.
+
+## Tags, Meeting Capture & Multi-owner Actions (2026-06-16)
+
+Branch `feature-tags-meeting-capture` (off `main`). Four features, build/lint clean, additive migrations only:
+
+- **Wider tag colours:** plum/teal/rose/slate (+pale) design tokens; shared `tagDotClass`/`TAG_COLORS` in `utils.ts`.
+- **Proposal tags + filter:** new `proposal_tags` join; tag picker on the proposal form; chips + server-side `?tag=` filter on the list (Pagination gained a `params` prop).
+- **Multi-owner actions:** new `action_owners` join + free-text `ownerName` fallback; shared `OwnerSelect`; reads merge owners into the display via `withActionOwners`.
+- **Meeting dialogue capture:** Decisions (link/record) + Actions sections on the meeting form, persisted add-only in the create/update transaction (`persistMeetingCapture`); meeting-only actions parented via `meetingParentMap`.
+
+New Neon migrations: `proposal_tags`, `action_owners`. DB now ~30 tables. Verified end-to-end via Playwright (meeting capture → decision #48 + multi-owner action), smoke-test data removed.
 
 ## Known Issues
 

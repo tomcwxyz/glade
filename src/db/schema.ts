@@ -406,6 +406,19 @@ export const decisionTags = pgTable(
   (dt) => [primaryKey({ columns: [dt.decisionId, dt.tagId] })]
 );
 
+export const proposalTags = pgTable(
+  "proposal_tags",
+  {
+    proposalId: uuid("proposal_id")
+      .notNull()
+      .references(() => proposals.id, { onDelete: "cascade" }),
+    tagId: uuid("tag_id")
+      .notNull()
+      .references(() => tags.id, { onDelete: "cascade" }),
+  },
+  (pt) => [primaryKey({ columns: [pt.proposalId, pt.tagId] })]
+);
+
 // --- Meetings ---
 
 export const meetings = pgTable(
@@ -547,6 +560,21 @@ export const actions = pgTable(
     index("actions_proposal_idx").on(a.proposalId),
     index("actions_owner_idx").on(a.ownerId),
   ]
+);
+
+// Member owners for an action. The free-text actions.ownerName remains as a
+// fallback for non-member owners; this join holds zero or more member owners.
+export const actionOwners = pgTable(
+  "action_owners",
+  {
+    actionId: uuid("action_id")
+      .notNull()
+      .references(() => actions.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+  },
+  (ao) => [primaryKey({ columns: [ao.actionId, ao.userId] })]
 );
 
 // --- Documents ---
@@ -870,6 +898,12 @@ export const decisionLinksRelations = relations(decisionLinks, ({ one }) => ({
 export const tagsRelations = relations(tags, ({ one, many }) => ({
   space: one(spaces, { fields: [tags.spaceId], references: [spaces.id] }),
   decisions: many(decisionTags),
+  proposals: many(proposalTags),
+}));
+
+export const proposalTagsRelations = relations(proposalTags, ({ one }) => ({
+  proposal: one(proposals, { fields: [proposalTags.proposalId], references: [proposals.id] }),
+  tag: one(tags, { fields: [proposalTags.tagId], references: [tags.id] }),
 }));
 
 export const decisionTagsRelations = relations(decisionTags, ({ one }) => ({
@@ -914,12 +948,18 @@ export const meetingDocumentsRelations = relations(meetingDocuments, ({ one }) =
 }));
 
 
-export const actionsRelations = relations(actions, ({ one }) => ({
+export const actionsRelations = relations(actions, ({ one, many }) => ({
   space: one(spaces, { fields: [actions.spaceId], references: [spaces.id] }),
   decision: one(decisions, { fields: [actions.decisionId], references: [decisions.id] }),
   topic: one(topics, { fields: [actions.topicId], references: [topics.id] }),
   proposal: one(proposals, { fields: [actions.proposalId], references: [proposals.id] }),
   owner: one(users, { fields: [actions.ownerId], references: [users.id] }),
+  owners: many(actionOwners),
+}));
+
+export const actionOwnersRelations = relations(actionOwners, ({ one }) => ({
+  action: one(actions, { fields: [actionOwners.actionId], references: [actions.id] }),
+  user: one(users, { fields: [actionOwners.userId], references: [users.id] }),
 }));
 
 // --- Document relations ---
@@ -950,6 +990,7 @@ export const proposalsRelations = relations(proposals, ({ one, many }) => ({
   decidedAsDecision: one(decisions, { fields: [proposals.decidedAsDecisionId], references: [decisions.id] }),
   comments: many(proposalComments),
   references: many(proposalReferences),
+  tags: many(proposalTags),
 }));
 
 export const proposalReferencesRelations = relations(proposalReferences, ({ one }) => ({

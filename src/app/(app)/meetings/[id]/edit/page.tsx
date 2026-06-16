@@ -1,5 +1,5 @@
 import { getCurrentSpace } from "@/lib/space";
-import { getMeetingById, getSpaceMembers, getAvailableTopics, getProposals } from "@/lib/queries";
+import { getMeetingById, getSpaceMembers, getAvailableTopics, getProposals, getDecisionsList } from "@/lib/queries";
 import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { MeetingForm } from "../../meeting-form";
@@ -13,11 +13,12 @@ export default async function EditMeetingPage({
   const space = await getCurrentSpace();
   if (!space) return null;
 
-  const [meeting, members, topics, allProposals] = await Promise.all([
+  const [meeting, members, topics, allProposals, decisions] = await Promise.all([
     getMeetingById(space.id, id),
     getSpaceMembers(space.id),
     getAvailableTopics(space.id),
     getProposals(space.id),
+    getDecisionsList(space.id),
   ]);
 
   if (!meeting) return notFound();
@@ -47,6 +48,7 @@ export default async function EditMeetingPage({
         members={members.map((m) => ({ id: m.userId, name: m.name || m.email }))}
         topics={topics}
         proposals={agendaProposals}
+        decisions={decisions.map((d) => ({ id: d.id, number: d.number, title: d.title }))}
         publicEnabled={((space.settings as Record<string, unknown>) || {}).publicMeetings === true}
         meeting={{
           id: meeting.id,

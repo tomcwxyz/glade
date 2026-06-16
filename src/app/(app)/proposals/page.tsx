@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import { getCurrentSpace } from "@/lib/space";
-import { getProposals } from "@/lib/queries";
+import { getProposals, getSpaceTags } from "@/lib/queries";
 import { Plus, MessageSquare } from "lucide-react";
 
 export const metadata: Metadata = { title: "Proposals" };
 import Link from "next/link";
-import { formatDateRelative } from "@/lib/utils";
+import { formatDateRelative, tagDotClass } from "@/lib/utils";
 import { Pagination, PAGE_SIZE, parsePage } from "@/components/pagination";
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
@@ -27,13 +27,20 @@ const STATUS_ORDER = [
 export default async function ProposalsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string }>;
+  searchParams: Promise<{ page?: string; tag?: string }>;
 }) {
   const space = await getCurrentSpace();
   if (!space) return null;
-  const page = parsePage((await searchParams).page);
+  const sp = await searchParams;
+  const page = parsePage(sp.page);
   const offset = (page - 1) * PAGE_SIZE;
-  const fetched = await getProposals(space.id, { limit: PAGE_SIZE + 1, offset });
+  const tags = await getSpaceTags(space.id);
+  const activeTag = sp.tag && tags.some((t) => t.id === sp.tag) ? sp.tag : undefined;
+  const fetched = await getProposals(space.id, {
+    limit: PAGE_SIZE + 1,
+    offset,
+    tagId: activeTag,
+  });
   const hasMore = fetched.length > PAGE_SIZE;
   const allProposals = fetched.slice(0, PAGE_SIZE);
 
@@ -71,12 +78,49 @@ export default async function ProposalsPage({
         </Link>
       </header>
 
+      {/* Tag filter */}
+      {tags.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 mb-8">
+          <Link
+            href="/proposals"
+            className={`px-3 py-1.5 text-xs rounded-lg border transition-colors ${
+              !activeTag
+                ? "bg-canopy-pale text-canopy border-canopy/30 font-medium"
+                : "bg-paper-warm text-bark-muted border-border hover:text-bark hover:border-canopy/30"
+            }`}
+          >
+            All
+          </Link>
+          {tags.map((tag) => {
+            const isActive = activeTag === tag.id;
+            return (
+              <Link
+                key={tag.id}
+                href={isActive ? "/proposals" : `/proposals?tag=${tag.id}`}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-colors ${
+                  isActive
+                    ? "bg-canopy-pale text-canopy border-canopy/30 font-medium"
+                    : "bg-paper-warm text-bark-muted border-border hover:text-bark hover:border-canopy/30"
+                }`}
+              >
+                <span className={`w-2 h-2 rounded-full shrink-0 ${tagDotClass(tag.color)}`} />
+                {tag.name}
+              </Link>
+            );
+          })}
+        </div>
+      )}
+
       {allProposals.length === 0 ? (
         <div className="text-center py-16">
           <MessageSquare size={40} className="mx-auto mb-4 text-bark-muted/30" />
-          <p className="text-bark-muted mb-2">No proposals yet</p>
+          <p className="text-bark-muted mb-2">
+            {activeTag ? "No proposals with this tag" : "No proposals yet"}
+          </p>
           <p className="text-sm text-bark-muted/70">
-            Create a proposal to start the decision-making process.
+            {activeTag
+              ? "Try a different tag or clear the filter."
+              : "Create a proposal to start the decision-making process."}
           </p>
         </div>
       ) : (
@@ -111,6 +155,18 @@ export default async function ProposalsPage({
                             {proposal.description}
                           </p>
                         )}
+                        {proposal.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 mt-1.5">
+                            {proposal.tags.map((tag) => (
+                              <span
+                                key={tag}
+                                className="text-[0.6875rem] px-1.5 py-0.5 rounded bg-paper-deep text-bark-muted"
+                              >
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                         <div className="text-xs text-bark-muted/60 mt-1">
                           {proposal.createdByName && `${proposal.createdByName} · `}
                           {formatDateRelative(proposal.updatedAt.toISOString())}
@@ -131,7 +187,12 @@ export default async function ProposalsPage({
         </div>
       )}
 
-      <Pagination page={page} hasMore={hasMore} basePath="/proposals" />
+      <Pagination
+        page={page}
+        hasMore={hasMore}
+        basePath="/proposals"
+        params={{ tag: activeTag }}
+      />
     </div>
   );
 }

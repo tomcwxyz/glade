@@ -1,10 +1,12 @@
 import { getCurrentSpace } from "@/lib/space";
+import { getSpaceTags } from "@/lib/queries";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { ProposalForm } from "../proposal-form";
 
 export default async function NewProposalPage() {
   const space = await getCurrentSpace();
   if (!space) return null;
+  const tags = await getSpaceTags(space.id);
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-8 py-6 sm:py-10">
@@ -24,7 +26,10 @@ export default async function NewProposalPage() {
         </p>
       </header>
 
-      <ProposalForm publicEnabled={((space.settings as Record<string, unknown>) || {}).publicProposals === true} />
+      <ProposalForm
+        publicEnabled={((space.settings as Record<string, unknown>) || {}).publicProposals === true}
+        tags={tags}
+      />
     </div>
   );
 }

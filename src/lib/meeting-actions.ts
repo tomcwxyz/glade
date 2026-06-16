@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { eq, and } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { db } from "@/db";
 import {
@@ -12,6 +12,9 @@ import {
   meetingDecisions,
   meetingActions,
   actions,
+  actionOwners,
+  decisions,
+  spaceMembers,
   topics,
   proposals,
 } from "@/db/schema";
@@ -23,6 +26,108 @@ import { insertDecisionWithUniqueNumber } from "@/lib/queries";
 import { notifyMeetingStarted } from "@/lib/notification-actions";
 
 type MeetingStatus = "draft" | "scheduled" | "in_progress" | "completed";
+
+type DecisionMethod =
+  | "consent"
+  | "majority_vote"
+  | "advice_process"
+  | "delegation"
+  | "consensus"
+  | "lazy_consensus";
+
+/**
+ * Persist decisions and actions captured in the meeting form, within an existing
+ * transaction. Add-only: records new decisions, links existing ones (deduped),
+ * and creates meeting actions with member owners. Lets the meeting dialogue
+ * capture minute outcomes in one pass instead of after the fact.
+ */
+async function persistMeetingCapture(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  spaceId: string,
+  userId: string,
+  meetingId: string,
+  meetingDate: Date,
+  formData: FormData
+) {
+  // New decisions recorded inline.
+  const newTitles = formData.getAll("newDecisionTitle") as string[];
+  const newMethods = formData.getAll("newDecisionMethod") as string[];
+  const newOutcomes = formData.getAll("newDecisionOutcome") as string[];
+  for (let i = 0; i < newTitles.length; i++) {
+    const title = newTitles[i]?.trim();
+    if (!title) continue;
+    const decision = await insertDecisionWithUniqueNumber(
+      spaceId,
+      {
+        title,
+        method: (newMethods[i] || "consent") as DecisionMethod,
+        outcome: newOutcomes[i]?.trim() || null,
+        status: "decided",
+        date: meetingDate,
+        createdBy: userId,
+      },
+      tx
+    );
+    await tx.insert(meetingDecisions).values({ meetingId, decisionId: decision.id });
+  }
+
+  // Link existing decisions (space-scoped, deduped).
+  const linkIds = (formData.getAll("linkDecisionId") as string[]).filter(Boolean);
+  for (const decisionId of linkIds) {
+    const [owned] = await tx
+      .select({ id: decisions.id })
+      .from(decisions)
+      .where(and(eq(decisions.id, decisionId), eq(decisions.spaceId, spaceId)))
+      .limit(1);
+    if (!owned) continue;
+    const [linked] = await tx
+      .select({ decisionId: meetingDecisions.decisionId })
+      .from(meetingDecisions)
+      .where(
+        and(eq(meetingDecisions.meetingId, meetingId), eq(meetingDecisions.decisionId, decisionId))
+      )
+      .limit(1);
+    if (!linked) await tx.insert(meetingDecisions).values({ meetingId, decisionId });
+  }
+
+  // Actions attached to the meeting (with optional member owners).
+  const aDescriptions = formData.getAll("mActionDescription") as string[];
+  const aOwnerNames = formData.getAll("mActionOwnerName") as string[];
+  const aOwnerIds = formData.getAll("mActionOwnerIds") as string[]; // ";"-joined per action
+  const aDueDates = formData.getAll("mActionDueDate") as string[];
+  for (let i = 0; i < aDescriptions.length; i++) {
+    const description = aDescriptions[i]?.trim();
+    if (!description) continue;
+    const ownerIdList = (aOwnerIds[i] || "").split(";").filter(Boolean);
+    const validOwnerIds =
+      ownerIdList.length > 0
+        ? (
+            await tx
+              .select({ userId: spaceMembers.userId })
+              .from(spaceMembers)
+              .where(
+                and(eq(spaceMembers.spaceId, spaceId), inArray(spaceMembers.userId, ownerIdList))
+              )
+          ).map((m) => m.userId)
+        : [];
+    const [action] = await tx
+      .insert(actions)
+      .values({
+        spaceId,
+        description,
+        ownerName: aOwnerNames[i]?.trim() || null,
+        dueDate: aDueDates[i] ? new Date(aDueDates[i]) : null,
+        status: "open",
+      })
+      .returning({ id: actions.id });
+    if (validOwnerIds.length > 0) {
+      await tx.insert(actionOwners).values(
+        validOwnerIds.map((ownerUserId) => ({ actionId: action.id, userId: ownerUserId }))
+      );
+    }
+    await tx.insert(meetingActions).values({ meetingId, actionId: action.id });
+  }
+}
 
 export async function createMeeting(formData: FormData) {
   const auth = await requireSpaceRole("member");
@@ -94,6 +199,8 @@ export async function createMeeting(formData: FormData) {
         agendaValues.map((a) => ({ meetingId: meeting.id, ...a }))
       );
     }
+
+    await persistMeetingCapture(tx, space.id, user.id, meeting.id, new Date(dateStr), formData);
   });
 
   redirect("/meetings");
@@ -102,7 +209,7 @@ export async function createMeeting(formData: FormData) {
 export async function updateMeeting(meetingId: string, formData: FormData) {
   const auth = await requireSpaceRole("member");
   if ("error" in auth) return auth;
-  const { space } = auth;
+  const { user, space } = auth;
 
   const [existing] = await db
     .select({ id: meetings.id })
@@ -178,6 +285,8 @@ export async function updateMeeting(meetingId: string, formData: FormData) {
         agendaValues.map((a) => ({ meetingId, ...a }))
       );
     }
+
+    await persistMeetingCapture(tx, space.id, user.id, meetingId, new Date(dateStr), formData);
   });
 
   redirect("/meetings");

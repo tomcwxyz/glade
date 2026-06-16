@@ -12,12 +12,24 @@ export function Pagination({
   page,
   hasMore,
   basePath,
+  params,
 }: {
   page: number;
   hasMore: boolean;
   basePath: string;
+  /** Extra query params to preserve across pages (e.g. an active filter). */
+  params?: Record<string, string | undefined>;
 }) {
   if (page <= 1 && !hasMore) return null;
+
+  const hrefFor = (target: number) => {
+    const sp = new URLSearchParams();
+    for (const [key, value] of Object.entries(params || {})) {
+      if (value) sp.set(key, value);
+    }
+    sp.set("page", String(target));
+    return `${basePath}?${sp.toString()}`;
+  };
 
   return (
     <nav
@@ -26,7 +38,7 @@ export function Pagination({
     >
       {page > 1 ? (
         <Link
-          href={`${basePath}?page=${page - 1}`}
+          href={hrefFor(page - 1)}
           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-bark-muted hover:text-bark hover:bg-paper-deep transition-colors"
         >
           <ChevronLeft size={14} />
@@ -40,7 +52,7 @@ export function Pagination({
 
       {hasMore ? (
         <Link
-          href={`${basePath}?page=${page + 1}`}
+          href={hrefFor(page + 1)}
           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-bark-muted hover:text-bark hover:bg-paper-deep transition-colors"
         >
           Next

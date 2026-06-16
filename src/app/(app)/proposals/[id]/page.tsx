@@ -48,7 +48,9 @@ export default async function ProposalDetailPage({
     getProposalMeetings(proposal.id),
     getMeetingsList(space.id),
   ]);
-  const memberNames = members.map((m) => m.name).filter(Boolean) as string[];
+  const ownerMembers = members
+    .filter((m) => m.name)
+    .map((m) => ({ id: m.userId, name: m.name as string }));
 
   const upcomingMeetings = allMeetings
     .filter((m) => m.status === "draft" || m.status === "scheduled" || m.status === "in_progress")
@@ -106,6 +108,18 @@ export default async function ProposalDetailPage({
                 {formatDate(proposal.createdAt.toISOString())}
               </span>
             </div>
+            {proposal.tags.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mt-3">
+                {proposal.tags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-paper-deep text-bark-muted text-xs font-medium"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
@@ -165,7 +179,7 @@ export default async function ProposalDetailPage({
       {/* Actions */}
       <div className="mb-10 space-y-4">
         <ActionList actions={proposalActions} />
-        <AddAction parentType="proposal" parentId={proposal.id} memberNames={memberNames} />
+        <AddAction parentType="proposal" parentId={proposal.id} members={ownerMembers} />
       </div>
 
       {/* Decision link */}

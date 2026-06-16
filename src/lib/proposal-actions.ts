@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { eq, and } from "drizzle-orm";
 import { db } from "@/db";
-import { proposals, proposalComments, proposalReferences } from "@/db/schema";
+import { proposals, proposalComments, proposalReferences, proposalTags } from "@/db/schema";
 import { insertDecisionWithUniqueNumber } from "@/lib/queries";
 import { requireUser, requireSpaceRole } from "@/lib/space";
 import { logDeletion } from "@/lib/audit";
@@ -21,20 +21,32 @@ export async function createProposal(formData: FormData) {
   const rationale = (formData.get("rationale") as string)?.trim() || null;
   const suggestedMethod = (formData.get("suggestedMethod") as string) || null;
   const isPublic = formData.get("hideFromPublic") !== "on";
+  const tagIdsRaw = formData.get("tagIds") as string;
+  const tagIds = tagIdsRaw ? tagIdsRaw.split(",").filter(Boolean) : [];
 
-  const [proposal] = await db
-    .insert(proposals)
-    .values({
-      spaceId: space.id,
-      title,
-      description,
-      rationale,
-      suggestedMethod: suggestedMethod as "consent" | "majority_vote" | "advice_process" | "delegation" | "consensus" | "lazy_consensus" | null,
-      status: "draft",
-      isPublic,
-      createdBy: user.id,
-    })
-    .returning({ id: proposals.id });
+  // Atomic: proposal + its tags land together.
+  const proposal = await db.transaction(async (tx) => {
+    const [p] = await tx
+      .insert(proposals)
+      .values({
+        spaceId: space.id,
+        title,
+        description,
+        rationale,
+        suggestedMethod: suggestedMethod as "consent" | "majority_vote" | "advice_process" | "delegation" | "consensus" | "lazy_consensus" | null,
+        status: "draft",
+        isPublic,
+        createdBy: user.id,
+      })
+      .returning({ id: proposals.id });
+
+    if (tagIds.length > 0) {
+      await tx.insert(proposalTags).values(
+        tagIds.map((tagId) => ({ proposalId: p.id, tagId }))
+      );
+    }
+    return p;
+  });
 
   redirect(`/proposals/${proposal.id}`);
 }
@@ -59,18 +71,30 @@ export async function updateProposal(proposalId: string, formData: FormData) {
   const rationale = (formData.get("rationale") as string)?.trim() || null;
   const suggestedMethod = (formData.get("suggestedMethod") as string) || null;
   const isPublic = formData.get("hideFromPublic") !== "on";
+  const tagIdsRaw = formData.get("tagIds") as string;
+  const tagIds = tagIdsRaw ? tagIdsRaw.split(",").filter(Boolean) : [];
 
-  await db
-    .update(proposals)
-    .set({
-      title,
-      description,
-      rationale,
-      suggestedMethod: suggestedMethod as "consent" | "majority_vote" | "advice_process" | "delegation" | "consensus" | "lazy_consensus" | null,
-      isPublic,
-      updatedAt: new Date(),
-    })
-    .where(eq(proposals.id, proposalId));
+  await db.transaction(async (tx) => {
+    await tx
+      .update(proposals)
+      .set({
+        title,
+        description,
+        rationale,
+        suggestedMethod: suggestedMethod as "consent" | "majority_vote" | "advice_process" | "delegation" | "consensus" | "lazy_consensus" | null,
+        isPublic,
+        updatedAt: new Date(),
+      })
+      .where(eq(proposals.id, proposalId));
+
+    // Replace the tag set (delete-then-reinsert).
+    await tx.delete(proposalTags).where(eq(proposalTags.proposalId, proposalId));
+    if (tagIds.length > 0) {
+      await tx.insert(proposalTags).values(
+        tagIds.map((tagId) => ({ proposalId, tagId }))
+      );
+    }
+  });
 
   redirect(`/proposals/${proposalId}`);
 }
