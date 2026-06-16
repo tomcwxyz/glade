@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { InsightsPanel } from "./insights-panel";
+import { GovernanceQa } from "./governance-qa";
 import { MemberBriefing } from "./member-briefing";
 import { GovernanceDigest } from "./governance-digest";
 
@@ -413,6 +414,9 @@ export default async function DashboardPage() {
               relatedDecisions={relatedDecisions}
             />
           )}
+
+          {/* Governance Q&A */}
+          {aiEnabled && <GovernanceQa />}
 
           {/* Open actions */}
           <section>

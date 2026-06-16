@@ -16,6 +16,7 @@ import {
   staleDocumentPrompt,
   draftDocumentUpdatePrompt,
   governanceDigestPrompt,
+  governanceQaPrompt,
   transcriptExtractionPrompt,
 } from "@/lib/ai-prompts";
 import { getDecisions, getDocuments, getDecisionByNumber, getActions, getDocumentById, getMeetingById } from "@/lib/queries";
@@ -348,6 +349,50 @@ export async function suggestDocumentUpdates(decisionId: string) {
 
   revalidatePath(`/decisions/${decision.number}`);
   return { suggestions };
+}
+
+export async function askGovernanceQuestion(question: string) {
+  const { error, space } = await checkAiEnabled();
+  if (error || !space) return { error: error || "No space" };
+
+  const trimmed = question.trim();
+  if (!trimmed) return { error: "Please enter a question" };
+
+  const [allDecisions, allDocs] = await Promise.all([
+    getDecisions(space.id),
+    getDocuments(space.id),
+  ]);
+
+  const decisionsJson = JSON.stringify(
+    allDecisions.map((d) => ({
+      number: d.number,
+      title: d.title,
+      description: d.description,
+      rationale: d.rationale,
+      outcome: d.outcome,
+      method: d.method,
+      status: d.status,
+      date: d.date.toISOString().split("T")[0],
+      tags: d.tags,
+    }))
+  );
+
+  const docsJson = JSON.stringify(
+    allDocs.map((d) => ({ title: d.title, type: d.type, status: d.status }))
+  );
+
+  let answer: string;
+  try {
+    answer = await generateText(
+      SYSTEM_PROMPT,
+      governanceQaPrompt(capInput(trimmed, 2000), capInput(decisionsJson), capInput(docsJson)),
+      { maxTokens: 1500 }
+    );
+  } catch (e) {
+    return aiError(e);
+  }
+
+  return { answer };
 }
 
 export async function generateMemberBriefing() {

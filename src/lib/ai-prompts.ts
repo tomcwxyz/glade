@@ -144,6 +144,28 @@ Governance documents:
 ${documentsJson}`;
 }
 
+export function governanceQaPrompt(
+  question: string,
+  decisionsJson: string,
+  documentsJson: string
+): string {
+  return `Answer the member's question about this organisation's governance, grounded ONLY in the decisions and documents provided below.
+
+Guidelines:
+- Cite specific decisions by number (e.g. "decision #12") where relevant.
+- If the answer isn't in the provided records, say so plainly rather than guessing or inventing.
+- Be concise — a few sentences to a short paragraph. Use British English. Use markdown for any lists.
+
+Question:
+${question}
+
+Decisions:
+${decisionsJson}
+
+Governance documents:
+${documentsJson}`;
+}
+
 export function transcriptExtractionPrompt(
   transcript: string,
   meetingContext?: string
