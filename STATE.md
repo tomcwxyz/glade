@@ -248,6 +248,18 @@ Branch `feature-tags-meeting-capture` (off `main`). Four features, build/lint cl
 
 New Neon migrations: `proposal_tags`, `action_owners`. DB now ~30 tables. Verified end-to-end via Playwright (meeting capture → decision #48 + multi-owner action), smoke-test data removed.
 
+## Tranche 4c — The Glade canvas (2026-06-16)
+
+Branch `tranche-4c-canvas` (off `main`). Full review §5 scope, 5 phases, build/lint clean, all in `src/app/(app)/glade/glade-canvas.tsx` (+ public glade page, `getPublicGladeDecisions`). No schema/migrations/deps.
+
+- **P1:** stable per-id layout (jitter seeds from `hashId`, no more reshuffle) + distinct status colours.
+- **P2:** mouse drag-pan + keyboard arrow-key traversal (`centerOn` helper, live-region announce).
+- **P3:** clickable legend status filters + search-to-pan.
+- **P4:** memoised `CanvasDefs` (gradients/filters skipped on interaction) + stable click handler; verified pixel-identical. Deferred: per-node `TreeNode`/ground-cover memo (higher risk, low gain at current scale).
+- **P5:** public empty state (`EmptyState`), readOnly tooltip → public permalink, ref-measured tooltip height, `getPublicGladeDecisions` O(n²) → Maps.
+
+**This completes the full-app-review roadmap (tranches 1–4c).** Remaining roadmap track: **4d (AI)**. Verified end-to-end via Playwright.
+
 ## Known Issues
 
 - **Deployment:** app is **live** (per owner) — set `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` in Vercel for rate limiting (fails open without them). Earlier "deploy pending" notes in PLAN/CLAUDE are stale.
