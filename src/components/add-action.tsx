@@ -3,21 +3,36 @@
 import { useState, useTransition } from "react";
 import { Plus, X } from "lucide-react";
 import { createAction } from "@/lib/action-actions";
+import { OwnerSelect, type OwnerMember } from "@/components/owner-select";
 
 export function AddAction({
   parentType,
   parentId,
-  memberNames,
+  members = [],
 }: {
   parentType: "decision" | "topic" | "proposal";
   parentId: string;
-  memberNames?: string[];
+  members?: OwnerMember[];
 }) {
   const [open, setOpen] = useState(false);
   const [description, setDescription] = useState("");
   const [ownerName, setOwnerName] = useState("");
+  const [ownerIds, setOwnerIds] = useState<string[]>([]);
   const [dueDate, setDueDate] = useState("");
   const [isPending, startTransition] = useTransition();
+
+  function toggleOwner(id: string) {
+    setOwnerIds((prev) =>
+      prev.includes(id) ? prev.filter((o) => o !== id) : [...prev, id]
+    );
+  }
+
+  function reset() {
+    setDescription("");
+    setOwnerName("");
+    setOwnerIds([]);
+    setDueDate("");
+  }
 
   function handleSave() {
     if (!description.trim()) return;
@@ -27,12 +42,11 @@ export function AddAction({
         parentId,
         description,
         ownerName || undefined,
-        dueDate || undefined
+        dueDate || undefined,
+        ownerIds
       );
       if (!result?.error) {
-        setDescription("");
-        setOwnerName("");
-        setDueDate("");
+        reset();
         setOpen(false);
       }
     });
@@ -69,23 +83,15 @@ export function AddAction({
             }}
           />
         </div>
-        <div className="flex gap-3">
+        <div className="flex gap-3 items-start">
           <div className="flex-1">
-            <input
-              type="text"
-              value={ownerName}
-              onChange={(e) => setOwnerName(e.target.value)}
-              placeholder="Owner"
-              list="member-names"
-              className="w-full px-3 py-2 text-sm bg-paper border border-border rounded-lg focus:outline-none focus:ring-1 focus:ring-canopy/40"
+            <OwnerSelect
+              members={members}
+              selectedIds={ownerIds}
+              onToggle={toggleOwner}
+              ownerName={ownerName}
+              onOwnerNameChange={setOwnerName}
             />
-            {memberNames && memberNames.length > 0 && (
-              <datalist id="member-names">
-                {memberNames.map((name) => (
-                  <option key={name} value={name} />
-                ))}
-              </datalist>
-            )}
           </div>
           <div>
             <input
@@ -107,9 +113,7 @@ export function AddAction({
           <button
             onClick={() => {
               setOpen(false);
-              setDescription("");
-              setOwnerName("");
-              setDueDate("");
+              reset();
             }}
             className="p-1.5 text-bark-muted hover:text-bark transition-colors"
           >

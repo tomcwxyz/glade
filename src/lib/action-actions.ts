@@ -1,18 +1,29 @@
 "use server";
 
-import { eq, and } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
-import { actions, decisions, topics, proposals } from "@/db/schema";
+import { actions, actionOwners, spaceMembers, decisions, topics, proposals } from "@/db/schema";
 import { requireSpaceRole } from "@/lib/space";
 import { logDeletion } from "@/lib/audit";
+
+/** Keep only the user ids that are actually members of the space. */
+async function validateOwnerIds(spaceId: string, userIds?: string[]): Promise<string[]> {
+  if (!userIds || userIds.length === 0) return [];
+  const members = await db
+    .select({ userId: spaceMembers.userId })
+    .from(spaceMembers)
+    .where(and(eq(spaceMembers.spaceId, spaceId), inArray(spaceMembers.userId, userIds)));
+  return members.map((m) => m.userId);
+}
 
 export async function createAction(
   parentType: "decision" | "topic" | "proposal",
   parentId: string,
   description: string,
   ownerName?: string,
-  dueDate?: string
+  dueDate?: string,
+  ownerUserIds?: string[]
 ) {
   const auth = await requireSpaceRole("member");
   if ("error" in auth) return auth;
@@ -35,15 +46,29 @@ export async function createAction(
     if (!p) return { error: "Proposal not found" };
   }
 
-  await db.insert(actions).values({
-    spaceId: space.id,
-    decisionId: parentType === "decision" ? parentId : null,
-    topicId: parentType === "topic" ? parentId : null,
-    proposalId: parentType === "proposal" ? parentId : null,
-    description: description.trim(),
-    ownerName: ownerName?.trim() || null,
-    dueDate: dueDate ? new Date(dueDate) : null,
-    status: "open",
+  const ownerIds = await validateOwnerIds(space.id, ownerUserIds);
+
+  // Atomic: the action and its member owners land together.
+  await db.transaction(async (tx) => {
+    const [action] = await tx
+      .insert(actions)
+      .values({
+        spaceId: space.id,
+        decisionId: parentType === "decision" ? parentId : null,
+        topicId: parentType === "topic" ? parentId : null,
+        proposalId: parentType === "proposal" ? parentId : null,
+        description: description.trim(),
+        ownerName: ownerName?.trim() || null,
+        dueDate: dueDate ? new Date(dueDate) : null,
+        status: "open",
+      })
+      .returning({ id: actions.id });
+
+    if (ownerIds.length > 0) {
+      await tx.insert(actionOwners).values(
+        ownerIds.map((userId) => ({ actionId: action.id, userId }))
+      );
+    }
   });
 
   revalidatePath("/actions");

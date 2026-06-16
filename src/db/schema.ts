@@ -562,6 +562,21 @@ export const actions = pgTable(
   ]
 );
 
+// Member owners for an action. The free-text actions.ownerName remains as a
+// fallback for non-member owners; this join holds zero or more member owners.
+export const actionOwners = pgTable(
+  "action_owners",
+  {
+    actionId: uuid("action_id")
+      .notNull()
+      .references(() => actions.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+  },
+  (ao) => [primaryKey({ columns: [ao.actionId, ao.userId] })]
+);
+
 // --- Documents ---
 
 export const documents = pgTable(
@@ -933,12 +948,18 @@ export const meetingDocumentsRelations = relations(meetingDocuments, ({ one }) =
 }));
 
 
-export const actionsRelations = relations(actions, ({ one }) => ({
+export const actionsRelations = relations(actions, ({ one, many }) => ({
   space: one(spaces, { fields: [actions.spaceId], references: [spaces.id] }),
   decision: one(decisions, { fields: [actions.decisionId], references: [decisions.id] }),
   topic: one(topics, { fields: [actions.topicId], references: [topics.id] }),
   proposal: one(proposals, { fields: [actions.proposalId], references: [proposals.id] }),
   owner: one(users, { fields: [actions.ownerId], references: [users.id] }),
+  owners: many(actionOwners),
+}));
+
+export const actionOwnersRelations = relations(actionOwners, ({ one }) => ({
+  action: one(actions, { fields: [actionOwners.actionId], references: [actions.id] }),
+  user: one(users, { fields: [actionOwners.userId], references: [users.id] }),
 }));
 
 // --- Document relations ---

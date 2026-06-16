@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { Plus, X } from "lucide-react";
 import { createAction } from "@/lib/action-actions";
+import { OwnerSelect, type OwnerMember } from "@/components/owner-select";
 
 interface ParentOption {
   type: "decision" | "topic" | "proposal";
@@ -12,21 +13,36 @@ interface ParentOption {
 
 export function AddActionWithParent({
   parents,
-  memberNames,
+  members = [],
 }: {
   parents: ParentOption[];
-  memberNames?: string[];
+  members?: OwnerMember[];
 }) {
   const [open, setOpen] = useState(false);
   const [parentKey, setParentKey] = useState("");
   const [description, setDescription] = useState("");
   const [ownerName, setOwnerName] = useState("");
+  const [ownerIds, setOwnerIds] = useState<string[]>([]);
   const [dueDate, setDueDate] = useState("");
   const [isPending, startTransition] = useTransition();
 
   const selectedParent = parents.find(
     (p) => `${p.type}:${p.id}` === parentKey
   );
+
+  function toggleOwner(id: string) {
+    setOwnerIds((prev) =>
+      prev.includes(id) ? prev.filter((o) => o !== id) : [...prev, id]
+    );
+  }
+
+  function reset() {
+    setDescription("");
+    setOwnerName("");
+    setOwnerIds([]);
+    setDueDate("");
+    setParentKey("");
+  }
 
   function handleSave() {
     if (!description.trim() || !selectedParent) return;
@@ -36,13 +52,11 @@ export function AddActionWithParent({
         selectedParent.id,
         description,
         ownerName || undefined,
-        dueDate || undefined
+        dueDate || undefined,
+        ownerIds
       );
       if (!result?.error) {
-        setDescription("");
-        setOwnerName("");
-        setDueDate("");
-        setParentKey("");
+        reset();
         setOpen(false);
       }
     });
@@ -119,23 +133,15 @@ export function AddActionWithParent({
             }}
           />
         </div>
-        <div className="flex gap-3">
+        <div className="flex gap-3 items-start">
           <div className="flex-1">
-            <input
-              type="text"
-              value={ownerName}
-              onChange={(e) => setOwnerName(e.target.value)}
-              placeholder="Owner"
-              list="member-names-actions"
-              className="w-full px-3 py-2 text-sm bg-paper border border-border rounded-lg focus:outline-none focus:ring-1 focus:ring-canopy/40"
+            <OwnerSelect
+              members={members}
+              selectedIds={ownerIds}
+              onToggle={toggleOwner}
+              ownerName={ownerName}
+              onOwnerNameChange={setOwnerName}
             />
-            {memberNames && memberNames.length > 0 && (
-              <datalist id="member-names-actions">
-                {memberNames.map((name) => (
-                  <option key={name} value={name} />
-                ))}
-              </datalist>
-            )}
           </div>
           <div>
             <input
@@ -157,10 +163,7 @@ export function AddActionWithParent({
           <button
             onClick={() => {
               setOpen(false);
-              setDescription("");
-              setOwnerName("");
-              setDueDate("");
-              setParentKey("");
+              reset();
             }}
             className="p-1.5 text-bark-muted hover:text-bark transition-colors"
           >

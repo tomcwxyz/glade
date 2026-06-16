@@ -31,7 +31,9 @@ export default async function TopicDetailPage({
     getActionsByTopic(topic.id),
     getSpaceMembers(space.id),
   ]);
-  const memberNames = members.map((m) => m.name).filter(Boolean) as string[];
+  const ownerMembers = members
+    .filter((m) => m.name)
+    .map((m) => ({ id: m.userId, name: m.name as string }));
 
   const config = TYPE_CONFIG[topic.type] || TYPE_CONFIG.question;
   const Icon = config.icon;
@@ -94,7 +96,7 @@ export default async function TopicDetailPage({
       {/* Actions */}
       <div className="mt-8 space-y-4">
         <ActionList actions={topicActions} />
-        <AddAction parentType="topic" parentId={topic.id} memberNames={memberNames} />
+        <AddAction parentType="topic" parentId={topic.id} members={ownerMembers} />
       </div>
 
       {promoted && topic.promotedToProposalId && (

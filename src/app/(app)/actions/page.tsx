@@ -65,7 +65,9 @@ export default async function ActionsPage({
     })),
   ];
 
-  const memberNames = members.map((m) => m.name).filter(Boolean) as string[];
+  const ownerMembers = members
+    .filter((m) => m.name)
+    .map((m) => ({ id: m.userId, name: m.name as string }));
 
   if (actions.length === 0) {
     return (
@@ -83,7 +85,7 @@ export default async function ActionsPage({
             <p className="text-bark-muted text-sm">
               No actions yet. Add one to a decision, topic, or proposal.
             </p>
-            <AddActionWithParent parents={parents} memberNames={memberNames} />
+            <AddActionWithParent parents={parents} members={ownerMembers} />
           </div>
         ) : (
           <EmptyState
@@ -166,7 +168,7 @@ export default async function ActionsPage({
 
       {parents.length > 0 && (
         <div className="mt-8">
-          <AddActionWithParent parents={parents} memberNames={memberNames} />
+          <AddActionWithParent parents={parents} members={ownerMembers} />
         </div>
       )}
     </div>

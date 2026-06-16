@@ -7,6 +7,7 @@ import {
   decisionTags,
   tags,
   actions,
+  actionOwners,
   meetings,
   meetingAgendaItems,
   meetingAttendees,
@@ -34,6 +35,39 @@ import {
 } from "@/db/schema";
 import { eq, and, or, desc, asc, count, sql, inArray, lt, isNull, notInArray, ilike } from "drizzle-orm";
 import { deriveActionStatus } from "@/lib/utils";
+
+/**
+ * Fold member owners (action_owners → users) into each action row's display
+ * `ownerName`. Member owner names are combined with the free-text `ownerName`
+ * fallback (members first), so every surface that already renders `ownerName`
+ * shows all responsible people without per-call-site changes. The stored
+ * `actions.ownerName` column is never mutated — this only shapes reads.
+ */
+async function withActionOwners<T extends { id: string; ownerName: string | null }>(
+  rows: T[]
+): Promise<T[]> {
+  if (rows.length === 0) return rows;
+  const ids = rows.map((r) => r.id);
+  const ownerRows = await db
+    .select({ actionId: actionOwners.actionId, name: users.name })
+    .from(actionOwners)
+    .innerJoin(users, eq(users.id, actionOwners.userId))
+    .where(inArray(actionOwners.actionId, ids));
+
+  const byAction = new Map<string, string[]>();
+  for (const o of ownerRows) {
+    if (!o.name) continue;
+    const list = byAction.get(o.actionId) || [];
+    list.push(o.name);
+    byAction.set(o.actionId, list);
+  }
+
+  return rows.map((r) => {
+    const members = byAction.get(r.id) || [];
+    const all = r.ownerName ? [...members, r.ownerName] : members;
+    return all.length > 0 ? { ...r, ownerName: all.join(", ") } : r;
+  });
+}
 
 // ============================================================
 // Decisions
@@ -145,10 +179,9 @@ export async function getDecisionByNumber(spaceId: string, number: number) {
     .where(eq(decisionTags.decisionId, d.id));
 
   // Actions
-  const actionRows = await db
-    .select()
-    .from(actions)
-    .where(eq(actions.decisionId, d.id));
+  const actionRows = await withActionOwners(
+    await db.select().from(actions).where(eq(actions.decisionId, d.id))
+  );
 
   // Links (both directions)
   const linkedRows = await db
@@ -225,7 +258,7 @@ export async function getActions(
   if (opts.offset != null) q = q.offset(opts.offset);
   const rows = await q;
 
-  return rows.map((r) => {
+  return withActionOwners(rows.map((r) => {
     let parentType: "decision" | "topic" | "proposal" = "decision";
     let parentTitle = "";
     let parentHref = "";
@@ -257,7 +290,7 @@ export async function getActions(
       parentTitle,
       parentHref,
     };
-  });
+  }));
 }
 
 export async function getActionsByTopic(topicId: string) {
@@ -266,7 +299,7 @@ export async function getActionsByTopic(topicId: string) {
     .from(actions)
     .where(eq(actions.topicId, topicId))
     .orderBy(desc(actions.createdAt));
-  return rows.map((r) => ({ ...r, status: deriveActionStatus(r.status, r.dueDate) }));
+  return withActionOwners(rows.map((r) => ({ ...r, status: deriveActionStatus(r.status, r.dueDate) })));
 }
 
 export async function getActionsByProposal(proposalId: string) {
@@ -275,7 +308,7 @@ export async function getActionsByProposal(proposalId: string) {
     .from(actions)
     .where(eq(actions.proposalId, proposalId))
     .orderBy(desc(actions.createdAt));
-  return rows.map((r) => ({ ...r, status: deriveActionStatus(r.status, r.dueDate) }));
+  return withActionOwners(rows.map((r) => ({ ...r, status: deriveActionStatus(r.status, r.dueDate) })));
 }
 
 // ============================================================
@@ -402,7 +435,7 @@ export async function getMeetingById(spaceId: string, meetingId: string) {
     attendees: attendeeRows,
     agendaItems: agendaRows,
     decisions: decisionRows,
-    actions: actionRows,
+    actions: await withActionOwners(actionRows),
     documents: documentRows,
     proposals: proposalRows,
   };
@@ -1260,7 +1293,7 @@ export async function getPublicActions(spaceId: string) {
     .where(and(eq(actions.spaceId, spaceId), eq(actions.isPublic, true)))
     .orderBy(desc(actions.createdAt));
 
-  return rows.map((r) => {
+  return withActionOwners(rows.map((r) => {
     const parentType = r.decisionId ? "decision" : r.topicId ? "topic" : "proposal";
     const parentTitle = r.decisionId
       ? `#${r.decisionNumber} ${r.decisionTitle}`
@@ -1279,7 +1312,7 @@ export async function getPublicActions(spaceId: string) {
       parentType,
       parentTitle,
     };
-  });
+  }));
 }
 
 export async function getPublicMeetings(spaceId: string) {
