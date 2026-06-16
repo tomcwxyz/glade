@@ -1494,14 +1494,37 @@ export async function getPublicGladeDecisions(spaceId: string) {
       ),
   ]);
 
+  // Index once to avoid per-row O(n) scans (was rows.find / allX.filter per row).
+  const rowById = new Map(rows.map((r) => [r.id, r]));
+  const actionsByDecision = new Map<string, typeof allActions>();
+  for (const a of allActions) {
+    if (!a.decisionId) continue;
+    const list = actionsByDecision.get(a.decisionId);
+    if (list) list.push(a);
+    else actionsByDecision.set(a.decisionId, [a]);
+  }
+  const tagsByDecision = new Map<string, string[]>();
+  for (const t of allTags) {
+    const list = tagsByDecision.get(t.decisionId);
+    if (list) list.push(t.name);
+    else tagsByDecision.set(t.decisionId, [t.name]);
+  }
+  const linksByDecision = new Map<string, typeof allLinks>();
+  for (const l of allLinks) {
+    for (const did of [l.fromDecisionId, l.toDecisionId]) {
+      const list = linksByDecision.get(did);
+      if (list) list.push(l);
+      else linksByDecision.set(did, [l]);
+    }
+  }
+
   return rows.map((d) => {
-    const dActions = allActions.filter((a) => a.decisionId === d.id);
-    const linkedDecisions = allLinks
-      .filter((l) => l.fromDecisionId === d.id || l.toDecisionId === d.id)
+    const dActions = actionsByDecision.get(d.id) || [];
+    const linkedDecisions = (linksByDecision.get(d.id) || [])
       .map((l) => {
         const isForward = l.fromDecisionId === d.id;
         const otherId = isForward ? l.toDecisionId : l.fromDecisionId;
-        const other = rows.find((r) => r.id === otherId);
+        const other = rowById.get(otherId);
         return other
           ? { id: otherId, number: other.number, title: other.title, relation: l.linkType, direction: isForward ? "forward" as const : "reverse" as const }
           : null;
@@ -1519,7 +1542,7 @@ export async function getPublicGladeDecisions(spaceId: string) {
       status: d.status,
       participants: (d.participants as string[]) || [],
       date: d.date.toISOString(),
-      tags: allTags.filter((t) => t.decisionId === d.id).map((t) => t.name),
+      tags: tagsByDecision.get(d.id) || [],
       reviewDate: d.reviewDate?.toISOString() || null,
       actionsCount: dActions.length,
       actionsComplete: dActions.filter((a) => a.status === "complete").length,

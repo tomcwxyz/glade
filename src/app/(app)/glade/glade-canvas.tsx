@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback, useRef, useEffect, memo } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect, useLayoutEffect, memo } from "react";
 import { useRouter } from "next/navigation";
 import { formatDate } from "@/lib/utils";
 import { useLiveRegion } from "@/components/live-region";
@@ -721,6 +721,7 @@ function Tooltip({
   onClose,
   onNavigate,
   readOnly = false,
+  publicSlug,
 }: {
   node: TreeNode;
   pixelX: number;
@@ -731,11 +732,18 @@ function Tooltip({
   onClose: () => void;
   onNavigate: () => void;
   readOnly?: boolean;
+  publicSlug?: string;
 }) {
   const d = node.decision;
   const tooltipW = 320;
-  const tooltipH = 280; // approximate
   const gap = 12;
+
+  // Measure the real height so the vertical clamp never lets the tooltip clip.
+  const tooltipRef = useRef<HTMLDivElement>(null);
+  const [measuredH, setMeasuredH] = useState(280);
+  useLayoutEffect(() => {
+    if (tooltipRef.current) setMeasuredH(tooltipRef.current.offsetHeight);
+  }, [node.decision.id]);
 
   // Flip to left if not enough room on the right
   const spaceRight = containerWidth - (pixelX + pixelRadius + gap + tooltipW);
@@ -744,11 +752,12 @@ function Tooltip({
     ? Math.max(8, pixelX - pixelRadius - gap - tooltipW)
     : pixelX + pixelRadius + gap;
 
-  // Clamp vertical to stay within container
-  const top = Math.max(8, Math.min(pixelY - 60, containerHeight - tooltipH - 8));
+  // Clamp vertical to stay within container (uses the measured height)
+  const top = Math.max(8, Math.min(pixelY - 60, containerHeight - measuredH - 8));
 
   return (
     <div
+      ref={tooltipRef}
       className="absolute z-20 bg-paper border border-border rounded-xl shadow-lg w-[min(320px,calc(100vw-2rem))] overflow-hidden"
       style={{ left, top }}
     >
@@ -807,14 +816,21 @@ function Tooltip({
         </div>
       </div>
 
-      {!readOnly && (
+      {!readOnly ? (
         <button
           onClick={onNavigate}
           className="w-full px-5 py-3 text-sm text-canopy hover:bg-canopy-pale/50 border-t border-border text-left font-medium transition-colors"
         >
           View full decision →
         </button>
-      )}
+      ) : publicSlug ? (
+        <a
+          href={`/public/${publicSlug}/decisions/${d.number}`}
+          className="block w-full px-5 py-3 text-sm text-canopy hover:bg-canopy-pale/50 border-t border-border text-left font-medium transition-colors"
+        >
+          View full decision →
+        </a>
+      ) : null}
     </div>
   );
 }
@@ -1139,7 +1155,7 @@ const CanvasDefs = memo(function CanvasDefs({
   );
 });
 
-export function GladeCanvas({ decisions, readOnly = false, now }: { decisions: Decision[]; readOnly?: boolean; now?: number }) {
+export function GladeCanvas({ decisions, readOnly = false, now, publicSlug }: { decisions: Decision[]; readOnly?: boolean; now?: number; publicSlug?: string }) {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [focusedId, setFocusedId] = useState<string | null>(null);
@@ -2149,6 +2165,7 @@ export function GladeCanvas({ decisions, readOnly = false, now }: { decisions: D
               !readOnly && router.push(`/decisions/${selectedNode.decision.number}`)
             }
             readOnly={readOnly}
+            publicSlug={publicSlug}
           />
         );
       })()}
