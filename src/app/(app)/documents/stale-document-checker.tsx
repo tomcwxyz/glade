@@ -43,13 +43,18 @@ export function StaleDocumentChecker({
   async function handleCheck() {
     setLoading(true);
     setError(null);
-    const result = await flagStaleDocuments();
-    if ("error" in result) {
-      setError(result.error as string);
-    } else if ("results" in result) {
-      setResults(result.results as StaleResult[]);
+    try {
+      const result = await flagStaleDocuments();
+      if ("error" in result) {
+        setError(result.error as string);
+      } else if ("results" in result) {
+        setResults(result.results as StaleResult[]);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Something went wrong");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   return (

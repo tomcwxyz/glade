@@ -8,12 +8,10 @@ export function patternAnalysisPrompt(decisionsJson: string): string {
 - Any decisions that might conflict or need reconciliation
 - Governance health indicators
 
-Return a JSON array of insights, each with:
-- "title": short headline (max 80 chars)
-- "content": 1-2 paragraph analysis
-- "relatedDecisionNumber": number of the most relevant decision (or null)
-
-Respond ONLY with valid JSON array, no other text.
+Provide a list of insights ("patterns"), each with:
+- title: short headline (max 80 chars)
+- content: 1-2 paragraph analysis
+- relatedDecisionNumber: number of the most relevant decision (or null)
 
 Decisions:
 ${decisionsJson}`;
@@ -36,13 +34,11 @@ ${decisionJson}`;
 export function documentImpactPrompt(decisionJson: string, documentsJson: string): string {
   return `A new governance decision has been made. Analyse which existing governance documents might need updating as a result.
 
-Return a JSON array of suggestions, each with:
-- "documentTitle": the title of the document that may need updating
-- "reason": brief explanation of why it might need updating (1-2 sentences)
+Provide a list of "suggestions", each with:
+- documentTitle: the title of the document that may need updating
+- reason: brief explanation of why it might need updating (1-2 sentences)
 
-If no documents need updating, return an empty array. Only suggest genuinely relevant updates.
-
-Respond ONLY with valid JSON array, no other text.
+If no documents need updating, return an empty list. Only suggest genuinely relevant updates.
 
 New decision:
 ${decisionJson}
@@ -59,15 +55,13 @@ A document may be stale if:
 - The document hasn't been updated since a relevant decision was made
 - The document references policies or structures that have since changed
 
-Return a JSON array of objects, each with:
-- "documentTitle": the title of the potentially stale document
-- "documentId": the document's ID
-- "reason": 1-2 sentences explaining why it may need review
-- "relatedDecisionNumbers": array of decision numbers that may affect this document
+Provide a list of stale "documents", each with:
+- documentTitle: the title of the potentially stale document
+- documentId: the document's ID
+- reason: 1-2 sentences explaining why it may need review
+- relatedDecisionNumbers: array of decision numbers that may affect this document
 
-Only flag documents where there's a genuine reason for review. If all documents are up to date, return an empty array.
-
-Respond ONLY with valid JSON array, no other text.
+Only flag documents where there's a genuine reason for review. If all documents are up to date, return an empty list.
 
 Governance documents (with updatedAt dates):
 ${documentsJson}
@@ -154,21 +148,11 @@ export function transcriptExtractionPrompt(
   transcript: string,
   meetingContext?: string
 ): string {
-  return `Analyse this meeting transcript or notes and extract governance items.
-
-Return ONLY valid JSON in this exact format:
-{
-  "decisions": [
-    { "title": "Short decision title", "description": "What was decided and why", "method": "consent|majority_vote|advice_process|delegation|consensus|lazy_consensus", "outcome": "The agreed outcome" }
-  ],
-  "actions": [
-    { "description": "What needs to be done", "ownerName": "Person responsible or null", "dueDate": "YYYY-MM-DD or null" }
-  ],
-  "topics": [
-    { "title": "Topic title", "description": "Brief description", "type": "question|tension|agenda_suggestion" }
-  ],
-  "summary": "A 2-3 sentence summary of the meeting"
-}
+  return `Analyse this meeting transcript or notes and extract governance items into:
+- decisions: each with title, description (what was decided and why), method (one of consent, majority_vote, advice_process, delegation, consensus, lazy_consensus), and outcome
+- actions: each with description, ownerName (person responsible, or null), dueDate (YYYY-MM-DD, or null)
+- topics: each with title, description, type (one of question, tension, agenda_suggestion)
+- summary: a 2-3 sentence summary of the meeting
 
 Rules:
 - Only extract items that are clearly stated in the transcript. Do not infer or speculate.

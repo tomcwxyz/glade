@@ -22,13 +22,18 @@ export function GovernanceDigest({
   async function handleGenerate() {
     setLoading(true);
     setError(null);
-    const result = await generateGovernanceDigest();
-    if ("error" in result) {
-      setError(result.error as string);
-    } else if ("content" in result) {
-      setContent(result.content as string);
+    try {
+      const result = await generateGovernanceDigest();
+      if ("error" in result) {
+        setError(result.error as string);
+      } else if ("content" in result) {
+        setContent(result.content as string);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Something went wrong");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   async function handleDismiss() {

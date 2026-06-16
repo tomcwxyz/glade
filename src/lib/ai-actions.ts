@@ -5,7 +5,7 @@ import { eq, and, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { insights, decisions, documents } from "@/db/schema";
 import { requireSpaceRole } from "@/lib/space";
-import { isAiEnabled, generateText } from "@/lib/ai";
+import { isAiEnabled, generateText, generateStructured, capInput } from "@/lib/ai";
 import { canUseAi } from "@/lib/billing";
 import {
   SYSTEM_PROMPT,
@@ -21,10 +21,127 @@ import {
 import { getDecisions, getDocuments, getDecisionByNumber, getActions, getDocumentById, getMeetingById } from "@/lib/queries";
 import { tiptapToText } from "@/lib/tiptap-utils";
 
-/** Strip markdown code fences (```json ... ```) that LLMs sometimes add around JSON */
-function stripCodeFences(text: string): string {
-  return text.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
+/** Friendly error string from a thrown AI/SDK error. */
+function aiError(e: unknown): { error: string } {
+  return { error: e instanceof Error ? e.message : "AI request failed" };
 }
+
+// JSON Schemas for structured outputs (object top-level, additionalProperties:false,
+// every property required — per the structured-outputs constraints).
+const PATTERN_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["patterns"],
+  properties: {
+    patterns: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["title", "content", "relatedDecisionNumber"],
+        properties: {
+          title: { type: "string" },
+          content: { type: "string" },
+          relatedDecisionNumber: { type: ["integer", "null"] },
+        },
+      },
+    },
+  },
+} as const;
+
+const DOC_IMPACT_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["suggestions"],
+  properties: {
+    suggestions: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["documentTitle", "reason"],
+        properties: {
+          documentTitle: { type: "string" },
+          reason: { type: "string" },
+        },
+      },
+    },
+  },
+} as const;
+
+const STALE_DOC_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["documents"],
+  properties: {
+    documents: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["documentTitle", "documentId", "reason", "relatedDecisionNumbers"],
+        properties: {
+          documentTitle: { type: "string" },
+          documentId: { type: "string" },
+          reason: { type: "string" },
+          relatedDecisionNumbers: { type: "array", items: { type: "integer" } },
+        },
+      },
+    },
+  },
+} as const;
+
+const TRANSCRIPT_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["decisions", "actions", "topics", "summary"],
+  properties: {
+    decisions: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["title", "description", "method", "outcome"],
+        properties: {
+          title: { type: "string" },
+          description: { type: "string" },
+          method: {
+            type: "string",
+            enum: ["consent", "majority_vote", "advice_process", "delegation", "consensus", "lazy_consensus"],
+          },
+          outcome: { type: "string" },
+        },
+      },
+    },
+    actions: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["description", "ownerName", "dueDate"],
+        properties: {
+          description: { type: "string" },
+          ownerName: { type: ["string", "null"] },
+          dueDate: { type: ["string", "null"] },
+        },
+      },
+    },
+    topics: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["title", "description", "type"],
+        properties: {
+          title: { type: "string" },
+          description: { type: "string" },
+          type: { type: "string", enum: ["question", "tension", "agenda_suggestion"] },
+        },
+      },
+    },
+    summary: { type: "string" },
+  },
+} as const;
 
 async function checkAiEnabled() {
   const auth = await requireSpaceRole("member");
@@ -69,20 +186,20 @@ export async function analysePatterns() {
     }))
   );
 
-  const response = await generateText(
-    SYSTEM_PROMPT,
-    patternAnalysisPrompt(decisionsJson)
-  );
-
   let parsed: Array<{
     title: string;
     content: string;
     relatedDecisionNumber: number | null;
   }>;
   try {
-    parsed = JSON.parse(stripCodeFences(response));
-  } catch {
-    return { error: "Failed to parse AI response" };
+    const result = await generateStructured<{ patterns: typeof parsed }>(
+      SYSTEM_PROMPT,
+      patternAnalysisPrompt(capInput(decisionsJson)),
+      PATTERN_SCHEMA
+    );
+    parsed = result.patterns;
+  } catch (e) {
+    return aiError(e);
   }
 
   // Remove old pattern insights for this space
@@ -157,10 +274,12 @@ export async function generateReviewQuestions(decisionId: string) {
     conditions: decision.conditions,
   });
 
-  const response = await generateText(
-    SYSTEM_PROMPT,
-    reviewQuestionsPrompt(decisionJson)
-  );
+  let response: string;
+  try {
+    response = await generateText(SYSTEM_PROMPT, reviewQuestionsPrompt(decisionJson));
+  } catch (e) {
+    return aiError(e);
+  }
 
   await db.insert(insights).values({
     spaceId: space.id,
@@ -205,16 +324,16 @@ export async function suggestDocumentUpdates(decisionId: string) {
     }))
   );
 
-  const response = await generateText(
-    SYSTEM_PROMPT,
-    documentImpactPrompt(decisionJson, docsJson)
-  );
-
   let suggestions: Array<{ documentTitle: string; reason: string }>;
   try {
-    suggestions = JSON.parse(stripCodeFences(response));
-  } catch {
-    return { error: "Failed to parse AI response" };
+    const result = await generateStructured<{ suggestions: typeof suggestions }>(
+      SYSTEM_PROMPT,
+      documentImpactPrompt(decisionJson, capInput(docsJson)),
+      DOC_IMPACT_SCHEMA
+    );
+    suggestions = result.suggestions;
+  } catch (e) {
+    return aiError(e);
   }
 
   // Store as insight
@@ -259,11 +378,16 @@ export async function generateMemberBriefing() {
     }))
   );
 
-  const response = await generateText(
-    SYSTEM_PROMPT,
-    memberBriefingPrompt(decisionsJson, docsJson),
-    { maxTokens: 3000 }
-  );
+  let response: string;
+  try {
+    response = await generateText(
+      SYSTEM_PROMPT,
+      memberBriefingPrompt(capInput(decisionsJson), capInput(docsJson)),
+      { maxTokens: 3000 }
+    );
+  } catch (e) {
+    return aiError(e);
+  }
 
   // Remove old briefing
   const old = await db
@@ -319,11 +443,6 @@ export async function flagStaleDocuments() {
     }))
   );
 
-  const response = await generateText(
-    SYSTEM_PROMPT,
-    staleDocumentPrompt(docsJson, decisionsJson)
-  );
-
   let parsed: Array<{
     documentTitle: string;
     documentId: string;
@@ -331,9 +450,14 @@ export async function flagStaleDocuments() {
     relatedDecisionNumbers: number[];
   }>;
   try {
-    parsed = JSON.parse(stripCodeFences(response));
-  } catch {
-    return { error: "Failed to parse AI response" };
+    const result = await generateStructured<{ documents: typeof parsed }>(
+      SYSTEM_PROMPT,
+      staleDocumentPrompt(capInput(docsJson), capInput(decisionsJson)),
+      STALE_DOC_SCHEMA
+    );
+    parsed = result.documents;
+  } catch (e) {
+    return aiError(e);
   }
 
   // Remove old stale-document insights
@@ -405,11 +529,16 @@ export async function draftDocumentUpdate(decisionId: string, documentId: string
     date: decision.date.toISOString().split("T")[0],
   });
 
-  const response = await generateText(
-    SYSTEM_PROMPT,
-    draftDocumentUpdatePrompt(decisionJson, documentText),
-    { maxTokens: 3000 }
-  );
+  let response: string;
+  try {
+    response = await generateText(
+      SYSTEM_PROMPT,
+      draftDocumentUpdatePrompt(decisionJson, capInput(documentText)),
+      { maxTokens: 3000 }
+    );
+  } catch (e) {
+    return aiError(e);
+  }
 
   return { content: response };
 }
@@ -468,11 +597,16 @@ export async function generateGovernanceDigest() {
     }))
   );
 
-  const response = await generateText(
-    SYSTEM_PROMPT,
-    governanceDigestPrompt(decisionsJson, actionsJson, docsJson),
-    { maxTokens: 3000 }
-  );
+  let response: string;
+  try {
+    response = await generateText(
+      SYSTEM_PROMPT,
+      governanceDigestPrompt(capInput(decisionsJson), capInput(actionsJson), capInput(docsJson)),
+      { maxTokens: 3000 }
+    );
+  } catch (e) {
+    return aiError(e);
+  }
 
   // Remove old digest insights
   const oldInsights = await db
@@ -548,21 +682,20 @@ export async function extractFromTranscript(
     }
   }
 
-  const response = await generateText(
-    SYSTEM_PROMPT,
-    transcriptExtractionPrompt(transcript, meetingContext),
-    { maxTokens: 4096 }
-  );
-
   try {
-    const parsed = JSON.parse(stripCodeFences(response));
+    const parsed = await generateStructured<TranscriptExtraction>(
+      SYSTEM_PROMPT,
+      transcriptExtractionPrompt(capInput(transcript, 16000), meetingContext),
+      TRANSCRIPT_SCHEMA,
+      { maxTokens: 4096 }
+    );
     return {
       decisions: parsed.decisions || [],
       actions: parsed.actions || [],
       topics: parsed.topics || [],
       summary: parsed.summary || "",
     };
-  } catch {
-    return { error: "Failed to parse AI response. Please try again." };
+  } catch (e) {
+    return aiError(e);
   }
 }
