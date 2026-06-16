@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback, useRef, useEffect } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect, memo } from "react";
 import { useRouter } from "next/navigation";
 import { formatDate } from "@/lib/utils";
 import { useLiveRegion } from "@/components/live-region";
@@ -1056,6 +1056,89 @@ function useZoomPan(fullW: number, fullH: number, svgRef: React.RefObject<SVGSVG
 
 // --- Main Canvas ---
 
+// SVG <defs> (filters + per-node/per-connection gradients). Memoised on the
+// stable node/connection arrays so it is skipped entirely on hover, zoom, pan,
+// filter and search re-renders — previously these gradients rebuilt every frame.
+const CanvasDefs = memo(function CanvasDefs({
+  nodes,
+  connections,
+}: {
+  nodes: TreeNode[];
+  connections: RootConnection[];
+}) {
+  return (
+    <defs>
+      {/* Soft shadow for tree nodes */}
+      <filter id="tree-shadow" x="-30%" y="-30%" width="160%" height="160%">
+        <feGaussianBlur in="SourceAlpha" stdDeviation="6" />
+        <feOffset dx="0" dy="2" />
+        <feComponentTransfer>
+          <feFuncA type="linear" slope="0.08" />
+        </feComponentTransfer>
+        <feMerge>
+          <feMergeNode />
+          <feMergeNode in="SourceGraphic" />
+        </feMerge>
+      </filter>
+
+      {/* Root glow filter — applied to highlighted roots */}
+      <filter id="root-glow" x="-20%" y="-20%" width="140%" height="140%">
+        <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur" />
+        <feMerge>
+          <feMergeNode in="blur" />
+          <feMergeNode in="SourceGraphic" />
+        </feMerge>
+      </filter>
+
+      {/* Dappled light spots */}
+      <radialGradient id="light-spot-1" cx="0.3" cy="0.25">
+        <stop offset="0%" stopColor="oklch(0.68 0.14 70)" stopOpacity="0.04" />
+        <stop offset="100%" stopColor="oklch(0.68 0.14 70)" stopOpacity="0" />
+      </radialGradient>
+      <radialGradient id="light-spot-2" cx="0.7" cy="0.6">
+        <stop offset="0%" stopColor="oklch(0.52 0.07 155)" stopOpacity="0.03" />
+        <stop offset="100%" stopColor="oklch(0.52 0.07 155)" stopOpacity="0" />
+      </radialGradient>
+      <radialGradient id="light-spot-3" cx="0.5" cy="0.5">
+        <stop offset="0%" stopColor="oklch(0.97 0.008 80)" stopOpacity="0.06" />
+        <stop offset="100%" stopColor="oklch(0.97 0.008 80)" stopOpacity="0" />
+      </radialGradient>
+
+      {/* Per-supersedes taper gradient */}
+      {connections.map((conn, i) =>
+        conn.relation === "supersedes" ? (
+          <linearGradient
+            key={`root-grad-${i}`}
+            id={`root-grad-${i}`}
+            gradientUnits="userSpaceOnUse"
+            x1={conn.from.x}
+            y1={conn.from.y}
+            x2={conn.to.x}
+            y2={conn.to.y}
+          >
+            <stop offset="0%" stopColor={ROOT_STYLES.supersedes.color} stopOpacity="1" />
+            <stop offset="100%" stopColor={ROOT_STYLES.supersedes.color} stopOpacity="0.5" />
+          </linearGradient>
+        ) : null
+      )}
+
+      {/* Per-node gradients */}
+      {nodes.map((node) => (
+        <radialGradient
+          key={`grad-${node.decision.id}`}
+          id={`tree-grad-${node.decision.id}`}
+          cx="0.4"
+          cy="0.35"
+        >
+          <stop offset="0%" stopColor={node.colorLight} stopOpacity="0.9" />
+          <stop offset="50%" stopColor={node.colorMid} stopOpacity="0.5" />
+          <stop offset="100%" stopColor={node.color} stopOpacity="0.25" />
+        </radialGradient>
+      ))}
+    </defs>
+  );
+});
+
 export function GladeCanvas({ decisions, readOnly = false, now }: { decisions: Decision[]; readOnly?: boolean; now?: number }) {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -1181,9 +1264,9 @@ export function GladeCanvas({ decisions, readOnly = false, now }: { decisions: D
     (id: string) => {
       // Ignore the click that ends a drag-pan.
       if (didDragRef.current) return;
-      setSelectedId(selectedId === id ? null : id);
+      setSelectedId((prev) => (prev === id ? null : id));
     },
-    [selectedId, didDragRef]
+    [didDragRef]
   );
 
   // Reading-order traversal list (top-to-bottom, left-to-right) for keyboard nav.
@@ -1446,76 +1529,8 @@ export function GladeCanvas({ decisions, readOnly = false, now }: { decisions: D
           Visual map showing {decisions.length} decisions and their connections
         </desc>
 
-        {/* Defs: filters and gradients */}
-        <defs>
-          {/* Soft shadow for tree nodes */}
-          <filter id="tree-shadow" x="-30%" y="-30%" width="160%" height="160%">
-            <feGaussianBlur in="SourceAlpha" stdDeviation="6" />
-            <feOffset dx="0" dy="2" />
-            <feComponentTransfer>
-              <feFuncA type="linear" slope="0.08" />
-            </feComponentTransfer>
-            <feMerge>
-              <feMergeNode />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-
-          {/* Root glow filter — applied to highlighted roots */}
-          <filter id="root-glow" x="-20%" y="-20%" width="140%" height="140%">
-            <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur" />
-            <feMerge>
-              <feMergeNode in="blur" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-
-          {/* Dappled light spots */}
-          <radialGradient id="light-spot-1" cx="0.3" cy="0.25">
-            <stop offset="0%" stopColor="oklch(0.68 0.14 70)" stopOpacity="0.04" />
-            <stop offset="100%" stopColor="oklch(0.68 0.14 70)" stopOpacity="0" />
-          </radialGradient>
-          <radialGradient id="light-spot-2" cx="0.7" cy="0.6">
-            <stop offset="0%" stopColor="oklch(0.52 0.07 155)" stopOpacity="0.03" />
-            <stop offset="100%" stopColor="oklch(0.52 0.07 155)" stopOpacity="0" />
-          </radialGradient>
-          <radialGradient id="light-spot-3" cx="0.5" cy="0.5">
-            <stop offset="0%" stopColor="oklch(0.97 0.008 80)" stopOpacity="0.06" />
-            <stop offset="100%" stopColor="oklch(0.97 0.008 80)" stopOpacity="0" />
-          </radialGradient>
-
-          {/* Per-supersedes taper gradient */}
-          {connections.map((conn, i) =>
-            conn.relation === "supersedes" ? (
-              <linearGradient
-                key={`root-grad-${i}`}
-                id={`root-grad-${i}`}
-                gradientUnits="userSpaceOnUse"
-                x1={conn.from.x}
-                y1={conn.from.y}
-                x2={conn.to.x}
-                y2={conn.to.y}
-              >
-                <stop offset="0%" stopColor={ROOT_STYLES.supersedes.color} stopOpacity="1" />
-                <stop offset="100%" stopColor={ROOT_STYLES.supersedes.color} stopOpacity="0.5" />
-              </linearGradient>
-            ) : null
-          )}
-
-          {/* Per-node gradients */}
-          {nodes.map((node) => (
-            <radialGradient
-              key={`grad-${node.decision.id}`}
-              id={`tree-grad-${node.decision.id}`}
-              cx="0.4"
-              cy="0.35"
-            >
-              <stop offset="0%" stopColor={node.colorLight} stopOpacity="0.9" />
-              <stop offset="50%" stopColor={node.colorMid} stopOpacity="0.5" />
-              <stop offset="100%" stopColor={node.color} stopOpacity="0.25" />
-            </radialGradient>
-          ))}
-        </defs>
+        {/* Defs: filters and gradients (memoised — skipped on interaction) */}
+        <CanvasDefs nodes={nodes} connections={connections} />
 
         {/* Background light spots */}
         <rect x="0" y="0" width={W} height={H} fill="url(#light-spot-3)" />
