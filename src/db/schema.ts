@@ -406,6 +406,19 @@ export const decisionTags = pgTable(
   (dt) => [primaryKey({ columns: [dt.decisionId, dt.tagId] })]
 );
 
+export const proposalTags = pgTable(
+  "proposal_tags",
+  {
+    proposalId: uuid("proposal_id")
+      .notNull()
+      .references(() => proposals.id, { onDelete: "cascade" }),
+    tagId: uuid("tag_id")
+      .notNull()
+      .references(() => tags.id, { onDelete: "cascade" }),
+  },
+  (pt) => [primaryKey({ columns: [pt.proposalId, pt.tagId] })]
+);
+
 // --- Meetings ---
 
 export const meetings = pgTable(
@@ -870,6 +883,12 @@ export const decisionLinksRelations = relations(decisionLinks, ({ one }) => ({
 export const tagsRelations = relations(tags, ({ one, many }) => ({
   space: one(spaces, { fields: [tags.spaceId], references: [spaces.id] }),
   decisions: many(decisionTags),
+  proposals: many(proposalTags),
+}));
+
+export const proposalTagsRelations = relations(proposalTags, ({ one }) => ({
+  proposal: one(proposals, { fields: [proposalTags.proposalId], references: [proposals.id] }),
+  tag: one(tags, { fields: [proposalTags.tagId], references: [tags.id] }),
 }));
 
 export const decisionTagsRelations = relations(decisionTags, ({ one }) => ({
@@ -950,6 +969,7 @@ export const proposalsRelations = relations(proposals, ({ one, many }) => ({
   decidedAsDecision: one(decisions, { fields: [proposals.decidedAsDecisionId], references: [decisions.id] }),
   comments: many(proposalComments),
   references: many(proposalReferences),
+  tags: many(proposalTags),
 }));
 
 export const proposalReferencesRelations = relations(proposalReferences, ({ one }) => ({

@@ -1,5 +1,5 @@
 import { getCurrentSpace } from "@/lib/space";
-import { getProposalById } from "@/lib/queries";
+import { getProposalById, getSpaceTags } from "@/lib/queries";
 import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { ProposalForm } from "../../proposal-form";
@@ -15,6 +15,7 @@ export default async function EditProposalPage({
 
   const proposal = await getProposalById(space.id, id);
   if (!proposal) notFound();
+  const tags = await getSpaceTags(space.id);
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-8 py-6 sm:py-10">
@@ -34,6 +35,8 @@ export default async function EditProposalPage({
 
       <ProposalForm
         publicEnabled={((space.settings as Record<string, unknown>) || {}).publicProposals === true}
+        tags={tags}
+        selectedTagIds={proposal.tagIds}
         proposal={{
           id: proposal.id,
           title: proposal.title,

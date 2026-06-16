@@ -2,10 +2,16 @@
 
 import { useState } from "react";
 import { createProposal, updateProposal } from "@/lib/proposal-actions";
-import { inputClass, textareaClass } from "@/lib/utils";
+import { inputClass, textareaClass, tagDotClass } from "@/lib/utils";
 import { EyeOff, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { FormError } from "@/components/form-error";
+
+interface Tag {
+  id: string;
+  name: string;
+  color: string | null;
+}
 
 const METHODS = [
   { value: "", label: "No suggestion" },
@@ -27,10 +33,27 @@ interface ProposalData {
 }
 
 
-export function ProposalForm({ proposal, publicEnabled }: { proposal?: ProposalData; publicEnabled?: boolean }) {
+export function ProposalForm({
+  proposal,
+  publicEnabled,
+  tags = [],
+  selectedTagIds = [],
+}: {
+  proposal?: ProposalData;
+  publicEnabled?: boolean;
+  tags?: Tag[];
+  selectedTagIds?: string[];
+}) {
   const isEditing = !!proposal;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedTags, setSelectedTags] = useState<string[]>(selectedTagIds);
+
+  function toggleTag(tagId: string) {
+    setSelectedTags((prev) =>
+      prev.includes(tagId) ? prev.filter((t) => t !== tagId) : [...prev, tagId]
+    );
+  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -39,6 +62,7 @@ export function ProposalForm({ proposal, publicEnabled }: { proposal?: ProposalD
 
     const form = e.currentTarget;
     const formData = new FormData(form);
+    formData.set("tagIds", selectedTags.join(","));
 
     const result = isEditing
       ? await updateProposal(proposal!.id, formData)
@@ -115,6 +139,44 @@ export function ProposalForm({ proposal, publicEnabled }: { proposal?: ProposalD
               </option>
             ))}
           </select>
+        </div>
+
+        {/* Tags */}
+        <div>
+          <label htmlFor="proposal-tags" className="block text-sm font-medium text-bark mb-1.5">
+            Tags <span className="font-normal text-bark-muted">(optional)</span>
+          </label>
+          {tags.length > 0 ? (
+            <div id="proposal-tags" className="flex flex-wrap gap-2">
+              {tags.map((tag) => {
+                const isSelected = selectedTags.includes(tag.id);
+                return (
+                  <button
+                    key={tag.id}
+                    type="button"
+                    onClick={() => toggleTag(tag.id)}
+                    aria-pressed={isSelected}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                      isSelected
+                        ? "bg-canopy-pale text-canopy border-canopy/30"
+                        : "bg-paper-warm text-bark-muted border-border hover:border-canopy/30 hover:text-bark"
+                    }`}
+                  >
+                    <span className={`w-2 h-2 rounded-full shrink-0 ${tagDotClass(tag.color)}`} />
+                    {tag.name}
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <p id="proposal-tags" className="text-sm text-bark-muted">
+              No tags yet.{" "}
+              <Link href="/settings" className="text-canopy hover:text-canopy-light underline">
+                Create tags in Settings
+              </Link>{" "}
+              to group proposals by theme.
+            </p>
+          )}
         </div>
 
         {/* Public visibility */}

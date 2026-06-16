@@ -21,6 +21,7 @@ import {
   proposals,
   proposalComments,
   proposalReferences,
+  proposalTags,
   topics,
   insights,
   spaces,
@@ -901,8 +902,19 @@ export async function getDocumentVersionAtDate(documentId: string, targetDate: D
 
 export async function getProposals(
   spaceId: string,
-  opts: { limit?: number; offset?: number } = {}
+  opts: { limit?: number; offset?: number; tagId?: string } = {}
 ) {
+  // Optional tag filter: only proposals carrying the given tag.
+  const tagFilter = opts.tagId
+    ? inArray(
+        proposals.id,
+        db
+          .select({ id: proposalTags.proposalId })
+          .from(proposalTags)
+          .where(eq(proposalTags.tagId, opts.tagId))
+      )
+    : undefined;
+
   let pq = db
     .select({
       id: proposals.id,
@@ -915,7 +927,7 @@ export async function getProposals(
     })
     .from(proposals)
     .leftJoin(users, eq(users.id, proposals.createdBy))
-    .where(eq(proposals.spaceId, spaceId))
+    .where(and(eq(proposals.spaceId, spaceId), tagFilter))
     .orderBy(desc(proposals.updatedAt))
     .$dynamic();
   if (opts.limit != null) pq = pq.limit(opts.limit);
@@ -925,20 +937,35 @@ export async function getProposals(
   const ids = rows.map((p) => p.id);
   if (ids.length === 0) return [];
 
-  const commentCounts = await db
-    .select({ proposalId: proposalComments.proposalId, count: count() })
-    .from(proposalComments)
-    .where(inArray(proposalComments.proposalId, ids))
-    .groupBy(proposalComments.proposalId);
+  const [commentCounts, tagRows] = await Promise.all([
+    db
+      .select({ proposalId: proposalComments.proposalId, count: count() })
+      .from(proposalComments)
+      .where(inArray(proposalComments.proposalId, ids))
+      .groupBy(proposalComments.proposalId),
+    db
+      .select({ proposalId: proposalTags.proposalId, name: tags.name })
+      .from(proposalTags)
+      .innerJoin(tags, eq(tags.id, proposalTags.tagId))
+      .where(inArray(proposalTags.proposalId, ids)),
+  ]);
 
   const commentMap = new Map<string, number>();
   for (const c of commentCounts) {
     commentMap.set(c.proposalId, c.count);
   }
 
+  const tagMap = new Map<string, string[]>();
+  for (const t of tagRows) {
+    const arr = tagMap.get(t.proposalId) || [];
+    arr.push(t.name);
+    tagMap.set(t.proposalId, arr);
+  }
+
   return rows.map((p) => ({
     ...p,
     commentCount: commentMap.get(p.id) || 0,
+    tags: tagMap.get(p.id) || [],
   }));
 }
 
@@ -993,12 +1020,20 @@ export async function getProposalById(spaceId: string, proposalId: string) {
     linkedDecisionNumber = dec?.number ?? null;
   }
 
+  const tagRows = await db
+    .select({ id: tags.id, name: tags.name })
+    .from(proposalTags)
+    .innerJoin(tags, eq(tags.id, proposalTags.tagId))
+    .where(eq(proposalTags.proposalId, p.id));
+
   return {
     ...p,
     createdByName: createdByUser[0]?.name || null,
     comments: commentRows,
     references: referenceRows,
     linkedDecisionNumber,
+    tags: tagRows.map((t) => t.name),
+    tagIds: tagRows.map((t) => t.id),
   };
 }
 
