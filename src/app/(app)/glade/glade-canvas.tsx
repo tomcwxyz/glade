@@ -83,25 +83,28 @@ const STATUS_COLORS: Record<
   DecisionStatus,
   { fill: string; light: string; mid: string }
 > = {
+  // Lifecycle: bright young growth → deep mature green → autumnal amber → brown.
+  // Hues + lightness chosen so all four read distinctly (decided vs implemented
+  // were near-identical greens before).
   decided: {
-    fill: "oklch(0.52 0.09 155)",
-    light: "oklch(0.88 0.05 155)",
-    mid: "oklch(0.70 0.07 155)",
+    fill: "oklch(0.60 0.14 138)",
+    light: "oklch(0.90 0.07 138)",
+    mid: "oklch(0.75 0.11 138)",
   },
   implemented: {
-    fill: "oklch(0.45 0.08 150)",
-    light: "oklch(0.85 0.04 150)",
-    mid: "oklch(0.65 0.06 150)",
+    fill: "oklch(0.40 0.09 165)",
+    light: "oklch(0.83 0.05 165)",
+    mid: "oklch(0.60 0.07 165)",
   },
   reviewed: {
-    fill: "oklch(0.58 0.12 70)",
+    fill: "oklch(0.62 0.13 70)",
     light: "oklch(0.90 0.06 75)",
-    mid: "oklch(0.75 0.09 72)",
+    mid: "oklch(0.76 0.10 72)",
   },
   learned: {
-    fill: "oklch(0.45 0.06 45)",
-    light: "oklch(0.85 0.03 50)",
-    mid: "oklch(0.65 0.05 48)",
+    fill: "oklch(0.45 0.07 40)",
+    light: "oklch(0.85 0.04 45)",
+    mid: "oklch(0.65 0.06 43)",
   },
 };
 
@@ -206,7 +209,6 @@ function layoutNodes(
   width: number,
   height: number
 ): TreeNode[] {
-  const rand = seededRandom(42);
   const padding = 80;
   const usableW = width - padding * 2;
   const usableH = height - padding * 2;
@@ -230,11 +232,14 @@ function layoutNodes(
       ringRadii.push(radius * (0.35 + (i / stages.length) * 0.65));
     }
 
-    // Position: cluster by primary tag
+    // Position: cluster by primary tag, with jitter derived deterministically
+    // from the decision id so adding/removing a decision never reshuffles the
+    // rest of the forest (was a single shared sequential RNG consumed in order).
     const primaryTag = d.tags[0] || "governance";
     const cluster = clusterForTag(primaryTag);
-    const jitterX = (rand() - 0.5) * usableW * 0.22;
-    const jitterY = (rand() - 0.5) * usableH * 0.22;
+    const jrand = seededRandom(hashId(d.id) + 1);
+    const jitterX = (jrand() - 0.5) * usableW * 0.22;
+    const jitterY = (jrand() - 0.5) * usableH * 0.22;
     const x = padding + cluster.x * usableW + jitterX;
     const y = padding + cluster.y * usableH + jitterY;
 
