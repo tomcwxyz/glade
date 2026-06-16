@@ -821,6 +821,13 @@ function useZoomPan(fullW: number, fullH: number, svgRef: React.RefObject<SVGSVG
   const [viewBox, setViewBox] = useState<ViewBox>({ x: 0, y: 0, w: fullW, h: fullH });
   const pinchRef = useRef<{ startDist: number; startVB: ViewBox; cx: number; cy: number } | null>(null);
   const panRef = useRef<{ startX: number; startY: number; startVB: ViewBox } | null>(null);
+  const mousePanRef = useRef<{ startX: number; startY: number; startVB: ViewBox } | null>(null);
+  // True once the pointer has moved past the drag threshold — read by the node
+  // click handler to suppress selection at the end of a drag-pan.
+  const didDragRef = useRef(false);
+  // Mirror viewBox in a ref so the once-bound mouse listeners read fresh values.
+  const viewBoxRef = useRef(viewBox);
+  viewBoxRef.current = viewBox;
 
   const zoom = fullW / viewBox.w;
 
@@ -850,6 +857,20 @@ function useZoomPan(fullW: number, fullH: number, svgRef: React.RefObject<SVGSVG
   const resetZoom = useCallback(() => {
     setViewBox({ x: 0, y: 0, w: fullW, h: fullH });
   }, [fullW, fullH]);
+
+  // Pan (and optionally zoom) so an SVG point sits at the canvas centre.
+  // Reused by keyboard traversal and search-to-pan.
+  const centerOn = useCallback(
+    (cx: number, cy: number, targetZoom?: number) => {
+      setViewBox((prev) => {
+        const z = targetZoom ?? fullW / prev.w;
+        const w = fullW / z;
+        const h = fullH / z;
+        return clampViewBox({ x: cx - w / 2, y: cy - h / 2, w, h }, fullW, fullH);
+      });
+    },
+    [fullW, fullH]
+  );
 
   // Client point → SVG viewBox coordinates
   const clientToSVG = useCallback((clientX: number, clientY: number): { x: number; y: number } => {
@@ -955,7 +976,55 @@ function useZoomPan(fullW: number, fullH: number, svgRef: React.RefObject<SVGSVG
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [svgRef, fullW, fullH, zoom]);
 
-  return { viewBox, zoom, zoomIn, zoomOut, resetZoom };
+  // Mouse drag-to-pan (desktop). Bound once; reads fresh viewBox via the ref.
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+
+    const onMouseDown = (e: MouseEvent) => {
+      if (e.button !== 0) return;
+      mousePanRef.current = {
+        startX: e.clientX,
+        startY: e.clientY,
+        startVB: { ...viewBoxRef.current },
+      };
+      didDragRef.current = false;
+    };
+
+    const onMouseMove = (e: MouseEvent) => {
+      const pan = mousePanRef.current;
+      if (!pan) return;
+      const dx = e.clientX - pan.startX;
+      const dy = e.clientY - pan.startY;
+      if (!didDragRef.current && Math.hypot(dx, dy) > 4) didDragRef.current = true;
+      if (!didDragRef.current) return;
+      const rect = svg.getBoundingClientRect();
+      const svgDX = -(dx / rect.width) * pan.startVB.w;
+      const svgDY = -(dy / rect.height) * pan.startVB.h;
+      setViewBox(
+        clampViewBox(
+          { x: pan.startVB.x + svgDX, y: pan.startVB.y + svgDY, w: pan.startVB.w, h: pan.startVB.h },
+          fullW,
+          fullH
+        )
+      );
+    };
+
+    const onMouseUp = () => {
+      mousePanRef.current = null;
+    };
+
+    svg.addEventListener("mousedown", onMouseDown);
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+    return () => {
+      svg.removeEventListener("mousedown", onMouseDown);
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+    };
+  }, [svgRef, fullW, fullH]);
+
+  return { viewBox, zoom, zoomIn, zoomOut, resetZoom, centerOn, didDragRef };
 }
 
 // --- Main Canvas ---
@@ -963,6 +1032,7 @@ function useZoomPan(fullW: number, fullH: number, svgRef: React.RefObject<SVGSVG
 export function GladeCanvas({ decisions, readOnly = false, now }: { decisions: Decision[]; readOnly?: boolean; now?: number }) {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [focusedId, setFocusedId] = useState<string | null>(null);
   const [hoveredRootIndex, setHoveredRootIndex] = useState<number | null>(null);
   const [rootTooltip, setRootTooltip] = useState<{ x: number; y: number; label: string } | null>(null);
   const [viewMode, setViewMode] = useState<"trees" | "rings" | "silhouettes">("trees");
@@ -974,7 +1044,7 @@ export function GladeCanvas({ decisions, readOnly = false, now }: { decisions: D
   const W = 1200;
   const H = 750;
 
-  const { viewBox, zoom, zoomIn: rawZoomIn, zoomOut: rawZoomOut, resetZoom: rawResetZoom } = useZoomPan(W, H, svgRef);
+  const { viewBox, zoom, zoomIn: rawZoomIn, zoomOut: rawZoomOut, resetZoom: rawResetZoom, centerOn, didDragRef } = useZoomPan(W, H, svgRef);
   const { announce } = useLiveRegion();
 
   const zoomIn = useCallback(() => {
@@ -1011,7 +1081,7 @@ export function GladeCanvas({ decisions, readOnly = false, now }: { decisions: D
     [connections]
   );
 
-  const activeId = hoveredId || selectedId;
+  const activeId = hoveredId || selectedId || focusedId;
 
   // IDs of decisions connected to the active one
   const connectedIds = useMemo(() => {
@@ -1080,9 +1150,59 @@ export function GladeCanvas({ decisions, readOnly = false, now }: { decisions: D
 
   const handleNodeClick = useCallback(
     (id: string) => {
+      // Ignore the click that ends a drag-pan.
+      if (didDragRef.current) return;
       setSelectedId(selectedId === id ? null : id);
     },
-    [selectedId]
+    [selectedId, didDragRef]
+  );
+
+  // Reading-order traversal list (top-to-bottom, left-to-right) for keyboard nav.
+  const orderedIds = useMemo(
+    () =>
+      [...nodes]
+        .sort((a, b) => (Math.abs(a.y - b.y) > 40 ? a.y - b.y : a.x - b.x))
+        .map((n) => n.decision.id),
+    [nodes]
+  );
+
+  const focusNode = useCallback(
+    (id: string) => {
+      const node = nodes.find((n) => n.decision.id === id);
+      if (!node) return;
+      setFocusedId(id);
+      setSelectedId(id);
+      centerOn(node.x, node.y);
+      announce(
+        `Decision #${node.decision.number}, ${node.decision.title}, status ${node.decision.status}`
+      );
+    },
+    [nodes, centerOn, announce]
+  );
+
+  const handleCanvasKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (orderedIds.length === 0) return;
+      const current = focusedId ?? selectedId;
+      const idx = current ? orderedIds.indexOf(current) : -1;
+      if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+        e.preventDefault();
+        focusNode(orderedIds[(idx + 1 + orderedIds.length) % orderedIds.length]);
+      } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+        e.preventDefault();
+        focusNode(orderedIds[(idx - 1 + orderedIds.length) % orderedIds.length]);
+      } else if (e.key === "Enter" || e.key === " ") {
+        if (current) {
+          e.preventDefault();
+          const node = nodes.find((n) => n.decision.id === current);
+          if (node && !readOnly) router.push(`/decisions/${node.decision.number}`);
+        }
+      } else if (e.key === "Escape") {
+        setFocusedId(null);
+        setSelectedId(null);
+      }
+    },
+    [orderedIds, focusedId, selectedId, focusNode, nodes, readOnly, router]
   );
 
   // Ground cover: scattered nature elements avoiding tree positions
@@ -1192,10 +1312,15 @@ export function GladeCanvas({ decisions, readOnly = false, now }: { decisions: D
         ref={svgRef}
         role="img"
         aria-labelledby="glade-canvas-title glade-canvas-desc"
+        tabIndex={0}
         viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`}
-        className="w-full h-full touch-none"
+        className="w-full h-full touch-none select-none cursor-grab active:cursor-grabbing outline-none focus-visible:ring-2 focus-visible:ring-canopy/50 rounded-lg"
         style={{ minHeight: "600px" }}
-        onClick={() => setSelectedId(null)}
+        onKeyDown={handleCanvasKeyDown}
+        onClick={() => {
+          if (didDragRef.current) return;
+          setSelectedId(null);
+        }}
       >
         <title id="glade-canvas-title">Decision relationship canvas</title>
         <desc id="glade-canvas-desc">
