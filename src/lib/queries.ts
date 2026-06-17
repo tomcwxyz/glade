@@ -10,6 +10,7 @@ import {
   actionOwners,
   actionTags,
   topicTags,
+  documentTags,
   meetings,
   meetingAgendaItems,
   meetingAttendees,
@@ -904,8 +905,18 @@ export async function getSpaceMembers(spaceId: string) {
 
 export async function getDocuments(
   spaceId: string,
-  opts: { limit?: number; offset?: number } = {}
+  opts: { limit?: number; offset?: number; tagId?: string } = {}
 ) {
+  const tagFilter = opts.tagId
+    ? inArray(
+        documents.id,
+        db
+          .select({ id: documentTags.documentId })
+          .from(documentTags)
+          .where(eq(documentTags.tagId, opts.tagId))
+      )
+    : undefined;
+
   let q = db
     .select({
       id: documents.id,
@@ -918,12 +929,39 @@ export async function getDocuments(
     })
     .from(documents)
     .leftJoin(users, eq(users.id, documents.createdBy))
-    .where(eq(documents.spaceId, spaceId))
+    .where(and(eq(documents.spaceId, spaceId), tagFilter))
     .orderBy(desc(documents.updatedAt))
     .$dynamic();
   if (opts.limit != null) q = q.limit(opts.limit);
   if (opts.offset != null) q = q.offset(opts.offset);
-  return q;
+  const rows = await q;
+
+  const ids = rows.map((r) => r.id);
+  const tagRows =
+    ids.length > 0
+      ? await db
+          .select({ documentId: documentTags.documentId, name: tags.name })
+          .from(documentTags)
+          .innerJoin(tags, eq(tags.id, documentTags.tagId))
+          .where(inArray(documentTags.documentId, ids))
+      : [];
+
+  const tagMap = new Map<string, string[]>();
+  for (const t of tagRows) {
+    const arr = tagMap.get(t.documentId) || [];
+    arr.push(t.name);
+    tagMap.set(t.documentId, arr);
+  }
+
+  return rows.map((r) => ({ ...r, tags: tagMap.get(r.id) || [] }));
+}
+
+export async function getDocumentTagIds(documentId: string) {
+  const rows = await db
+    .select({ tagId: documentTags.tagId })
+    .from(documentTags)
+    .where(eq(documentTags.documentId, documentId));
+  return rows.map((r) => r.tagId);
 }
 
 export async function getDocumentById(spaceId: string, documentId: string) {

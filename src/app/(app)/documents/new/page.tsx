@@ -1,10 +1,14 @@
 import { getCurrentSpace } from "@/lib/space";
+import { getSpaceTags } from "@/lib/queries";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { DocumentForm } from "../document-form";
 
 export default async function NewDocumentPage() {
   const space = await getCurrentSpace();
   if (!space) return null;
+
+  const spaceTags = await getSpaceTags(space.id);
+  const tagOptions = spaceTags.map((t) => ({ id: t.id, name: t.name, color: t.color }));
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-8 py-6 sm:py-10">
@@ -24,7 +28,10 @@ export default async function NewDocumentPage() {
         </p>
       </header>
 
-      <DocumentForm publicEnabled={((space.settings as Record<string, unknown>) || {}).publicDocuments === true} />
+      <DocumentForm
+        publicEnabled={((space.settings as Record<string, unknown>) || {}).publicDocuments === true}
+        tags={tagOptions}
+      />
     </div>
   );
 }
