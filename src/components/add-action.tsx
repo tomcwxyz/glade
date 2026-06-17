@@ -4,20 +4,24 @@ import { useState, useTransition } from "react";
 import { Plus, X } from "lucide-react";
 import { createAction } from "@/lib/action-actions";
 import { OwnerSelect, type OwnerMember } from "@/components/owner-select";
+import { TagPicker, type TagOption } from "@/components/tag-picker";
 
 export function AddAction({
   parentType,
   parentId,
   members = [],
+  tags = [],
 }: {
   parentType: "decision" | "topic" | "proposal";
   parentId: string;
   members?: OwnerMember[];
+  tags?: TagOption[];
 }) {
   const [open, setOpen] = useState(false);
   const [description, setDescription] = useState("");
   const [ownerName, setOwnerName] = useState("");
   const [ownerIds, setOwnerIds] = useState<string[]>([]);
+  const [tagIds, setTagIds] = useState<string[]>([]);
   const [dueDate, setDueDate] = useState("");
   const [isPending, startTransition] = useTransition();
 
@@ -27,10 +31,17 @@ export function AddAction({
     );
   }
 
+  function toggleTag(id: string) {
+    setTagIds((prev) =>
+      prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id]
+    );
+  }
+
   function reset() {
     setDescription("");
     setOwnerName("");
     setOwnerIds([]);
+    setTagIds([]);
     setDueDate("");
   }
 
@@ -43,7 +54,8 @@ export function AddAction({
         description,
         ownerName || undefined,
         dueDate || undefined,
-        ownerIds
+        ownerIds,
+        tagIds
       );
       if (!result?.error) {
         reset();
@@ -102,6 +114,15 @@ export function AddAction({
             />
           </div>
         </div>
+        {tags.length > 0 && (
+          <TagPicker
+            tags={tags}
+            selectedIds={tagIds}
+            onToggle={toggleTag}
+            entityLabel="actions"
+            id="add-action-tags"
+          />
+        )}
         <div className="flex items-center gap-2">
           <button
             onClick={handleSave}

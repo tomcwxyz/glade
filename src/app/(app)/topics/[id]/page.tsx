@@ -1,5 +1,5 @@
 import { getCurrentSpace } from "@/lib/space";
-import { getTopicById, getActionsByTopic, getSpaceMembers } from "@/lib/queries";
+import { getTopicById, getActionsByTopic, getSpaceMembers, getSpaceTags } from "@/lib/queries";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/breadcrumbs";
@@ -27,13 +27,15 @@ export default async function TopicDetailPage({
   const topic = await getTopicById(space.id, id);
   if (!topic) notFound();
 
-  const [topicActions, members] = await Promise.all([
+  const [topicActions, members, spaceTags] = await Promise.all([
     getActionsByTopic(topic.id),
     getSpaceMembers(space.id),
+    getSpaceTags(space.id),
   ]);
   const ownerMembers = members
     .filter((m) => m.name)
     .map((m) => ({ id: m.userId, name: m.name as string }));
+  const tagOptions = spaceTags.map((t) => ({ id: t.id, name: t.name, color: t.color }));
 
   const config = TYPE_CONFIG[topic.type] || TYPE_CONFIG.question;
   const Icon = config.icon;
@@ -96,7 +98,7 @@ export default async function TopicDetailPage({
       {/* Actions */}
       <div className="mt-8 space-y-4">
         <ActionList actions={topicActions} />
-        <AddAction parentType="topic" parentId={topic.id} members={ownerMembers} />
+        <AddAction parentType="topic" parentId={topic.id} members={ownerMembers} tags={tagOptions} />
       </div>
 
       {promoted && topic.promotedToProposalId && (

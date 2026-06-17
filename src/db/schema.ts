@@ -419,6 +419,19 @@ export const proposalTags = pgTable(
   (pt) => [primaryKey({ columns: [pt.proposalId, pt.tagId] })]
 );
 
+export const actionTags = pgTable(
+  "action_tags",
+  {
+    actionId: uuid("action_id")
+      .notNull()
+      .references(() => actions.id, { onDelete: "cascade" }),
+    tagId: uuid("tag_id")
+      .notNull()
+      .references(() => tags.id, { onDelete: "cascade" }),
+  },
+  (at) => [primaryKey({ columns: [at.actionId, at.tagId] })]
+);
+
 // --- Meetings ---
 
 export const meetings = pgTable(
@@ -899,6 +912,7 @@ export const tagsRelations = relations(tags, ({ one, many }) => ({
   space: one(spaces, { fields: [tags.spaceId], references: [spaces.id] }),
   decisions: many(decisionTags),
   proposals: many(proposalTags),
+  actions: many(actionTags),
 }));
 
 export const proposalTagsRelations = relations(proposalTags, ({ one }) => ({
@@ -955,11 +969,17 @@ export const actionsRelations = relations(actions, ({ one, many }) => ({
   proposal: one(proposals, { fields: [actions.proposalId], references: [proposals.id] }),
   owner: one(users, { fields: [actions.ownerId], references: [users.id] }),
   owners: many(actionOwners),
+  tags: many(actionTags),
 }));
 
 export const actionOwnersRelations = relations(actionOwners, ({ one }) => ({
   action: one(actions, { fields: [actionOwners.actionId], references: [actions.id] }),
   user: one(users, { fields: [actionOwners.userId], references: [users.id] }),
+}));
+
+export const actionTagsRelations = relations(actionTags, ({ one }) => ({
+  action: one(actions, { fields: [actionTags.actionId], references: [actions.id] }),
+  tag: one(tags, { fields: [actionTags.tagId], references: [tags.id] }),
 }));
 
 // --- Document relations ---

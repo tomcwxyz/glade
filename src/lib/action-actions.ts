@@ -3,8 +3,9 @@
 import { eq, and, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
-import { actions, actionOwners, spaceMembers, decisions, topics, proposals } from "@/db/schema";
+import { actions, actionOwners, actionTags, spaceMembers, decisions, topics, proposals } from "@/db/schema";
 import { requireSpaceRole } from "@/lib/space";
+import { syncEntityTags } from "@/lib/queries";
 import { logDeletion } from "@/lib/audit";
 
 /** Keep only the user ids that are actually members of the space. */
@@ -23,7 +24,8 @@ export async function createAction(
   description: string,
   ownerName?: string,
   dueDate?: string,
-  ownerUserIds?: string[]
+  ownerUserIds?: string[],
+  tagIds?: string[]
 ) {
   const auth = await requireSpaceRole("member");
   if ("error" in auth) return auth;
@@ -69,6 +71,8 @@ export async function createAction(
         ownerIds.map((userId) => ({ actionId: action.id, userId }))
       );
     }
+
+    await syncEntityTags(tx, actionTags, actionTags.actionId, "actionId", action.id, tagIds ?? []);
   });
 
   revalidatePath("/actions");
@@ -97,16 +101,23 @@ export async function getActionForEdit(actionId: string) {
 
   if (!row) return { error: "Action not found" };
 
-  const owners = await db
-    .select({ userId: actionOwners.userId })
-    .from(actionOwners)
-    .where(eq(actionOwners.actionId, actionId));
+  const [owners, tagRows] = await Promise.all([
+    db
+      .select({ userId: actionOwners.userId })
+      .from(actionOwners)
+      .where(eq(actionOwners.actionId, actionId)),
+    db
+      .select({ tagId: actionTags.tagId })
+      .from(actionTags)
+      .where(eq(actionTags.actionId, actionId)),
+  ]);
 
   return {
     description: row.description,
     ownerName: row.ownerName ?? "",
     dueDate: row.dueDate ? row.dueDate.toISOString().split("T")[0] : "",
     ownerUserIds: owners.map((o) => o.userId),
+    tagIds: tagRows.map((t) => t.tagId),
   };
 }
 
@@ -115,7 +126,8 @@ export async function updateAction(
   description: string,
   ownerName?: string,
   dueDate?: string,
-  ownerUserIds?: string[]
+  ownerUserIds?: string[],
+  tagIds?: string[]
 ) {
   const auth = await requireSpaceRole("member");
   if ("error" in auth) return auth;
@@ -133,7 +145,7 @@ export async function updateAction(
 
   const ownerIds = await validateOwnerIds(space.id, ownerUserIds);
 
-  // Atomic: the row update and its member owners change together.
+  // Atomic: the row update, its member owners, and its tags change together.
   await db.transaction(async (tx) => {
     await tx
       .update(actions)
@@ -151,6 +163,8 @@ export async function updateAction(
         ownerIds.map((userId) => ({ actionId, userId }))
       );
     }
+
+    await syncEntityTags(tx, actionTags, actionTags.actionId, "actionId", actionId, tagIds ?? []);
   });
 
   revalidatePath("/actions");

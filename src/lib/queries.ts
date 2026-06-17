@@ -8,6 +8,7 @@ import {
   tags,
   actions,
   actionOwners,
+  actionTags,
   meetings,
   meetingAgendaItems,
   meetingAttendees,
@@ -251,8 +252,19 @@ export async function getDecisionByNumber(spaceId: string, number: number) {
 
 export async function getActions(
   spaceId: string,
-  opts: { limit?: number; offset?: number } = {}
+  opts: { limit?: number; offset?: number; tagId?: string } = {}
 ) {
+  // Optional tag filter: only actions carrying the given tag.
+  const tagFilter = opts.tagId
+    ? inArray(
+        actions.id,
+        db
+          .select({ id: actionTags.actionId })
+          .from(actionTags)
+          .where(eq(actionTags.tagId, opts.tagId))
+      )
+    : undefined;
+
   let q = db
     .select({
       id: actions.id,
@@ -273,7 +285,7 @@ export async function getActions(
     .leftJoin(decisions, eq(decisions.id, actions.decisionId))
     .leftJoin(topics, eq(topics.id, actions.topicId))
     .leftJoin(proposals, eq(proposals.id, actions.proposalId))
-    .where(eq(actions.spaceId, spaceId))
+    .where(and(eq(actions.spaceId, spaceId), tagFilter))
     .orderBy(desc(actions.createdAt))
     .$dynamic();
   if (opts.limit != null) q = q.limit(opts.limit);
@@ -283,7 +295,24 @@ export async function getActions(
   const parentless = rows
     .filter((r) => !r.decisionId && !r.topicId && !r.proposalId)
     .map((r) => r.id);
-  const meetingParents = await meetingParentMap(parentless);
+  const ids = rows.map((r) => r.id);
+  const [meetingParents, tagRows] = await Promise.all([
+    meetingParentMap(parentless),
+    ids.length > 0
+      ? db
+          .select({ actionId: actionTags.actionId, name: tags.name })
+          .from(actionTags)
+          .innerJoin(tags, eq(tags.id, actionTags.tagId))
+          .where(inArray(actionTags.actionId, ids))
+      : Promise.resolve([] as { actionId: string; name: string }[]),
+  ]);
+
+  const tagMap = new Map<string, string[]>();
+  for (const t of tagRows) {
+    const arr = tagMap.get(t.actionId) || [];
+    arr.push(t.name);
+    tagMap.set(t.actionId, arr);
+  }
 
   return withActionOwners(rows.map((r) => {
     let parentType: "decision" | "topic" | "proposal" = "decision";
@@ -322,6 +351,7 @@ export async function getActions(
       parentType,
       parentTitle,
       parentHref,
+      tags: tagMap.get(r.id) || [],
     };
   }));
 }

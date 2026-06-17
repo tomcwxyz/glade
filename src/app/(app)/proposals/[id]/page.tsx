@@ -1,5 +1,5 @@
 import { getCurrentSpace } from "@/lib/space";
-import { getProposalById, getActionsByProposal, getSpaceMembers, getProposalMeetings, getMeetingsList } from "@/lib/queries";
+import { getProposalById, getActionsByProposal, getSpaceMembers, getProposalMeetings, getMeetingsList, getSpaceTags } from "@/lib/queries";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/breadcrumbs";
@@ -42,15 +42,17 @@ export default async function ProposalDetailPage({
   const proposal = await getProposalById(space.id, id);
   if (!proposal) notFound();
 
-  const [proposalActions, members, proposalMeetings, allMeetings] = await Promise.all([
+  const [proposalActions, members, proposalMeetings, allMeetings, spaceTags] = await Promise.all([
     getActionsByProposal(proposal.id),
     getSpaceMembers(space.id),
     getProposalMeetings(proposal.id),
     getMeetingsList(space.id),
+    getSpaceTags(space.id),
   ]);
   const ownerMembers = members
     .filter((m) => m.name)
     .map((m) => ({ id: m.userId, name: m.name as string }));
+  const tagOptions = spaceTags.map((t) => ({ id: t.id, name: t.name, color: t.color }));
 
   const upcomingMeetings = allMeetings
     .filter((m) => m.status === "draft" || m.status === "scheduled" || m.status === "in_progress")
@@ -179,7 +181,7 @@ export default async function ProposalDetailPage({
       {/* Actions */}
       <div className="mb-10 space-y-4">
         <ActionList actions={proposalActions} />
-        <AddAction parentType="proposal" parentId={proposal.id} members={ownerMembers} />
+        <AddAction parentType="proposal" parentId={proposal.id} members={ownerMembers} tags={tagOptions} />
       </div>
 
       {/* Decision link */}

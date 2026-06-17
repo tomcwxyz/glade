@@ -4,13 +4,16 @@ import { useState, useEffect, useRef, useTransition } from "react";
 import { Pencil, Loader2, X } from "lucide-react";
 import { getActionForEdit, updateAction } from "@/lib/action-actions";
 import { OwnerSelect, type OwnerMember } from "@/components/owner-select";
+import { TagPicker, type TagOption } from "@/components/tag-picker";
 
 export function EditAction({
   actionId,
   members = [],
+  tags = [],
 }: {
   actionId: string;
   members?: OwnerMember[];
+  tags?: TagOption[];
 }) {
   const [open, setOpen] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -18,6 +21,7 @@ export function EditAction({
   const [description, setDescription] = useState("");
   const [ownerName, setOwnerName] = useState("");
   const [ownerIds, setOwnerIds] = useState<string[]>([]);
+  const [tagIds, setTagIds] = useState<string[]>([]);
   const [dueDate, setDueDate] = useState("");
   const [isPending, startTransition] = useTransition();
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -36,6 +40,7 @@ export function EditAction({
       setDescription(result.description);
       setOwnerName(result.ownerName);
       setOwnerIds(result.ownerUserIds);
+      setTagIds(result.tagIds);
       setDueDate(result.dueDate);
       setLoaded(true);
     })();
@@ -69,6 +74,12 @@ export function EditAction({
     );
   }
 
+  function toggleTag(id: string) {
+    setTagIds((prev) =>
+      prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id]
+    );
+  }
+
   function handleSave() {
     if (!description.trim()) return;
     startTransition(async () => {
@@ -77,7 +88,8 @@ export function EditAction({
         description,
         ownerName || undefined,
         dueDate || undefined,
-        ownerIds
+        ownerIds,
+        tagIds
       );
       if (result && "error" in result) {
         setError(result.error as string);
@@ -161,6 +173,15 @@ export function EditAction({
                     className="px-3 py-2 text-sm bg-paper-warm border border-border rounded-lg focus:outline-none focus:ring-1 focus:ring-canopy/40"
                   />
                 </div>
+                {tags.length > 0 && (
+                  <TagPicker
+                    tags={tags}
+                    selectedIds={tagIds}
+                    onToggle={toggleTag}
+                    entityLabel="actions"
+                    id="edit-action-tags"
+                  />
+                )}
                 <div className="flex items-center gap-2 pt-1">
                   <button
                     type="button"
