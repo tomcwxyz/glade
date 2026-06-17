@@ -675,6 +675,8 @@ export async function generateGovernanceDigest() {
   );
 
   // Most recent prior digest, so the AI can compare this period against it.
+  // Must mirror the archive's filter (active only) — a dismissed digest is
+  // removed from view and must not seed the "Since last digest" comparison.
   const [prevDigest] = await db
     .select({ content: insights.content, createdAt: insights.createdAt })
     .from(insights)
@@ -682,6 +684,7 @@ export async function generateGovernanceDigest() {
       and(
         eq(insights.spaceId, space.id),
         eq(insights.type, "briefing"),
+        eq(insights.status, "active"),
         sql`${insights.metadata}->>'subtype' = 'digest'`
       )
     )
