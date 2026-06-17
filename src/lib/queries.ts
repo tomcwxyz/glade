@@ -9,6 +9,7 @@ import {
   actions,
   actionOwners,
   actionTags,
+  topicTags,
   meetings,
   meetingAgendaItems,
   meetingAttendees,
@@ -1164,8 +1165,18 @@ export async function getProposalById(spaceId: string, proposalId: string) {
 
 export async function getTopics(
   spaceId: string,
-  opts: { limit?: number; offset?: number } = {}
+  opts: { limit?: number; offset?: number; tagId?: string } = {}
 ) {
+  const tagFilter = opts.tagId
+    ? inArray(
+        topics.id,
+        db
+          .select({ id: topicTags.topicId })
+          .from(topicTags)
+          .where(eq(topicTags.tagId, opts.tagId))
+      )
+    : undefined;
+
   let q = db
     .select({
       id: topics.id,
@@ -1178,12 +1189,39 @@ export async function getTopics(
     })
     .from(topics)
     .leftJoin(users, eq(users.id, topics.createdBy))
-    .where(eq(topics.spaceId, spaceId))
+    .where(and(eq(topics.spaceId, spaceId), tagFilter))
     .orderBy(desc(topics.createdAt))
     .$dynamic();
   if (opts.limit != null) q = q.limit(opts.limit);
   if (opts.offset != null) q = q.offset(opts.offset);
-  return q;
+  const rows = await q;
+
+  const ids = rows.map((r) => r.id);
+  const tagRows =
+    ids.length > 0
+      ? await db
+          .select({ topicId: topicTags.topicId, name: tags.name })
+          .from(topicTags)
+          .innerJoin(tags, eq(tags.id, topicTags.tagId))
+          .where(inArray(topicTags.topicId, ids))
+      : [];
+
+  const tagMap = new Map<string, string[]>();
+  for (const t of tagRows) {
+    const arr = tagMap.get(t.topicId) || [];
+    arr.push(t.name);
+    tagMap.set(t.topicId, arr);
+  }
+
+  return rows.map((r) => ({ ...r, tags: tagMap.get(r.id) || [] }));
+}
+
+export async function getTopicTagIds(topicId: string) {
+  const rows = await db
+    .select({ tagId: topicTags.tagId })
+    .from(topicTags)
+    .where(eq(topicTags.topicId, topicId));
+  return rows.map((r) => r.tagId);
 }
 
 // ============================================================

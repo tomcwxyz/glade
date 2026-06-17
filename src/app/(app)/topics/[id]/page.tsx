@@ -1,11 +1,12 @@
 import { getCurrentSpace } from "@/lib/space";
-import { getTopicById, getActionsByTopic, getSpaceMembers, getSpaceTags } from "@/lib/queries";
+import { getTopicById, getActionsByTopic, getSpaceMembers, getSpaceTags, getTopicTagIds } from "@/lib/queries";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { Clock, HelpCircle, Zap, CalendarPlus } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { PromoteTopicButton } from "./promote-topic-button";
+import { TopicTags } from "./topic-tags";
 import { ActionList } from "@/components/action-list";
 import { AddAction } from "@/components/add-action";
 
@@ -27,10 +28,11 @@ export default async function TopicDetailPage({
   const topic = await getTopicById(space.id, id);
   if (!topic) notFound();
 
-  const [topicActions, members, spaceTags] = await Promise.all([
+  const [topicActions, members, spaceTags, topicTagIds] = await Promise.all([
     getActionsByTopic(topic.id),
     getSpaceMembers(space.id),
     getSpaceTags(space.id),
+    getTopicTagIds(topic.id),
   ]);
   const ownerMembers = members
     .filter((m) => m.name)
@@ -92,6 +94,13 @@ export default async function TopicDetailPage({
           <p className="text-[0.9375rem] leading-relaxed text-bark whitespace-pre-wrap">
             {topic.description}
           </p>
+        </div>
+      )}
+
+      {/* Tags */}
+      {tagOptions.length > 0 && (
+        <div className="mt-8">
+          <TopicTags topicId={topic.id} allTags={tagOptions} initialTagIds={topicTagIds} />
         </div>
       )}
 
