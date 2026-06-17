@@ -419,6 +419,58 @@ export const proposalTags = pgTable(
   (pt) => [primaryKey({ columns: [pt.proposalId, pt.tagId] })]
 );
 
+export const actionTags = pgTable(
+  "action_tags",
+  {
+    actionId: uuid("action_id")
+      .notNull()
+      .references(() => actions.id, { onDelete: "cascade" }),
+    tagId: uuid("tag_id")
+      .notNull()
+      .references(() => tags.id, { onDelete: "cascade" }),
+  },
+  (at) => [primaryKey({ columns: [at.actionId, at.tagId] })]
+);
+
+export const topicTags = pgTable(
+  "topic_tags",
+  {
+    topicId: uuid("topic_id")
+      .notNull()
+      .references(() => topics.id, { onDelete: "cascade" }),
+    tagId: uuid("tag_id")
+      .notNull()
+      .references(() => tags.id, { onDelete: "cascade" }),
+  },
+  (tt) => [primaryKey({ columns: [tt.topicId, tt.tagId] })]
+);
+
+export const documentTags = pgTable(
+  "document_tags",
+  {
+    documentId: uuid("document_id")
+      .notNull()
+      .references(() => documents.id, { onDelete: "cascade" }),
+    tagId: uuid("tag_id")
+      .notNull()
+      .references(() => tags.id, { onDelete: "cascade" }),
+  },
+  (dt) => [primaryKey({ columns: [dt.documentId, dt.tagId] })]
+);
+
+export const meetingTags = pgTable(
+  "meeting_tags",
+  {
+    meetingId: uuid("meeting_id")
+      .notNull()
+      .references(() => meetings.id, { onDelete: "cascade" }),
+    tagId: uuid("tag_id")
+      .notNull()
+      .references(() => tags.id, { onDelete: "cascade" }),
+  },
+  (mt) => [primaryKey({ columns: [mt.meetingId, mt.tagId] })]
+);
+
 // --- Meetings ---
 
 export const meetings = pgTable(
@@ -899,6 +951,10 @@ export const tagsRelations = relations(tags, ({ one, many }) => ({
   space: one(spaces, { fields: [tags.spaceId], references: [spaces.id] }),
   decisions: many(decisionTags),
   proposals: many(proposalTags),
+  actions: many(actionTags),
+  topics: many(topicTags),
+  documents: many(documentTags),
+  meetings: many(meetingTags),
 }));
 
 export const proposalTagsRelations = relations(proposalTags, ({ one }) => ({
@@ -919,6 +975,7 @@ export const meetingsRelations = relations(meetings, ({ one, many }) => ({
   decisions: many(meetingDecisions),
   actions: many(meetingActions),
   documents: many(meetingDocuments),
+  tags: many(meetingTags),
 }));
 
 export const meetingAttendeesRelations = relations(meetingAttendees, ({ one }) => ({
@@ -955,11 +1012,32 @@ export const actionsRelations = relations(actions, ({ one, many }) => ({
   proposal: one(proposals, { fields: [actions.proposalId], references: [proposals.id] }),
   owner: one(users, { fields: [actions.ownerId], references: [users.id] }),
   owners: many(actionOwners),
+  tags: many(actionTags),
 }));
 
 export const actionOwnersRelations = relations(actionOwners, ({ one }) => ({
   action: one(actions, { fields: [actionOwners.actionId], references: [actions.id] }),
   user: one(users, { fields: [actionOwners.userId], references: [users.id] }),
+}));
+
+export const actionTagsRelations = relations(actionTags, ({ one }) => ({
+  action: one(actions, { fields: [actionTags.actionId], references: [actions.id] }),
+  tag: one(tags, { fields: [actionTags.tagId], references: [tags.id] }),
+}));
+
+export const topicTagsRelations = relations(topicTags, ({ one }) => ({
+  topic: one(topics, { fields: [topicTags.topicId], references: [topics.id] }),
+  tag: one(tags, { fields: [topicTags.tagId], references: [tags.id] }),
+}));
+
+export const documentTagsRelations = relations(documentTags, ({ one }) => ({
+  document: one(documents, { fields: [documentTags.documentId], references: [documents.id] }),
+  tag: one(tags, { fields: [documentTags.tagId], references: [tags.id] }),
+}));
+
+export const meetingTagsRelations = relations(meetingTags, ({ one }) => ({
+  meeting: one(meetings, { fields: [meetingTags.meetingId], references: [meetings.id] }),
+  tag: one(tags, { fields: [meetingTags.tagId], references: [tags.id] }),
 }));
 
 // --- Document relations ---
@@ -969,6 +1047,7 @@ export const documentsRelations = relations(documents, ({ one, many }) => ({
   createdByUser: one(users, { fields: [documents.createdBy], references: [users.id] }),
   versions: many(documentVersions),
   sectionLinks: many(documentSectionLinks),
+  tags: many(documentTags),
 }));
 
 export const documentVersionsRelations = relations(documentVersions, ({ one }) => ({
@@ -1004,10 +1083,11 @@ export const proposalCommentsRelations = relations(proposalComments, ({ one }) =
 
 // --- Topic relations ---
 
-export const topicsRelations = relations(topics, ({ one }) => ({
+export const topicsRelations = relations(topics, ({ one, many }) => ({
   space: one(spaces, { fields: [topics.spaceId], references: [spaces.id] }),
   createdByUser: one(users, { fields: [topics.createdBy], references: [users.id] }),
   promotedToProposal: one(proposals, { fields: [topics.promotedToProposalId], references: [proposals.id] }),
+  tags: many(topicTags),
 }));
 
 // --- Insight relations ---

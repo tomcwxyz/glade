@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import { getCurrentSpace } from "@/lib/space";
-import { getTopics } from "@/lib/queries";
+import { getTopics, getSpaceTags } from "@/lib/queries";
 import { Plus, Lightbulb, HelpCircle, Zap, CalendarPlus, ArrowRight } from "lucide-react";
 
 export const metadata: Metadata = { title: "Topics" };
 import Link from "next/link";
-import { formatDateRelative } from "@/lib/utils";
+import { formatDateRelative, tagDotClass } from "@/lib/utils";
 import { Pagination, PAGE_SIZE, parsePage } from "@/components/pagination";
 
 const TYPE_CONFIG: Record<string, { label: string; icon: typeof HelpCircle; color: string }> = {
@@ -17,13 +17,16 @@ const TYPE_CONFIG: Record<string, { label: string; icon: typeof HelpCircle; colo
 export default async function TopicsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string }>;
+  searchParams: Promise<{ page?: string; tag?: string }>;
 }) {
   const space = await getCurrentSpace();
   if (!space) return null;
-  const page = parsePage((await searchParams).page);
+  const sp = await searchParams;
+  const page = parsePage(sp.page);
   const offset = (page - 1) * PAGE_SIZE;
-  const fetched = await getTopics(space.id, { limit: PAGE_SIZE + 1, offset });
+  const spaceTags = await getSpaceTags(space.id);
+  const activeTag = sp.tag && spaceTags.some((t) => t.id === sp.tag) ? sp.tag : undefined;
+  const fetched = await getTopics(space.id, { limit: PAGE_SIZE + 1, offset, tagId: activeTag });
   const hasMore = fetched.length > PAGE_SIZE;
   const allTopics = fetched.slice(0, PAGE_SIZE);
 
@@ -50,12 +53,53 @@ export default async function TopicsPage({
         </Link>
       </header>
 
+      {/* Tag filter */}
+      {spaceTags.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 mb-8">
+          <Link
+            href="/topics"
+            className={`px-3 py-1.5 text-xs rounded-lg border transition-colors ${
+              !activeTag
+                ? "bg-canopy-pale text-canopy border-canopy/30 font-medium"
+                : "bg-paper-warm text-bark-muted border-border hover:text-bark hover:border-canopy/30"
+            }`}
+          >
+            All
+          </Link>
+          {spaceTags.map((tag) => {
+            const isActive = activeTag === tag.id;
+            return (
+              <Link
+                key={tag.id}
+                href={isActive ? "/topics" : `/topics?tag=${tag.id}`}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-colors ${
+                  isActive
+                    ? "bg-canopy-pale text-canopy border-canopy/30 font-medium"
+                    : "bg-paper-warm text-bark-muted border-border hover:text-bark hover:border-canopy/30"
+                }`}
+              >
+                <span className={`w-2 h-2 rounded-full shrink-0 ${tagDotClass(tag.color)}`} />
+                {tag.name}
+              </Link>
+            );
+          })}
+        </div>
+      )}
+
       {allTopics.length === 0 ? (
         <div className="text-center py-16">
           <Lightbulb size={40} className="mx-auto mb-4 text-bark-muted/30" />
-          <p className="text-bark-muted mb-2">No topics yet</p>
+          <p className="text-bark-muted mb-2">
+            {activeTag ? "No topics with this tag" : "No topics yet"}
+          </p>
           <p className="text-sm text-bark-muted/70">
-            Raise a question, tension, or agenda suggestion for your group.
+            {activeTag ? (
+              <Link href="/topics" className="text-canopy hover:text-canopy-light">
+                Clear filter
+              </Link>
+            ) : (
+              "Raise a question, tension, or agenda suggestion for your group."
+            )}
           </p>
         </div>
       ) : (
@@ -92,6 +136,18 @@ export default async function TopicsPage({
                     {topic.createdByName && `${topic.createdByName} · `}
                     {formatDateRelative(topic.createdAt.toISOString())}
                   </div>
+                  {topic.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mt-1.5">
+                      {topic.tags.map((tag) => (
+                        <span
+                          key={tag}
+                          className="text-[0.6875rem] px-1.5 py-0.5 rounded bg-paper-deep text-bark-muted"
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 {promoted && (
                   <ArrowRight size={14} className="text-canopy shrink-0" />
@@ -102,7 +158,7 @@ export default async function TopicsPage({
         </div>
       )}
 
-      <Pagination page={page} hasMore={hasMore} basePath="/topics" />
+      <Pagination page={page} hasMore={hasMore} basePath="/topics" params={{ tag: activeTag }} />
     </div>
   );
 }

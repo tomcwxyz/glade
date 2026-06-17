@@ -1,5 +1,5 @@
 import { getCurrentSpace } from "@/lib/space";
-import { getDocumentById, getDecisionsList } from "@/lib/queries";
+import { getDocumentById, getDecisionsList, getSpaceTags, getDocumentTagIds } from "@/lib/queries";
 import { isAiEnabled } from "@/lib/ai";
 import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/breadcrumbs";
@@ -19,7 +19,12 @@ export default async function EditDocumentPage({
   const doc = await getDocumentById(space.id, id);
   if (!doc) notFound();
 
-  const decisionsList = aiEnabled ? await getDecisionsList(space.id) : [];
+  const [decisionsList, spaceTags, documentTagIds] = await Promise.all([
+    aiEnabled ? getDecisionsList(space.id) : Promise.resolve([]),
+    getSpaceTags(space.id),
+    getDocumentTagIds(doc.id),
+  ]);
+  const tagOptions = spaceTags.map((t) => ({ id: t.id, name: t.name, color: t.color }));
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-8 py-6 sm:py-10">
@@ -42,6 +47,7 @@ export default async function EditDocumentPage({
 
       <DocumentForm
         publicEnabled={((space.settings as Record<string, unknown>) || {}).publicDocuments === true}
+        tags={tagOptions}
         document={{
           id: doc.id,
           title: doc.title,
@@ -50,6 +56,7 @@ export default async function EditDocumentPage({
           draftContent: doc.draftContent as import("@tiptap/react").JSONContent | null,
           updatedAt: doc.updatedAt.toISOString(),
           isPublic: doc.isPublic,
+          tagIds: documentTagIds,
         }}
       />
 

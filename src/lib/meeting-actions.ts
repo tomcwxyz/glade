@@ -11,6 +11,7 @@ import {
   meetingAttendees,
   meetingDecisions,
   meetingActions,
+  meetingTags,
   actions,
   actionOwners,
   decisions,
@@ -22,7 +23,7 @@ import { requireSpaceRole } from "@/lib/space";
 import { createInitialState } from "@/lib/meeting-state";
 import { canUseLiveMeetings } from "@/lib/billing";
 import { logDeletion } from "@/lib/audit";
-import { insertDecisionWithUniqueNumber } from "@/lib/queries";
+import { insertDecisionWithUniqueNumber, syncEntityTags } from "@/lib/queries";
 import { notifyMeetingStarted } from "@/lib/notification-actions";
 
 type MeetingStatus = "draft" | "scheduled" | "in_progress" | "completed";
@@ -129,6 +130,51 @@ async function persistMeetingCapture(
   }
 }
 
+/** Create a lightweight decision and link it to a meeting in one step, so users
+ *  don't have to leave the meeting page to record a decision and link it back.
+ *  The decision is dated to the meeting and can be fleshed out later. */
+export async function createDecisionForMeeting(
+  meetingId: string,
+  title: string,
+  method: string,
+  outcome?: string
+) {
+  const auth = await requireSpaceRole("member");
+  if ("error" in auth) return auth;
+  const { user, space } = auth;
+
+  if (!title.trim()) return { error: "Title is required" };
+
+  const [meeting] = await db
+    .select({ id: meetings.id, date: meetings.date })
+    .from(meetings)
+    .where(and(eq(meetings.id, meetingId), eq(meetings.spaceId, space.id)))
+    .limit(1);
+  if (!meeting) return { error: "Meeting not found" };
+
+  const decision = await db.transaction(async (tx) => {
+    const created = await insertDecisionWithUniqueNumber(
+      space.id,
+      {
+        title: title.trim(),
+        method: (method || "consent") as DecisionMethod,
+        outcome: outcome?.trim() || null,
+        status: "decided",
+        date: meeting.date,
+        createdBy: user.id,
+      },
+      tx
+    );
+    await tx.insert(meetingDecisions).values({ meetingId, decisionId: created.id });
+    return created;
+  });
+
+  revalidatePath(`/meetings/${meetingId}`);
+  revalidatePath("/decisions");
+  revalidatePath("/dashboard");
+  return { success: true, number: decision.number };
+}
+
 export async function createMeeting(formData: FormData) {
   const auth = await requireSpaceRole("member");
   if ("error" in auth) return auth;
@@ -201,6 +247,9 @@ export async function createMeeting(formData: FormData) {
     }
 
     await persistMeetingCapture(tx, space.id, user.id, meeting.id, new Date(dateStr), formData);
+
+    const tagIds = ((formData.get("tagIds") as string) || "").split(",").filter(Boolean);
+    await syncEntityTags(tx, meetingTags, meetingTags.meetingId, "meetingId", meeting.id, tagIds);
   });
 
   redirect("/meetings");
@@ -287,6 +336,9 @@ export async function updateMeeting(meetingId: string, formData: FormData) {
     }
 
     await persistMeetingCapture(tx, space.id, user.id, meetingId, new Date(dateStr), formData);
+
+    const tagIds = ((formData.get("tagIds") as string) || "").split(",").filter(Boolean);
+    await syncEntityTags(tx, meetingTags, meetingTags.meetingId, "meetingId", meetingId, tagIds);
   });
 
   redirect("/meetings");

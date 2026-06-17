@@ -4,7 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createDecision, updateDecision } from "@/lib/decision-actions";
 import { suggestDecisionTags } from "@/lib/ai-actions";
-import { inputClass, textareaClass, tagDotClass } from "@/lib/utils";
+import { inputClass, textareaClass } from "@/lib/utils";
+import { TagPicker } from "@/components/tag-picker";
 import {
   EyeOff,
   Loader2,
@@ -408,10 +409,15 @@ export function DecisionForm({
         </div>
 
         {/* Tags */}
-        <div>
-          <div className="flex items-center justify-between">
-            <InputLabel htmlFor="tags-section">Tags</InputLabel>
-            {aiEnabled && tags.length > 0 && (
+        <TagPicker
+          tags={tags}
+          selectedIds={selectedTags}
+          onToggle={toggleTag}
+          entityLabel="decisions"
+          id="tags-section"
+          error={tagError}
+          action={
+            aiEnabled && tags.length > 0 ? (
               <button
                 type="button"
                 onClick={handleSuggestTags}
@@ -425,40 +431,9 @@ export function DecisionForm({
                 )}
                 Suggest tags
               </button>
-            )}
-          </div>
-          {tagError && <p className="text-xs text-earth mb-2">{tagError}</p>}
-          {tags.length > 0 ? (
-            <div id="tags-section" className="flex flex-wrap gap-2">
-              {tags.map((tag) => {
-                const isSelected = selectedTags.includes(tag.id);
-                return (
-                  <button
-                    key={tag.id}
-                    type="button"
-                    onClick={() => toggleTag(tag.id)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
-                      isSelected
-                        ? "bg-canopy-pale text-canopy border-canopy/30"
-                        : "bg-paper-warm text-bark-muted border-border hover:border-canopy/30 hover:text-bark"
-                    }`}
-                  >
-                    <span className={`w-2 h-2 rounded-full shrink-0 ${tagDotClass(tag.color)}`} />
-                    {tag.name}
-                  </button>
-                );
-              })}
-            </div>
-          ) : (
-            <p id="tags-section" className="text-sm text-bark-muted">
-              No tags yet.{" "}
-              <Link href="/settings" className="text-canopy hover:text-canopy-light underline">
-                Create tags in Settings
-              </Link>{" "}
-              to group decisions by theme.
-            </p>
-          )}
-        </div>
+            ) : null
+          }
+        />
 
         {/* Action Items */}
         {!isEditing && (

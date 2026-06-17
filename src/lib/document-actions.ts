@@ -4,9 +4,9 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { eq, and } from "drizzle-orm";
 import { db } from "@/db";
-import { documents, documentVersions, documentSectionLinks, decisions } from "@/db/schema";
+import { documents, documentVersions, documentSectionLinks, documentTags, decisions } from "@/db/schema";
 import { getCurrentSpace, requireSpaceRole } from "@/lib/space";
-import { getDocumentVersionAtDate } from "@/lib/queries";
+import { getDocumentVersionAtDate, syncEntityTags } from "@/lib/queries";
 import { logDeletion } from "@/lib/audit";
 
 export async function createDocument(formData: FormData) {
@@ -52,6 +52,9 @@ export async function createDocument(formData: FormData) {
     changeDescription: "Initial version",
     createdBy: user.id,
   });
+
+  const tagIds = ((formData.get("tagIds") as string) || "").split(",").filter(Boolean);
+  await syncEntityTags(db, documentTags, documentTags.documentId, "documentId", doc.id, tagIds);
 
   redirect(`/documents/${doc.id}`);
 }
@@ -119,6 +122,9 @@ export async function updateDocument(documentId: string, formData: FormData) {
     changeDescription,
     createdBy: user.id,
   });
+
+  const tagIds = ((formData.get("tagIds") as string) || "").split(",").filter(Boolean);
+  await syncEntityTags(db, documentTags, documentTags.documentId, "documentId", documentId, tagIds);
 
   redirect(`/documents/${documentId}`);
 }

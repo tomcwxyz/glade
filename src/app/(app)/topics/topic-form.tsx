@@ -6,6 +6,7 @@ import { inputClass, textareaClass } from "@/lib/utils";
 import { EyeOff, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { FormError } from "@/components/form-error";
+import { TagPicker, type TagOption } from "@/components/tag-picker";
 
 const TYPES = [
   { value: "question", label: "Question", desc: "Something you want the group to explore" },
@@ -14,9 +15,22 @@ const TYPES = [
 ] as const;
 
 
-export function TopicForm({ publicEnabled }: { publicEnabled?: boolean }) {
+export function TopicForm({
+  publicEnabled,
+  tags = [],
+}: {
+  publicEnabled?: boolean;
+  tags?: TagOption[];
+}) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+
+  function toggleTag(id: string) {
+    setSelectedTags((prev) =>
+      prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id]
+    );
+  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -92,6 +106,16 @@ export function TopicForm({ publicEnabled }: { publicEnabled?: boolean }) {
             className={textareaClass}
           />
         </div>
+
+        {/* Tags */}
+        <TagPicker
+          tags={tags}
+          selectedIds={selectedTags}
+          onToggle={toggleTag}
+          name="tagIds"
+          entityLabel="topics"
+          id="topic-tags"
+        />
 
         {/* Public visibility */}
         {publicEnabled && (

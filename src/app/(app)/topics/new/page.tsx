@@ -1,10 +1,14 @@
 import { getCurrentSpace } from "@/lib/space";
+import { getSpaceTags } from "@/lib/queries";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { TopicForm } from "../topic-form";
 
 export default async function NewTopicPage() {
   const space = await getCurrentSpace();
   if (!space) return null;
+
+  const spaceTags = await getSpaceTags(space.id);
+  const tagOptions = spaceTags.map((t) => ({ id: t.id, name: t.name, color: t.color }));
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-8 py-6 sm:py-10">
@@ -24,7 +28,10 @@ export default async function NewTopicPage() {
         </p>
       </header>
 
-      <TopicForm publicEnabled={((space.settings as Record<string, unknown>) || {}).publicTopics === true} />
+      <TopicForm
+        publicEnabled={((space.settings as Record<string, unknown>) || {}).publicTopics === true}
+        tags={tagOptions}
+      />
     </div>
   );
 }

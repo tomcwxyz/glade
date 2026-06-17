@@ -6,7 +6,7 @@ import { eq, and, count } from "drizzle-orm";
 import { db } from "@/db";
 import { decisions, decisionLinks, decisionReviews, decisionTags, tags, actions, meetingDecisions, meetings, proposals, documentVersions, insights } from "@/db/schema";
 import { requireSpaceRole } from "@/lib/space";
-import { insertDecisionWithUniqueNumber, getDecisions } from "@/lib/queries";
+import { insertDecisionWithUniqueNumber, getDecisions, syncEntityTags } from "@/lib/queries";
 import { canAddDecision } from "@/lib/billing";
 import { fireWebhooks } from "@/lib/webhooks";
 import { logDeletion } from "@/lib/audit";
@@ -79,11 +79,7 @@ export async function createDecision(formData: FormData) {
       tx
     );
 
-    if (tagIds.length > 0) {
-      await tx.insert(decisionTags).values(
-        tagIds.map((tagId) => ({ decisionId: d.id, tagId }))
-      );
-    }
+    await syncEntityTags(tx, decisionTags, decisionTags.decisionId, "decisionId", d.id, tagIds);
 
     if (actionValues.length > 0) {
       await tx.insert(actions).values(
@@ -172,12 +168,7 @@ export async function updateDecision(decisionId: string, formData: FormData) {
       })
       .where(eq(decisions.id, decisionId));
 
-    await tx.delete(decisionTags).where(eq(decisionTags.decisionId, decisionId));
-    if (tagIds.length > 0) {
-      await tx.insert(decisionTags).values(
-        tagIds.map((tagId) => ({ decisionId, tagId }))
-      );
-    }
+    await syncEntityTags(tx, decisionTags, decisionTags.decisionId, "decisionId", decisionId, tagIds);
   });
 
   fireWebhooks(space.id, "decision.updated", {

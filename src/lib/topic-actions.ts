@@ -1,10 +1,12 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { eq, and } from "drizzle-orm";
 import { db } from "@/db";
-import { topics, proposals } from "@/db/schema";
+import { topics, topicTags, proposals } from "@/db/schema";
 import { requireSpaceRole } from "@/lib/space";
+import { syncEntityTags } from "@/lib/queries";
 import { logDeletion } from "@/lib/audit";
 
 export async function createTopic(formData: FormData) {
@@ -19,20 +21,48 @@ export async function createTopic(formData: FormData) {
   const type = formData.get("type") as string;
   if (!type) return { error: "Topic type is required" };
   const isPublic = formData.get("hideFromPublic") !== "on";
+  const tagIds = ((formData.get("tagIds") as string) || "").split(",").filter(Boolean);
 
-  const [topic] = await db
-    .insert(topics)
-    .values({
-      spaceId: space.id,
-      title,
-      description,
-      type: type as "question" | "tension" | "agenda_suggestion",
-      isPublic,
-      createdBy: user.id,
-    })
-    .returning({ id: topics.id });
+  const topicId = await db.transaction(async (tx) => {
+    const [topic] = await tx
+      .insert(topics)
+      .values({
+        spaceId: space.id,
+        title,
+        description,
+        type: type as "question" | "tension" | "agenda_suggestion",
+        isPublic,
+        createdBy: user.id,
+      })
+      .returning({ id: topics.id });
+    await syncEntityTags(tx, topicTags, topicTags.topicId, "topicId", topic.id, tagIds);
+    return topic.id;
+  });
 
-  redirect(`/topics/${topic.id}`);
+  redirect(`/topics/${topicId}`);
+}
+
+/** Replace a topic's tag set. Topics have no edit form, so this powers the
+ *  inline tag editor on the topic detail page. */
+export async function updateTopicTags(topicId: string, tagIds: string[]) {
+  const auth = await requireSpaceRole("member");
+  if ("error" in auth) return auth;
+  const { space } = auth;
+
+  const [owned] = await db
+    .select({ id: topics.id })
+    .from(topics)
+    .where(and(eq(topics.id, topicId), eq(topics.spaceId, space.id)))
+    .limit(1);
+  if (!owned) return { error: "Topic not found" };
+
+  await db.transaction(async (tx) => {
+    await syncEntityTags(tx, topicTags, topicTags.topicId, "topicId", topicId, tagIds);
+  });
+
+  revalidatePath(`/topics/${topicId}`);
+  revalidatePath("/topics");
+  return { success: true };
 }
 
 export async function promoteTopic(topicId: string) {

@@ -1,6 +1,6 @@
 import { getCurrentSpace } from "@/lib/space";
 import { isAiEnabled } from "@/lib/ai";
-import { getMeetingById, getSpaceMembers, getAvailableTopics, getProposals, getDecisionsList } from "@/lib/queries";
+import { getMeetingById, getSpaceMembers, getAvailableTopics, getProposals, getDecisionsList, getSpaceTags, getMeetingTagIds } from "@/lib/queries";
 import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { MeetingForm } from "../../meeting-form";
@@ -14,15 +14,19 @@ export default async function EditMeetingPage({
   const space = await getCurrentSpace();
   if (!space) return null;
 
-  const [meeting, members, topics, allProposals, decisions] = await Promise.all([
+  const [meeting, members, topics, allProposals, decisions, spaceTags, meetingTagIds] = await Promise.all([
     getMeetingById(space.id, id),
     getSpaceMembers(space.id),
     getAvailableTopics(space.id),
     getProposals(space.id),
     getDecisionsList(space.id),
+    getSpaceTags(space.id),
+    getMeetingTagIds(id),
   ]);
 
   if (!meeting) return notFound();
+
+  const tagOptions = spaceTags.map((t) => ({ id: t.id, name: t.name, color: t.color }));
 
   const agendaProposals = allProposals
     .filter((p) => p.status === "draft" || p.status === "open_for_discussion" || p.status === "ready_for_decision")
@@ -52,6 +56,7 @@ export default async function EditMeetingPage({
         decisions={decisions.map((d) => ({ id: d.id, number: d.number, title: d.title }))}
         publicEnabled={((space.settings as Record<string, unknown>) || {}).publicMeetings === true}
         aiEnabled={isAiEnabled(space.settings)}
+        tags={tagOptions}
         meeting={{
           id: meeting.id,
           title: meeting.title,
@@ -62,6 +67,7 @@ export default async function EditMeetingPage({
           isPublic: meeting.isPublic,
           facilitatorId: meeting.facilitatorId,
           attendeeIds: meeting.attendees.map((a) => a.id),
+          tagIds: meetingTagIds,
           agendaItems: meeting.agendaItems.map((a) => ({
             title: a.title,
             description: a.description || "",

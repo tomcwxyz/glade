@@ -1,11 +1,12 @@
 import { getCurrentSpace } from "@/lib/space";
-import { getTopicById, getActionsByTopic, getSpaceMembers } from "@/lib/queries";
+import { getTopicById, getActionsByTopic, getSpaceMembers, getSpaceTags, getTopicTagIds } from "@/lib/queries";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { Clock, HelpCircle, Zap, CalendarPlus } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { PromoteTopicButton } from "./promote-topic-button";
+import { TopicTags } from "./topic-tags";
 import { ActionList } from "@/components/action-list";
 import { AddAction } from "@/components/add-action";
 
@@ -27,13 +28,16 @@ export default async function TopicDetailPage({
   const topic = await getTopicById(space.id, id);
   if (!topic) notFound();
 
-  const [topicActions, members] = await Promise.all([
+  const [topicActions, members, spaceTags, topicTagIds] = await Promise.all([
     getActionsByTopic(topic.id),
     getSpaceMembers(space.id),
+    getSpaceTags(space.id),
+    getTopicTagIds(topic.id),
   ]);
   const ownerMembers = members
     .filter((m) => m.name)
     .map((m) => ({ id: m.userId, name: m.name as string }));
+  const tagOptions = spaceTags.map((t) => ({ id: t.id, name: t.name, color: t.color }));
 
   const config = TYPE_CONFIG[topic.type] || TYPE_CONFIG.question;
   const Icon = config.icon;
@@ -93,10 +97,17 @@ export default async function TopicDetailPage({
         </div>
       )}
 
+      {/* Tags */}
+      {tagOptions.length > 0 && (
+        <div className="mt-8">
+          <TopicTags topicId={topic.id} allTags={tagOptions} initialTagIds={topicTagIds} />
+        </div>
+      )}
+
       {/* Actions */}
       <div className="mt-8 space-y-4">
         <ActionList actions={topicActions} />
-        <AddAction parentType="topic" parentId={topic.id} members={ownerMembers} />
+        <AddAction parentType="topic" parentId={topic.id} members={ownerMembers} tags={tagOptions} />
       </div>
 
       {promoted && topic.promotedToProposalId && (

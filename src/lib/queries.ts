@@ -8,6 +8,10 @@ import {
   tags,
   actions,
   actionOwners,
+  actionTags,
+  topicTags,
+  documentTags,
+  meetingTags,
   meetings,
   meetingAgendaItems,
   meetingAttendees,
@@ -34,6 +38,7 @@ import {
   notifications,
 } from "@/db/schema";
 import { eq, and, or, desc, asc, count, sql, inArray, lt, isNull, notInArray, ilike } from "drizzle-orm";
+import type { PgColumn, PgTable } from "drizzle-orm/pg-core";
 import { deriveActionStatus } from "@/lib/utils";
 
 /**
@@ -250,8 +255,19 @@ export async function getDecisionByNumber(spaceId: string, number: number) {
 
 export async function getActions(
   spaceId: string,
-  opts: { limit?: number; offset?: number } = {}
+  opts: { limit?: number; offset?: number; tagId?: string } = {}
 ) {
+  // Optional tag filter: only actions carrying the given tag.
+  const tagFilter = opts.tagId
+    ? inArray(
+        actions.id,
+        db
+          .select({ id: actionTags.actionId })
+          .from(actionTags)
+          .where(eq(actionTags.tagId, opts.tagId))
+      )
+    : undefined;
+
   let q = db
     .select({
       id: actions.id,
@@ -272,7 +288,7 @@ export async function getActions(
     .leftJoin(decisions, eq(decisions.id, actions.decisionId))
     .leftJoin(topics, eq(topics.id, actions.topicId))
     .leftJoin(proposals, eq(proposals.id, actions.proposalId))
-    .where(eq(actions.spaceId, spaceId))
+    .where(and(eq(actions.spaceId, spaceId), tagFilter))
     .orderBy(desc(actions.createdAt))
     .$dynamic();
   if (opts.limit != null) q = q.limit(opts.limit);
@@ -282,7 +298,24 @@ export async function getActions(
   const parentless = rows
     .filter((r) => !r.decisionId && !r.topicId && !r.proposalId)
     .map((r) => r.id);
-  const meetingParents = await meetingParentMap(parentless);
+  const ids = rows.map((r) => r.id);
+  const [meetingParents, tagRows] = await Promise.all([
+    meetingParentMap(parentless),
+    ids.length > 0
+      ? db
+          .select({ actionId: actionTags.actionId, name: tags.name })
+          .from(actionTags)
+          .innerJoin(tags, eq(tags.id, actionTags.tagId))
+          .where(inArray(actionTags.actionId, ids))
+      : Promise.resolve([] as { actionId: string; name: string }[]),
+  ]);
+
+  const tagMap = new Map<string, string[]>();
+  for (const t of tagRows) {
+    const arr = tagMap.get(t.actionId) || [];
+    arr.push(t.name);
+    tagMap.set(t.actionId, arr);
+  }
 
   return withActionOwners(rows.map((r) => {
     let parentType: "decision" | "topic" | "proposal" = "decision";
@@ -321,6 +354,7 @@ export async function getActions(
       parentType,
       parentTitle,
       parentHref,
+      tags: tagMap.get(r.id) || [],
     };
   }));
 }
@@ -349,12 +383,22 @@ export async function getActionsByProposal(proposalId: string) {
 
 export async function getMeetings(
   spaceId: string,
-  opts: { limit?: number; offset?: number } = {}
+  opts: { limit?: number; offset?: number; tagId?: string } = {}
 ) {
+  const tagFilter = opts.tagId
+    ? inArray(
+        meetings.id,
+        db
+          .select({ id: meetingTags.meetingId })
+          .from(meetingTags)
+          .where(eq(meetingTags.tagId, opts.tagId))
+      )
+    : undefined;
+
   let mq = db
     .select()
     .from(meetings)
-    .where(eq(meetings.spaceId, spaceId))
+    .where(and(eq(meetings.spaceId, spaceId), tagFilter))
     .orderBy(desc(meetings.date))
     .$dynamic();
   if (opts.limit != null) mq = mq.limit(opts.limit);
@@ -364,7 +408,7 @@ export async function getMeetings(
   const ids = rows.map((m) => m.id);
   if (ids.length === 0) return [];
 
-  const [allAttendees, allDecisionCounts] = await Promise.all([
+  const [allAttendees, allDecisionCounts, tagRows] = await Promise.all([
     db
       .select({ meetingId: meetingAttendees.meetingId, name: users.name })
       .from(meetingAttendees)
@@ -375,6 +419,11 @@ export async function getMeetings(
       .from(meetingDecisions)
       .where(inArray(meetingDecisions.meetingId, ids))
       .groupBy(meetingDecisions.meetingId),
+    db
+      .select({ meetingId: meetingTags.meetingId, name: tags.name })
+      .from(meetingTags)
+      .innerJoin(tags, eq(tags.id, meetingTags.tagId))
+      .where(inArray(meetingTags.meetingId, ids)),
   ]);
 
   const attendeeMap = new Map<string, string[]>();
@@ -389,11 +438,27 @@ export async function getMeetings(
     decisionCountMap.set(d.meetingId, d.count);
   }
 
+  const tagMap = new Map<string, string[]>();
+  for (const t of tagRows) {
+    const arr = tagMap.get(t.meetingId) || [];
+    arr.push(t.name);
+    tagMap.set(t.meetingId, arr);
+  }
+
   return rows.map((m) => ({
     ...m,
     attendees: attendeeMap.get(m.id) || [],
     decisionsCount: decisionCountMap.get(m.id) || 0,
+    tags: tagMap.get(m.id) || [],
   }));
+}
+
+export async function getMeetingTagIds(meetingId: string) {
+  const rows = await db
+    .select({ tagId: meetingTags.tagId })
+    .from(meetingTags)
+    .where(eq(meetingTags.meetingId, meetingId));
+  return rows.map((r) => r.tagId);
 }
 
 export async function getMeetingById(spaceId: string, meetingId: string) {
@@ -786,6 +851,31 @@ function isDecisionNumberConflict(err: unknown): boolean {
 export type DbOrTx = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 /**
+ * Replace an entity's tag set on its join table (delete-then-insert). Shared by
+ * every entity that supports tags (decisions, proposals, actions, topics,
+ * documents, meetings) so the persistence lives in one place.
+ *
+ * `fkColumn` is the join table's entity FK column (for the delete filter);
+ * `fkKey` is the same column's JS property name (for the insert rows) — they
+ * differ (e.g. column `decision_id` vs key `decisionId`). Call inside a tx.
+ */
+export async function syncEntityTags(
+  tx: DbOrTx,
+  joinTable: PgTable,
+  fkColumn: PgColumn,
+  fkKey: string,
+  entityId: string,
+  tagIds: string[]
+) {
+  await tx.delete(joinTable).where(eq(fkColumn, entityId));
+  if (tagIds.length > 0) {
+    await tx
+      .insert(joinTable)
+      .values(tagIds.map((tagId) => ({ [fkKey]: entityId, tagId })) as never);
+  }
+}
+
+/**
  * Insert a decision with the next per-space number, retrying on the unique
  * (space_id, number) violation so concurrent creates can't fail or duplicate.
  * The unique index is the real guarantee; this just avoids a user-facing error.
@@ -847,8 +937,18 @@ export async function getSpaceMembers(spaceId: string) {
 
 export async function getDocuments(
   spaceId: string,
-  opts: { limit?: number; offset?: number } = {}
+  opts: { limit?: number; offset?: number; tagId?: string } = {}
 ) {
+  const tagFilter = opts.tagId
+    ? inArray(
+        documents.id,
+        db
+          .select({ id: documentTags.documentId })
+          .from(documentTags)
+          .where(eq(documentTags.tagId, opts.tagId))
+      )
+    : undefined;
+
   let q = db
     .select({
       id: documents.id,
@@ -861,12 +961,39 @@ export async function getDocuments(
     })
     .from(documents)
     .leftJoin(users, eq(users.id, documents.createdBy))
-    .where(eq(documents.spaceId, spaceId))
+    .where(and(eq(documents.spaceId, spaceId), tagFilter))
     .orderBy(desc(documents.updatedAt))
     .$dynamic();
   if (opts.limit != null) q = q.limit(opts.limit);
   if (opts.offset != null) q = q.offset(opts.offset);
-  return q;
+  const rows = await q;
+
+  const ids = rows.map((r) => r.id);
+  const tagRows =
+    ids.length > 0
+      ? await db
+          .select({ documentId: documentTags.documentId, name: tags.name })
+          .from(documentTags)
+          .innerJoin(tags, eq(tags.id, documentTags.tagId))
+          .where(inArray(documentTags.documentId, ids))
+      : [];
+
+  const tagMap = new Map<string, string[]>();
+  for (const t of tagRows) {
+    const arr = tagMap.get(t.documentId) || [];
+    arr.push(t.name);
+    tagMap.set(t.documentId, arr);
+  }
+
+  return rows.map((r) => ({ ...r, tags: tagMap.get(r.id) || [] }));
+}
+
+export async function getDocumentTagIds(documentId: string) {
+  const rows = await db
+    .select({ tagId: documentTags.tagId })
+    .from(documentTags)
+    .where(eq(documentTags.documentId, documentId));
+  return rows.map((r) => r.tagId);
 }
 
 export async function getDocumentById(spaceId: string, documentId: string) {
@@ -1108,8 +1235,18 @@ export async function getProposalById(spaceId: string, proposalId: string) {
 
 export async function getTopics(
   spaceId: string,
-  opts: { limit?: number; offset?: number } = {}
+  opts: { limit?: number; offset?: number; tagId?: string } = {}
 ) {
+  const tagFilter = opts.tagId
+    ? inArray(
+        topics.id,
+        db
+          .select({ id: topicTags.topicId })
+          .from(topicTags)
+          .where(eq(topicTags.tagId, opts.tagId))
+      )
+    : undefined;
+
   let q = db
     .select({
       id: topics.id,
@@ -1122,12 +1259,39 @@ export async function getTopics(
     })
     .from(topics)
     .leftJoin(users, eq(users.id, topics.createdBy))
-    .where(eq(topics.spaceId, spaceId))
+    .where(and(eq(topics.spaceId, spaceId), tagFilter))
     .orderBy(desc(topics.createdAt))
     .$dynamic();
   if (opts.limit != null) q = q.limit(opts.limit);
   if (opts.offset != null) q = q.offset(opts.offset);
-  return q;
+  const rows = await q;
+
+  const ids = rows.map((r) => r.id);
+  const tagRows =
+    ids.length > 0
+      ? await db
+          .select({ topicId: topicTags.topicId, name: tags.name })
+          .from(topicTags)
+          .innerJoin(tags, eq(tags.id, topicTags.tagId))
+          .where(inArray(topicTags.topicId, ids))
+      : [];
+
+  const tagMap = new Map<string, string[]>();
+  for (const t of tagRows) {
+    const arr = tagMap.get(t.topicId) || [];
+    arr.push(t.name);
+    tagMap.set(t.topicId, arr);
+  }
+
+  return rows.map((r) => ({ ...r, tags: tagMap.get(r.id) || [] }));
+}
+
+export async function getTopicTagIds(topicId: string) {
+  const rows = await db
+    .select({ tagId: topicTags.tagId })
+    .from(topicTags)
+    .where(eq(topicTags.topicId, topicId));
+  return rows.map((r) => r.tagId);
 }
 
 // ============================================================

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { getCurrentSpace, requireUser } from "@/lib/space";
-import { getActions, getDecisionsList, getTopics, getProposals, getSpaceMembers } from "@/lib/queries";
-import { formatDate } from "@/lib/utils";
+import { getActions, getDecisionsList, getTopics, getProposals, getSpaceMembers, getSpaceTags } from "@/lib/queries";
+import { formatDate, tagDotClass } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Actions" };
 import { CheckCircle2, Circle, Clock, ListChecks, TriangleAlert } from "lucide-react";
@@ -9,6 +9,7 @@ import Link from "next/link";
 import { EmptyState } from "@/components/empty-state";
 import { ActionToggle } from "./action-toggle";
 import { ActionVisibilityToggle } from "./action-visibility";
+import { EditAction } from "@/components/edit-action";
 import { AddActionWithParent } from "@/components/add-action-with-parent";
 import { Pagination, PAGE_SIZE, parsePage } from "@/components/pagination";
 
@@ -22,23 +23,29 @@ const STATUS_CONFIG = {
 export default async function ActionsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string }>;
+  searchParams: Promise<{ page?: string; tag?: string }>;
 }) {
   const space = await getCurrentSpace();
   if (!space) return null;
   const user = await requireUser();
 
-  const page = parsePage((await searchParams).page);
+  const sp = await searchParams;
+  const page = parsePage(sp.page);
   const offset = (page - 1) * PAGE_SIZE;
+
+  const spaceTags = await getSpaceTags(space.id);
+  const activeTag = sp.tag && spaceTags.some((t) => t.id === sp.tag) ? sp.tag : undefined;
 
   // getActions paginated; the topic/proposal picker calls stay unbounded.
   const [actionsPage, allDecisions, allTopics, allProposals, members] = await Promise.all([
-    getActions(space.id, { limit: PAGE_SIZE + 1, offset }),
+    getActions(space.id, { limit: PAGE_SIZE + 1, offset, tagId: activeTag }),
     getDecisionsList(space.id),
     getTopics(space.id),
     getProposals(space.id),
     getSpaceMembers(space.id),
   ]);
+
+  const tagOptions = spaceTags.map((t) => ({ id: t.id, name: t.name, color: t.color }));
 
   const hasMore = actionsPage.length > PAGE_SIZE;
   const actions = actionsPage.slice(0, PAGE_SIZE);
@@ -69,7 +76,7 @@ export default async function ActionsPage({
     .filter((m) => m.name)
     .map((m) => ({ id: m.userId, name: m.name as string }));
 
-  if (actions.length === 0) {
+  if (actions.length === 0 && !activeTag) {
     return (
       <div className="max-w-4xl mx-auto px-4 sm:px-8 py-6 sm:py-10">
         <header className="mb-10">
@@ -85,7 +92,7 @@ export default async function ActionsPage({
             <p className="text-bark-muted text-sm">
               No actions yet. Add one to a decision, topic, or proposal.
             </p>
-            <AddActionWithParent parents={parents} members={ownerMembers} />
+            <AddActionWithParent parents={parents} members={ownerMembers} tags={tagOptions} />
           </div>
         ) : (
           <EmptyState
@@ -120,6 +127,47 @@ export default async function ActionsPage({
         </p>
       </header>
 
+      {/* Tag filter */}
+      {spaceTags.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 mb-8">
+          <Link
+            href="/actions"
+            className={`px-3 py-1.5 text-xs rounded-lg border transition-colors ${
+              !activeTag
+                ? "bg-canopy-pale text-canopy border-canopy/30 font-medium"
+                : "bg-paper-warm text-bark-muted border-border hover:text-bark hover:border-canopy/30"
+            }`}
+          >
+            All
+          </Link>
+          {spaceTags.map((tag) => {
+            const isActive = activeTag === tag.id;
+            return (
+              <Link
+                key={tag.id}
+                href={isActive ? "/actions" : `/actions?tag=${tag.id}`}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-colors ${
+                  isActive
+                    ? "bg-canopy-pale text-canopy border-canopy/30 font-medium"
+                    : "bg-paper-warm text-bark-muted border-border hover:text-bark hover:border-canopy/30"
+                }`}
+              >
+                <span className={`w-2 h-2 rounded-full shrink-0 ${tagDotClass(tag.color)}`} />
+                {tag.name}
+              </Link>
+            );
+          })}
+        </div>
+      )}
+
+      {actions.length === 0 ? (
+        <p className="text-bark-muted text-sm py-8 text-center">
+          No actions with this tag.{" "}
+          <Link href="/actions" className="text-canopy hover:text-canopy-light">
+            Clear filter
+          </Link>
+        </p>
+      ) : (
       <div className="space-y-1">
         {sorted.map((action) => {
           const config = STATUS_CONFIG[action.status];
@@ -155,20 +203,41 @@ export default async function ActionsPage({
                     {config.label}
                   </span>
                 </div>
+                {action.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mt-1.5">
+                    {action.tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="text-[0.6875rem] px-1.5 py-0.5 rounded bg-paper-deep text-bark-muted"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
               {canEdit && (
-                <ActionVisibilityToggle actionId={action.id} isPublic={action.isPublic} />
+                <div className="flex items-center gap-3 pt-0.5">
+                  <EditAction actionId={action.id} members={ownerMembers} tags={tagOptions} />
+                  <ActionVisibilityToggle actionId={action.id} isPublic={action.isPublic} />
+                </div>
               )}
             </div>
           );
         })}
       </div>
+      )}
 
-      <Pagination page={page} hasMore={hasMore} basePath="/actions" />
+      <Pagination
+        page={page}
+        hasMore={hasMore}
+        basePath="/actions"
+        params={{ tag: activeTag }}
+      />
 
       {parents.length > 0 && (
         <div className="mt-8">
-          <AddActionWithParent parents={parents} members={ownerMembers} />
+          <AddActionWithParent parents={parents} members={ownerMembers} tags={tagOptions} />
         </div>
       )}
     </div>

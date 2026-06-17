@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 import { getCurrentSpace } from "@/lib/space";
-import { getDocuments, getActiveInsights } from "@/lib/queries";
+import { getDocuments, getActiveInsights, getSpaceTags } from "@/lib/queries";
 
 export const metadata: Metadata = { title: "Documents" };
 import { isAiEnabled } from "@/lib/ai";
 import { Plus, FileText } from "lucide-react";
 import Link from "next/link";
-import { formatDateRelative } from "@/lib/utils";
+import { formatDateRelative, tagDotClass } from "@/lib/utils";
 import { StaleDocumentChecker } from "./stale-document-checker";
 import { Pagination, PAGE_SIZE, parsePage } from "@/components/pagination";
 
@@ -22,14 +22,17 @@ const TYPE_LABELS: Record<string, string> = {
 export default async function DocumentsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string }>;
+  searchParams: Promise<{ page?: string; tag?: string }>;
 }) {
   const space = await getCurrentSpace();
   if (!space) return null;
   const aiEnabled = isAiEnabled(space.settings);
-  const page = parsePage((await searchParams).page);
+  const sp = await searchParams;
+  const page = parsePage(sp.page);
   const offset = (page - 1) * PAGE_SIZE;
-  const fetchedDocs = await getDocuments(space.id, { limit: PAGE_SIZE + 1, offset });
+  const spaceTags = await getSpaceTags(space.id);
+  const activeTag = sp.tag && spaceTags.some((t) => t.id === sp.tag) ? sp.tag : undefined;
+  const fetchedDocs = await getDocuments(space.id, { limit: PAGE_SIZE + 1, offset, tagId: activeTag });
   const hasMore = fetchedDocs.length > PAGE_SIZE;
   const allDocuments = fetchedDocs.slice(0, PAGE_SIZE);
   const staleInsights = aiEnabled
@@ -95,12 +98,53 @@ export default async function DocumentsPage({
         />
       )}
 
+      {/* Tag filter */}
+      {spaceTags.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 mb-8">
+          <Link
+            href="/documents"
+            className={`px-3 py-1.5 text-xs rounded-lg border transition-colors ${
+              !activeTag
+                ? "bg-canopy-pale text-canopy border-canopy/30 font-medium"
+                : "bg-paper-warm text-bark-muted border-border hover:text-bark hover:border-canopy/30"
+            }`}
+          >
+            All
+          </Link>
+          {spaceTags.map((tag) => {
+            const isActive = activeTag === tag.id;
+            return (
+              <Link
+                key={tag.id}
+                href={isActive ? "/documents" : `/documents?tag=${tag.id}`}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-colors ${
+                  isActive
+                    ? "bg-canopy-pale text-canopy border-canopy/30 font-medium"
+                    : "bg-paper-warm text-bark-muted border-border hover:text-bark hover:border-canopy/30"
+                }`}
+              >
+                <span className={`w-2 h-2 rounded-full shrink-0 ${tagDotClass(tag.color)}`} />
+                {tag.name}
+              </Link>
+            );
+          })}
+        </div>
+      )}
+
       {allDocuments.length === 0 ? (
         <div className="text-center py-16">
           <FileText size={40} className="mx-auto mb-4 text-bark-muted/30" />
-          <p className="text-bark-muted mb-2">No documents yet</p>
+          <p className="text-bark-muted mb-2">
+            {activeTag ? "No documents with this tag" : "No documents yet"}
+          </p>
           <p className="text-sm text-bark-muted/70">
-            Create your first governance document to get started.
+            {activeTag ? (
+              <Link href="/documents" className="text-canopy hover:text-canopy-light">
+                Clear filter
+              </Link>
+            ) : (
+              "Create your first governance document to get started."
+            )}
           </p>
         </div>
       ) : (
@@ -139,6 +183,18 @@ export default async function DocumentsPage({
                           v{doc.currentVersion}
                           {doc.createdByName && ` · ${doc.createdByName}`}
                         </div>
+                        {doc.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 mt-1.5">
+                            {doc.tags.map((tag) => (
+                              <span
+                                key={tag}
+                                className="text-[0.6875rem] px-1.5 py-0.5 rounded bg-paper-deep text-bark-muted"
+                              >
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
                       <span className="text-xs text-bark-muted/60 shrink-0">
                         {formatDateRelative(doc.updatedAt.toISOString())}
@@ -152,7 +208,7 @@ export default async function DocumentsPage({
         </div>
       )}
 
-      <Pagination page={page} hasMore={hasMore} basePath="/documents" />
+      <Pagination page={page} hasMore={hasMore} basePath="/documents" params={{ tag: activeTag }} />
     </div>
   );
 }

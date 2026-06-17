@@ -9,6 +9,7 @@ import Link from "next/link";
 import type { JSONContent } from "@tiptap/react";
 import { markdownToTiptap } from "@/lib/tiptap-utils";
 import { FormError } from "@/components/form-error";
+import { TagPicker, type TagOption } from "@/components/tag-picker";
 
 const TYPES = [
   { value: "constitution", label: "Constitution" },
@@ -27,6 +28,7 @@ interface DocumentData {
   draftContent?: JSONContent | null;
   updatedAt?: string;
   isPublic: boolean;
+  tagIds?: string[];
 }
 
 
@@ -58,11 +60,26 @@ function SaveStatusIndicator({ status }: { status: SaveStatus }) {
   );
 }
 
-export function DocumentForm({ document, publicEnabled }: { document?: DocumentData; publicEnabled?: boolean }) {
+export function DocumentForm({
+  document,
+  publicEnabled,
+  tags = [],
+}: {
+  document?: DocumentData;
+  publicEnabled?: boolean;
+  tags?: TagOption[];
+}) {
   const isEditing = !!document;
   const hasDraft = !!document?.draftContent;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedTags, setSelectedTags] = useState<string[]>(document?.tagIds || []);
+
+  function toggleTag(id: string) {
+    setSelectedTags((prev) =>
+      prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id]
+    );
+  }
   // Load the autosave draft if present, else the published content.
   const [content, setContent] = useState<JSONContent | null>(
     document?.draftContent ?? document?.content ?? null
@@ -228,6 +245,16 @@ export function DocumentForm({ document, publicEnabled }: { document?: DocumentD
             placeholder="Start writing your document…"
           />
         </div>
+
+        {/* Tags */}
+        <TagPicker
+          tags={tags}
+          selectedIds={selectedTags}
+          onToggle={toggleTag}
+          name="tagIds"
+          entityLabel="documents"
+          id="document-tags"
+        />
 
         {publicEnabled && (
           <div className="flex items-center gap-3">
