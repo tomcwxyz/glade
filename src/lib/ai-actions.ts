@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, desc } from "drizzle-orm";
 import { db } from "@/db";
 import { insights, decisions, documents } from "@/db/schema";
 import { requireSpaceRole } from "@/lib/space";
@@ -674,11 +674,29 @@ export async function generateGovernanceDigest() {
     }))
   );
 
+  // Most recent prior digest, so the AI can compare this period against it.
+  const [prevDigest] = await db
+    .select({ content: insights.content, createdAt: insights.createdAt })
+    .from(insights)
+    .where(
+      and(
+        eq(insights.spaceId, space.id),
+        eq(insights.type, "briefing"),
+        sql`${insights.metadata}->>'subtype' = 'digest'`
+      )
+    )
+    .orderBy(desc(insights.createdAt))
+    .limit(1);
+
+  const previousDigest = prevDigest
+    ? { content: capInput(prevDigest.content, 4000), date: prevDigest.createdAt.toISOString().split("T")[0] }
+    : null;
+
   let response: string;
   try {
     response = await generateText(
       SYSTEM_PROMPT,
-      governanceDigestPrompt(capInput(decisionsJson), capInput(actionsJson), capInput(docsJson)),
+      governanceDigestPrompt(capInput(decisionsJson), capInput(actionsJson), capInput(docsJson), previousDigest),
       { maxTokens: 3000 }
     );
   } catch (e) {
