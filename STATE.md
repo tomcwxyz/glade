@@ -271,6 +271,17 @@ Branch `tranche-4d-ai` (off `main`). Four phases, all build/lint clean, commit p
 
 No new dependencies, no migration. All AI features remain gated on `ANTHROPIC_API_KEY` + the per-space AI toggle.
 
+Also landed on this branch (4d P5): dashboard AI UI — notification dropdown popup fixed (opens right, not off-screen-left); shared `<MarkdownContent>` (react-markdown + remark-gfm) with proper tables, replacing 3 duplicated hand-rolled renderers; AI panels moved out of the cramped 320px rail into a full-width band. New deps: `react-markdown`, `remark-gfm`.
+
+## Insights Hub (2026-06-17)
+
+Branch `tranche-4f-insights` (off `main`, after 4d). Four phases, build/lint clean, commit per phase. No migration (everything rides on the `insights.metadata` jsonb + `createdAt`).
+
+- **P1 — Hub + history backbone:** new `/insights` page (Patterns · Digest archive · Member briefings), gated on plan + per-space AI toggle. Shared `<InsightArchive>` (digest + briefing) with generate, per-item dismiss, collapsible `<details>` entries via `<MarkdownContent>`. Digests + briefings made **append-only** (dropped the delete-old blocks) so history accumulates. New sidebar "Insights" entry. Dashboard band slimmed to teasers (Q&A stays inline; Patterns/Digest/Briefing link into the hub). Removed orphaned `GovernanceDigest`/`MemberBriefing` components.
+- **P2 — Visual + actionable patterns:** `analysePatterns` enriched with `category` (7-way enum), `signal` (positive/watch/concern), `suggestedAction` (stored in metadata). `InsightsPanel` rebuilt as a responsive card grid: category icon+label, signal-coloured left accent, suggested next-step callout, related-decision chip. Graceful defaults for pre-P2 insights. Component moved into `insights/`.
+- **P3 — Digest comparison:** `generateGovernanceDigest` feeds the most recent prior digest (capped) into the prompt; `governanceDigestPrompt` adds a leading "Since last digest" comparison section when a prior exists.
+- **P4 — Downloads:** reusable `<DownloadButton>` (client blob → `.md`, zero-dep) in each archive entry's header row. PDF deferred as a fast-follow.
+
 ## Known Issues
 
 - **Deployment:** app is **live** (per owner) — set `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` in Vercel for rate limiting (fails open without them). Earlier "deploy pending" notes in PLAN/CLAUDE are stale.
