@@ -15,6 +15,18 @@ Glade offers four ways to sign in:
 
 New users can sign up from the sign-in page. Once signed in, you'll land on the dashboard.
 
+If you request a magic link, you'll see a confirmation page asking you to check your inbox — the email contains a one-click sign-in link.
+
+### Forgotten your password?
+
+Click **Forgot password?** on the sign-in page and enter your email address. You'll receive an email with a secure link to set a new password. The link expires after a short time, so use it promptly — you can always request another.
+
+You can also change your password while signed in, from the **Your Account** section on the Settings page (you'll be asked for your current password first).
+
+### Signing out
+
+Click **Sign out** in the sidebar. A confirmation dialog appears so you don't sign out by accident.
+
 ---
 
 ## Spaces
@@ -384,6 +396,10 @@ Access settings from the sidebar. Editing is restricted to admins.
 - Space name and description
 - Restart the onboarding walkthrough
 
+### Your Account
+
+- Change your password — enter your current password, then choose a new one
+
 ### Plan and billing
 
 - View your current plan (Seedling, Canopy, or Old Growth) and usage
@@ -427,7 +443,7 @@ The Settings page includes an audit log showing all deletions across the space �
 
 Manage your space's members from the **Members** page in the sidebar.
 
-- **Invite** new members by email
+- **Invite** new members by email — if they already have a Glade account, they're added to your space straight away; if not, they receive an invitation email with a sign-up link and join your space automatically when they sign up
 - **Assign roles** — Admin, Member, or Observer
 - **Remove** members who have left
 
