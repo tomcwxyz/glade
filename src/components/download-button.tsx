@@ -1,5 +1,6 @@
 "use client";
 
+import type { MouseEvent } from "react";
 import { Download } from "lucide-react";
 
 /**
@@ -19,7 +20,10 @@ export function DownloadButton({
   mimeType?: string;
   className?: string;
 }) {
-  function handleDownload() {
+  function handleDownload(event: MouseEvent) {
+    // Stop the click from toggling a parent <details> / triggering row clicks.
+    event.preventDefault();
+    event.stopPropagation();
     const blob = new Blob([content], { type: mimeType });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");

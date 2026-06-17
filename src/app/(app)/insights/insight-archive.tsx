@@ -120,27 +120,27 @@ export function InsightArchive({
                     )}
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    handleDismiss(item.id);
-                  }}
-                  className="text-bark-muted hover:text-earth opacity-0 group-hover:opacity-100 transition-all shrink-0"
-                  title="Remove from archive"
-                  aria-label={`Remove ${item.title} from archive`}
-                >
-                  <X size={14} />
-                </button>
-              </summary>
-              <div className="px-4 pb-4 pt-3 border-t border-border">
-                <div className="flex justify-end mb-2">
+                <div className="flex items-center gap-3 shrink-0">
                   <DownloadButton
                     content={item.content}
                     filename={`${config.fileSlug}-${item.createdAt.split("T")[0]}.md`}
-                    label="Download .md"
+                    label="Download"
                   />
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handleDismiss(item.id);
+                    }}
+                    className="text-bark-muted hover:text-earth opacity-0 group-hover:opacity-100 transition-all"
+                    title="Remove from archive"
+                    aria-label={`Remove ${item.title} from archive`}
+                  >
+                    <X size={14} />
+                  </button>
                 </div>
+              </summary>
+              <div className="px-4 pb-4 pt-3 border-t border-border">
                 <MarkdownContent content={item.content} />
               </div>
             </details>
