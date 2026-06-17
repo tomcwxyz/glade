@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { eq, and } from "drizzle-orm";
 import { db } from "@/db";
 import { proposals, proposalComments, proposalReferences, proposalTags } from "@/db/schema";
-import { insertDecisionWithUniqueNumber } from "@/lib/queries";
+import { insertDecisionWithUniqueNumber, syncEntityTags } from "@/lib/queries";
 import { requireUser, requireSpaceRole } from "@/lib/space";
 import { logDeletion } from "@/lib/audit";
 
@@ -40,11 +40,7 @@ export async function createProposal(formData: FormData) {
       })
       .returning({ id: proposals.id });
 
-    if (tagIds.length > 0) {
-      await tx.insert(proposalTags).values(
-        tagIds.map((tagId) => ({ proposalId: p.id, tagId }))
-      );
-    }
+    await syncEntityTags(tx, proposalTags, proposalTags.proposalId, "proposalId", p.id, tagIds);
     return p;
   });
 
@@ -87,13 +83,7 @@ export async function updateProposal(proposalId: string, formData: FormData) {
       })
       .where(eq(proposals.id, proposalId));
 
-    // Replace the tag set (delete-then-reinsert).
-    await tx.delete(proposalTags).where(eq(proposalTags.proposalId, proposalId));
-    if (tagIds.length > 0) {
-      await tx.insert(proposalTags).values(
-        tagIds.map((tagId) => ({ proposalId, tagId }))
-      );
-    }
+    await syncEntityTags(tx, proposalTags, proposalTags.proposalId, "proposalId", proposalId, tagIds);
   });
 
   redirect(`/proposals/${proposalId}`);

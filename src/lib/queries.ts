@@ -34,6 +34,7 @@ import {
   notifications,
 } from "@/db/schema";
 import { eq, and, or, desc, asc, count, sql, inArray, lt, isNull, notInArray, ilike } from "drizzle-orm";
+import type { PgColumn, PgTable } from "drizzle-orm/pg-core";
 import { deriveActionStatus } from "@/lib/utils";
 
 /**
@@ -784,6 +785,31 @@ function isDecisionNumberConflict(err: unknown): boolean {
 
 /** Either the top-level db or a transaction handle from db.transaction(). */
 export type DbOrTx = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+/**
+ * Replace an entity's tag set on its join table (delete-then-insert). Shared by
+ * every entity that supports tags (decisions, proposals, actions, topics,
+ * documents, meetings) so the persistence lives in one place.
+ *
+ * `fkColumn` is the join table's entity FK column (for the delete filter);
+ * `fkKey` is the same column's JS property name (for the insert rows) — they
+ * differ (e.g. column `decision_id` vs key `decisionId`). Call inside a tx.
+ */
+export async function syncEntityTags(
+  tx: DbOrTx,
+  joinTable: PgTable,
+  fkColumn: PgColumn,
+  fkKey: string,
+  entityId: string,
+  tagIds: string[]
+) {
+  await tx.delete(joinTable).where(eq(fkColumn, entityId));
+  if (tagIds.length > 0) {
+    await tx
+      .insert(joinTable)
+      .values(tagIds.map((tagId) => ({ [fkKey]: entityId, tagId })) as never);
+  }
+}
 
 /**
  * Insert a decision with the next per-space number, retrying on the unique

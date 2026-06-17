@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { createProposal, updateProposal } from "@/lib/proposal-actions";
-import { inputClass, textareaClass, tagDotClass } from "@/lib/utils";
+import { inputClass, textareaClass } from "@/lib/utils";
+import { TagPicker } from "@/components/tag-picker";
 import { EyeOff, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { FormError } from "@/components/form-error";
@@ -142,42 +143,13 @@ export function ProposalForm({
         </div>
 
         {/* Tags */}
-        <div>
-          <label htmlFor="proposal-tags" className="block text-sm font-medium text-bark mb-1.5">
-            Tags <span className="font-normal text-bark-muted">(optional)</span>
-          </label>
-          {tags.length > 0 ? (
-            <div id="proposal-tags" className="flex flex-wrap gap-2">
-              {tags.map((tag) => {
-                const isSelected = selectedTags.includes(tag.id);
-                return (
-                  <button
-                    key={tag.id}
-                    type="button"
-                    onClick={() => toggleTag(tag.id)}
-                    aria-pressed={isSelected}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
-                      isSelected
-                        ? "bg-canopy-pale text-canopy border-canopy/30"
-                        : "bg-paper-warm text-bark-muted border-border hover:border-canopy/30 hover:text-bark"
-                    }`}
-                  >
-                    <span className={`w-2 h-2 rounded-full shrink-0 ${tagDotClass(tag.color)}`} />
-                    {tag.name}
-                  </button>
-                );
-              })}
-            </div>
-          ) : (
-            <p id="proposal-tags" className="text-sm text-bark-muted">
-              No tags yet.{" "}
-              <Link href="/settings" className="text-canopy hover:text-canopy-light underline">
-                Create tags in Settings
-              </Link>{" "}
-              to group proposals by theme.
-            </p>
-          )}
-        </div>
+        <TagPicker
+          tags={tags}
+          selectedIds={selectedTags}
+          onToggle={toggleTag}
+          entityLabel="proposals"
+          id="proposal-tags"
+        />
 
         {/* Public visibility */}
         {publicEnabled && (
