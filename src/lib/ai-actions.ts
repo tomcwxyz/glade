@@ -188,6 +188,7 @@ export async function dismissInsight(insightId: string) {
     .where(and(eq(insights.id, insightId), eq(insights.spaceId, space.id)));
 
   revalidatePath("/dashboard");
+  revalidatePath("/insights");
 }
 
 export async function analysePatterns() {
@@ -256,6 +257,7 @@ export async function analysePatterns() {
   }
 
   revalidatePath("/dashboard");
+  revalidatePath("/insights");
   return { success: true };
 }
 
@@ -458,16 +460,7 @@ export async function generateMemberBriefing() {
     return aiError(e);
   }
 
-  // Remove old briefing
-  const old = await db
-    .select({ id: insights.id })
-    .from(insights)
-    .where(and(eq(insights.spaceId, space.id), eq(insights.type, "briefing")));
-
-  for (const o of old) {
-    await db.delete(insights).where(eq(insights.id, o.id));
-  }
-
+  // Append-only: keep prior briefings so the Insights hub can show a history.
   await db.insert(insights).values({
     spaceId: space.id,
     type: "briefing",
@@ -477,6 +470,7 @@ export async function generateMemberBriefing() {
   });
 
   revalidatePath("/dashboard");
+  revalidatePath("/insights");
   return { content: response };
 }
 
@@ -677,22 +671,7 @@ export async function generateGovernanceDigest() {
     return aiError(e);
   }
 
-  // Remove old digest insights
-  const oldInsights = await db
-    .select({ id: insights.id })
-    .from(insights)
-    .where(
-      and(
-        eq(insights.spaceId, space.id),
-        eq(insights.type, "briefing"),
-        sql`${insights.metadata}->>'subtype' = 'digest'`
-      )
-    );
-
-  for (const old of oldInsights) {
-    await db.delete(insights).where(eq(insights.id, old.id));
-  }
-
+  // Append-only: keep prior digests so they form a browsable archive.
   await db.insert(insights).values({
     spaceId: space.id,
     type: "briefing",
@@ -703,6 +682,7 @@ export async function generateGovernanceDigest() {
   });
 
   revalidatePath("/dashboard");
+  revalidatePath("/insights");
   return { content: response };
 }
 

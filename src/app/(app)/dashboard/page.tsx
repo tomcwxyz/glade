@@ -19,16 +19,14 @@ import {
   Circle,
   Clock,
   ListChecks,
+  Newspaper,
   Sparkles,
   TreePine,
   TriangleAlert,
   Users,
 } from "lucide-react";
 import Link from "next/link";
-import { InsightsPanel } from "./insights-panel";
 import { GovernanceQa } from "./governance-qa";
-import { MemberBriefing } from "./member-briefing";
-import { GovernanceDigest } from "./governance-digest";
 
 const METHOD_LABELS: Record<string, string> = {
   consent: "Consent",
@@ -127,20 +125,8 @@ export default async function DashboardPage() {
     .filter((d) => d.reviewDate && new Date(d.reviewDate).getTime() > reviewCutoff)
     .slice(0, 3);
 
-  // Build decision lookup for insights
-  const relatedDecisions: Record<string, { number: number; title: string }> = {};
-  for (const insight of activeInsights) {
-    if (insight.relatedDecisionId) {
-      const dec = allDecisions.find((d) => d.id === insight.relatedDecisionId);
-      if (dec) {
-        relatedDecisions[insight.relatedDecisionId] = {
-          number: dec.number,
-          title: dec.title,
-        };
-      }
-    }
-  }
-
+  // Compact teaser figures for the Insights hub link (full content lives on /insights).
+  const patternCount = activeInsights.filter((i) => i.type === "pattern").length;
   const briefingInsight = activeInsights.find(
     (i) => i.type === "briefing" && (i.metadata as Record<string, unknown> | null)?.subtype !== "digest"
   );
@@ -566,44 +552,74 @@ export default async function DashboardPage() {
         </section>
       )}
 
-      {/* Governance intelligence — full-width AI band.
-          Lengthy, document-like AI output (briefings, digests, tables) needs
-          room the 320px rail can't give it. Kept as a self-contained section so
-          it can later be lifted onto a dedicated /insights page if needed. */}
+      {/* Governance intelligence — quick Q&A stays here; the lengthy, document-like
+          AI output (patterns, digests, briefings) lives on the /insights hub. */}
       {aiEnabled && (
         <section className="mt-14 pt-10 border-t border-border">
-          <h2
-            className="text-xl font-medium tracking-tight mb-8 flex items-center gap-2"
-            style={{ fontFamily: "var(--font-display)" }}
-          >
-            <Sparkles size={18} className="text-canopy" />
-            Governance intelligence
-          </h2>
+          <div className="flex items-center justify-between mb-8">
+            <h2
+              className="text-xl font-medium tracking-tight flex items-center gap-2"
+              style={{ fontFamily: "var(--font-display)" }}
+            >
+              <Sparkles size={18} className="text-canopy" />
+              Governance intelligence
+            </h2>
+            <Link
+              href="/insights"
+              className="text-sm text-canopy hover:text-canopy-light flex items-center gap-1 transition-colors"
+            >
+              Open Insights <ArrowRight size={14} />
+            </Link>
+          </div>
 
-          <div className="space-y-12">
-            <InsightsPanel
-              insights={activeInsights.map((i) => ({
-                ...i,
-                createdAt: i.createdAt.toISOString(),
-              }))}
-              relatedDecisions={relatedDecisions}
-            />
+          <GovernanceQa />
 
-            <GovernanceQa />
+          {/* Teasers into the hub */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-8">
+            <Link
+              href="/insights"
+              className="group border border-border rounded-xl bg-paper-warm px-4 py-4 hover:bg-paper-deep/40 transition-colors"
+            >
+              <div className="flex items-center gap-2 text-bark-muted mb-2">
+                <Sparkles size={15} className="text-canopy" />
+                <span className="text-xs font-medium">Patterns</span>
+              </div>
+              <p className="text-sm text-bark">
+                {patternCount > 0
+                  ? `${patternCount} insight${patternCount === 1 ? "" : "s"}`
+                  : "Not analysed yet"}
+              </p>
+            </Link>
 
-            <GovernanceDigest
-              existing={digestInsight ? {
-                id: digestInsight.id,
-                content: digestInsight.content,
-              } : null}
-            />
+            <Link
+              href="/insights"
+              className="group border border-border rounded-xl bg-paper-warm px-4 py-4 hover:bg-paper-deep/40 transition-colors"
+            >
+              <div className="flex items-center gap-2 text-bark-muted mb-2">
+                <Newspaper size={15} />
+                <span className="text-xs font-medium">Monthly digest</span>
+              </div>
+              <p className="text-sm text-bark">
+                {digestInsight
+                  ? `Latest ${formatDate(digestInsight.createdAt.toISOString())}`
+                  : "Not generated yet"}
+              </p>
+            </Link>
 
-            <MemberBriefing
-              existing={briefingInsight ? {
-                id: briefingInsight.id,
-                content: briefingInsight.content,
-              } : null}
-            />
+            <Link
+              href="/insights"
+              className="group border border-border rounded-xl bg-paper-warm px-4 py-4 hover:bg-paper-deep/40 transition-colors"
+            >
+              <div className="flex items-center gap-2 text-bark-muted mb-2">
+                <Users size={15} />
+                <span className="text-xs font-medium">Member briefing</span>
+              </div>
+              <p className="text-sm text-bark">
+                {briefingInsight
+                  ? `Latest ${formatDate(briefingInsight.createdAt.toISOString())}`
+                  : "Not generated yet"}
+              </p>
+            </Link>
           </div>
         </section>
       )}
