@@ -18,6 +18,7 @@ import {
   governanceDigestPrompt,
   governanceQaPrompt,
   agendaDraftPrompt,
+  tagSuggestionPrompt,
   transcriptExtractionPrompt,
 } from "@/lib/ai-prompts";
 import { getDecisions, getDocuments, getDecisionByNumber, getActions, getDocumentById, getMeetingById, getProposals, getAvailableTopics, getDecisionsList, getSpaceTags } from "@/lib/queries";
@@ -703,6 +704,53 @@ export async function generateGovernanceDigest() {
 
   revalidatePath("/dashboard");
   return { content: response };
+}
+
+export async function suggestDecisionTags(
+  title: string,
+  description: string,
+  rationale: string
+) {
+  const { error, space } = await checkAiEnabled();
+  if (error || !space) return { error: error || "No space" };
+
+  const tags = await getSpaceTags(space.id);
+  if (tags.length === 0) {
+    return { error: "No tags to suggest from. Create tags in Settings first." };
+  }
+
+  const decisionText = [title, description, rationale]
+    .map((s) => (s || "").trim())
+    .filter(Boolean)
+    .join("\n\n");
+  if (!decisionText) return { error: "Add a title or description first." };
+
+  const tagNames = tags.map((t) => t.name);
+  // Dynamic per-space schema: the model may only return existing tag names.
+  const schema = {
+    type: "object",
+    additionalProperties: false,
+    required: ["tags"],
+    properties: {
+      tags: { type: "array", items: { type: "string", enum: tagNames } },
+    },
+  };
+
+  try {
+    const result = await generateStructured<{ tags: string[] }>(
+      SYSTEM_PROMPT,
+      tagSuggestionPrompt(capInput(decisionText, 4000), JSON.stringify(tagNames)),
+      schema,
+      { maxTokens: 512 }
+    );
+    const idByName = new Map(tags.map((t) => [t.name, t.id]));
+    const tagIds = (result.tags || [])
+      .map((n) => idByName.get(n))
+      .filter((id): id is string => !!id);
+    return { tagIds };
+  } catch (e) {
+    return aiError(e);
+  }
 }
 
 export type DraftedAgendaItem = {

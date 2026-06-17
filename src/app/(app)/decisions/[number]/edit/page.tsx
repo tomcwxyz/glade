@@ -1,4 +1,5 @@
 import { getCurrentSpace } from "@/lib/space";
+import { isAiEnabled } from "@/lib/ai";
 import { getDecisionByNumber, getSpaceTags, getSpaceMembers } from "@/lib/queries";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { DecisionForm } from "../../decision-form";
@@ -47,6 +48,7 @@ export default async function EditDecisionPage({
         tags={allTags}
         members={members.map((m) => ({ id: m.userId, name: m.name || m.email }))}
         publicEnabled={((space.settings as Record<string, unknown>) || {}).publicDecisionLog === true}
+        aiEnabled={isAiEnabled(space.settings)}
         decision={{
           id: decision.id,
           title: decision.title,

@@ -144,6 +144,16 @@ Governance documents:
 ${documentsJson}`;
 }
 
+export function tagSuggestionPrompt(decisionText: string, tagNamesJson: string): string {
+  return `Suggest which of this organisation's existing tags best apply to the decision below. Choose ONLY from the provided tag list — do not invent new tags. Pick the few most relevant (0-4); if none clearly apply, return an empty list.
+
+Available tags:
+${tagNamesJson}
+
+Decision:
+${decisionText}`;
+}
+
 export function agendaDraftPrompt(
   meetingTitle: string,
   date: string,
