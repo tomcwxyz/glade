@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { TreePine } from "lucide-react";
 import { getPublicSpace, getPublicGladeDecisions } from "@/lib/queries";
 import { GladeCanvas } from "@/app/(app)/glade/glade-canvas";
+import { EmptyState } from "@/components/empty-state";
 
 export async function generateMetadata({
   params,
@@ -31,11 +33,13 @@ export default async function PublicGladePage({
   return (
     <div className="h-[calc(100vh-8rem)] flex flex-col overflow-hidden">
       {decisions.length === 0 ? (
-        <div className="text-center py-16">
-          <p className="text-bark-muted">No public decisions to display on the canvas.</p>
-        </div>
+        <EmptyState
+          icon={TreePine}
+          title="The glade is quiet"
+          description="There are no public decisions to display on the canvas yet. Check back as this organisation shares its governance."
+        />
       ) : (
-        <GladeCanvas decisions={decisions} readOnly now={stableNow} />
+        <GladeCanvas decisions={decisions} readOnly publicSlug={spaceSlug} now={stableNow} />
       )}
     </div>
   );

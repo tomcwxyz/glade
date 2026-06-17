@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useMemo, useCallback, useRef, useEffect } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect, useLayoutEffect, memo } from "react";
 import { useRouter } from "next/navigation";
 import { formatDate } from "@/lib/utils";
 import { useLiveRegion } from "@/components/live-region";
-import { ListChecks, Minus, Plus, RotateCcw, X } from "lucide-react";
+import { ListChecks, Minus, Plus, RotateCcw, Search, X } from "lucide-react";
 
 // --- Types & Constants ---
 
@@ -83,25 +83,28 @@ const STATUS_COLORS: Record<
   DecisionStatus,
   { fill: string; light: string; mid: string }
 > = {
+  // Lifecycle: bright young growth → deep mature green → autumnal amber → brown.
+  // Hues + lightness chosen so all four read distinctly (decided vs implemented
+  // were near-identical greens before).
   decided: {
-    fill: "oklch(0.52 0.09 155)",
-    light: "oklch(0.88 0.05 155)",
-    mid: "oklch(0.70 0.07 155)",
+    fill: "oklch(0.60 0.14 138)",
+    light: "oklch(0.90 0.07 138)",
+    mid: "oklch(0.75 0.11 138)",
   },
   implemented: {
-    fill: "oklch(0.45 0.08 150)",
-    light: "oklch(0.85 0.04 150)",
-    mid: "oklch(0.65 0.06 150)",
+    fill: "oklch(0.40 0.09 165)",
+    light: "oklch(0.83 0.05 165)",
+    mid: "oklch(0.60 0.07 165)",
   },
   reviewed: {
-    fill: "oklch(0.58 0.12 70)",
+    fill: "oklch(0.62 0.13 70)",
     light: "oklch(0.90 0.06 75)",
-    mid: "oklch(0.75 0.09 72)",
+    mid: "oklch(0.76 0.10 72)",
   },
   learned: {
-    fill: "oklch(0.45 0.06 45)",
-    light: "oklch(0.85 0.03 50)",
-    mid: "oklch(0.65 0.05 48)",
+    fill: "oklch(0.45 0.07 40)",
+    light: "oklch(0.85 0.04 45)",
+    mid: "oklch(0.65 0.06 43)",
   },
 };
 
@@ -206,7 +209,6 @@ function layoutNodes(
   width: number,
   height: number
 ): TreeNode[] {
-  const rand = seededRandom(42);
   const padding = 80;
   const usableW = width - padding * 2;
   const usableH = height - padding * 2;
@@ -230,11 +232,14 @@ function layoutNodes(
       ringRadii.push(radius * (0.35 + (i / stages.length) * 0.65));
     }
 
-    // Position: cluster by primary tag
+    // Position: cluster by primary tag, with jitter derived deterministically
+    // from the decision id so adding/removing a decision never reshuffles the
+    // rest of the forest (was a single shared sequential RNG consumed in order).
     const primaryTag = d.tags[0] || "governance";
     const cluster = clusterForTag(primaryTag);
-    const jitterX = (rand() - 0.5) * usableW * 0.22;
-    const jitterY = (rand() - 0.5) * usableH * 0.22;
+    const jrand = seededRandom(hashId(d.id) + 1);
+    const jitterX = (jrand() - 0.5) * usableW * 0.22;
+    const jitterY = (jrand() - 0.5) * usableH * 0.22;
     const x = padding + cluster.x * usableW + jitterX;
     const y = padding + cluster.y * usableH + jitterY;
 
@@ -506,7 +511,13 @@ function getRootConnections(nodes: TreeNode[], stableNow: number): RootConnectio
 
 // --- Legend ---
 
-function Legend() {
+function Legend({
+  activeStatuses,
+  onToggleStatus,
+}: {
+  activeStatuses: Set<DecisionStatus>;
+  onToggleStatus: (status: DecisionStatus) => void;
+}) {
   return (
     <div className="absolute bottom-3 sm:bottom-6 left-3 sm:left-6 right-3 sm:right-auto z-10">
       {/* Desktop: single row */}
@@ -521,14 +532,24 @@ function Legend() {
             ["reviewed", "Autumn reflection"],
             ["learned", "Deep roots"],
           ] as const
-        ).map(([status, label]) => (
-          <div key={status} className="flex items-center gap-1.5">
-            <svg width="10" height="10">
-              <circle cx="5" cy="5" r="4.5" fill={STATUS_COLORS[status].fill} />
-            </svg>
-            <span>{label}</span>
-          </div>
-        ))}
+        ).map(([status, label]) => {
+          const active = activeStatuses.has(status);
+          return (
+            <button
+              key={status}
+              type="button"
+              onClick={() => onToggleStatus(status)}
+              aria-pressed={active}
+              title={active ? `Hide ${label}` : `Show ${label}`}
+              className={`flex items-center gap-1.5 transition-opacity hover:opacity-100 ${active ? "" : "opacity-35"}`}
+            >
+              <svg width="10" height="10">
+                <circle cx="5" cy="5" r="4.5" fill={STATUS_COLORS[status].fill} />
+              </svg>
+              <span>{label}</span>
+            </button>
+          );
+        })}
         <span className="text-border-strong">|</span>
         <span className="font-medium text-bark" style={{ fontFamily: "var(--font-display)" }}>
           Roots
@@ -583,14 +604,23 @@ function Legend() {
               ["reviewed", "Reviewed"],
               ["learned", "Learned"],
             ] as const
-          ).map(([status, label]) => (
-            <div key={status} className="flex items-center gap-1">
-              <svg width="8" height="8" className="shrink-0">
-                <circle cx="4" cy="4" r="3.5" fill={STATUS_COLORS[status].fill} />
-              </svg>
-              <span>{label}</span>
-            </div>
-          ))}
+          ).map(([status, label]) => {
+            const active = activeStatuses.has(status);
+            return (
+              <button
+                key={status}
+                type="button"
+                onClick={() => onToggleStatus(status)}
+                aria-pressed={active}
+                className={`flex items-center gap-1 transition-opacity ${active ? "" : "opacity-35"}`}
+              >
+                <svg width="8" height="8" className="shrink-0">
+                  <circle cx="4" cy="4" r="3.5" fill={STATUS_COLORS[status].fill} />
+                </svg>
+                <span>{label}</span>
+              </button>
+            );
+          })}
         </div>
         {/* Row 2: Roots + Size */}
         <div className="flex items-center gap-2.5">
@@ -691,6 +721,7 @@ function Tooltip({
   onClose,
   onNavigate,
   readOnly = false,
+  publicSlug,
 }: {
   node: TreeNode;
   pixelX: number;
@@ -701,11 +732,18 @@ function Tooltip({
   onClose: () => void;
   onNavigate: () => void;
   readOnly?: boolean;
+  publicSlug?: string;
 }) {
   const d = node.decision;
   const tooltipW = 320;
-  const tooltipH = 280; // approximate
   const gap = 12;
+
+  // Measure the real height so the vertical clamp never lets the tooltip clip.
+  const tooltipRef = useRef<HTMLDivElement>(null);
+  const [measuredH, setMeasuredH] = useState(280);
+  useLayoutEffect(() => {
+    if (tooltipRef.current) setMeasuredH(tooltipRef.current.offsetHeight);
+  }, [node.decision.id]);
 
   // Flip to left if not enough room on the right
   const spaceRight = containerWidth - (pixelX + pixelRadius + gap + tooltipW);
@@ -714,11 +752,12 @@ function Tooltip({
     ? Math.max(8, pixelX - pixelRadius - gap - tooltipW)
     : pixelX + pixelRadius + gap;
 
-  // Clamp vertical to stay within container
-  const top = Math.max(8, Math.min(pixelY - 60, containerHeight - tooltipH - 8));
+  // Clamp vertical to stay within container (uses the measured height)
+  const top = Math.max(8, Math.min(pixelY - 60, containerHeight - measuredH - 8));
 
   return (
     <div
+      ref={tooltipRef}
       className="absolute z-20 bg-paper border border-border rounded-xl shadow-lg w-[min(320px,calc(100vw-2rem))] overflow-hidden"
       style={{ left, top }}
     >
@@ -777,14 +816,21 @@ function Tooltip({
         </div>
       </div>
 
-      {!readOnly && (
+      {!readOnly ? (
         <button
           onClick={onNavigate}
           className="w-full px-5 py-3 text-sm text-canopy hover:bg-canopy-pale/50 border-t border-border text-left font-medium transition-colors"
         >
           View full decision →
         </button>
-      )}
+      ) : publicSlug ? (
+        <a
+          href={`/public/${publicSlug}/decisions/${d.number}`}
+          className="block w-full px-5 py-3 text-sm text-canopy hover:bg-canopy-pale/50 border-t border-border text-left font-medium transition-colors"
+        >
+          View full decision →
+        </a>
+      ) : null}
     </div>
   );
 }
@@ -804,6 +850,8 @@ const MIN_ZOOM = 1;
 const MAX_ZOOM = 4;
 const ZOOM_STEP = 0.3;
 
+const ALL_STATUSES: DecisionStatus[] = ["decided", "implemented", "reviewed", "learned"];
+
 function clampViewBox(vb: ViewBox, fullW: number, fullH: number): ViewBox {
   const w = Math.max(fullW / MAX_ZOOM, Math.min(fullW, vb.w));
   const h = Math.max(fullH / MAX_ZOOM, Math.min(fullH, vb.h));
@@ -816,6 +864,13 @@ function useZoomPan(fullW: number, fullH: number, svgRef: React.RefObject<SVGSVG
   const [viewBox, setViewBox] = useState<ViewBox>({ x: 0, y: 0, w: fullW, h: fullH });
   const pinchRef = useRef<{ startDist: number; startVB: ViewBox; cx: number; cy: number } | null>(null);
   const panRef = useRef<{ startX: number; startY: number; startVB: ViewBox } | null>(null);
+  const mousePanRef = useRef<{ startX: number; startY: number; startVB: ViewBox } | null>(null);
+  // True once the pointer has moved past the drag threshold — read by the node
+  // click handler to suppress selection at the end of a drag-pan.
+  const didDragRef = useRef(false);
+  // Mirror viewBox in a ref so the once-bound mouse listeners read fresh values.
+  const viewBoxRef = useRef(viewBox);
+  viewBoxRef.current = viewBox;
 
   const zoom = fullW / viewBox.w;
 
@@ -845,6 +900,20 @@ function useZoomPan(fullW: number, fullH: number, svgRef: React.RefObject<SVGSVG
   const resetZoom = useCallback(() => {
     setViewBox({ x: 0, y: 0, w: fullW, h: fullH });
   }, [fullW, fullH]);
+
+  // Pan (and optionally zoom) so an SVG point sits at the canvas centre.
+  // Reused by keyboard traversal and search-to-pan.
+  const centerOn = useCallback(
+    (cx: number, cy: number, targetZoom?: number) => {
+      setViewBox((prev) => {
+        const z = targetZoom ?? fullW / prev.w;
+        const w = fullW / z;
+        const h = fullH / z;
+        return clampViewBox({ x: cx - w / 2, y: cy - h / 2, w, h }, fullW, fullH);
+      });
+    },
+    [fullW, fullH]
+  );
 
   // Client point → SVG viewBox coordinates
   const clientToSVG = useCallback((clientX: number, clientY: number): { x: number; y: number } => {
@@ -950,14 +1019,148 @@ function useZoomPan(fullW: number, fullH: number, svgRef: React.RefObject<SVGSVG
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [svgRef, fullW, fullH, zoom]);
 
-  return { viewBox, zoom, zoomIn, zoomOut, resetZoom };
+  // Mouse drag-to-pan (desktop). Bound once; reads fresh viewBox via the ref.
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+
+    const onMouseDown = (e: MouseEvent) => {
+      if (e.button !== 0) return;
+      mousePanRef.current = {
+        startX: e.clientX,
+        startY: e.clientY,
+        startVB: { ...viewBoxRef.current },
+      };
+      didDragRef.current = false;
+    };
+
+    const onMouseMove = (e: MouseEvent) => {
+      const pan = mousePanRef.current;
+      if (!pan) return;
+      const dx = e.clientX - pan.startX;
+      const dy = e.clientY - pan.startY;
+      if (!didDragRef.current && Math.hypot(dx, dy) > 4) didDragRef.current = true;
+      if (!didDragRef.current) return;
+      const rect = svg.getBoundingClientRect();
+      const svgDX = -(dx / rect.width) * pan.startVB.w;
+      const svgDY = -(dy / rect.height) * pan.startVB.h;
+      setViewBox(
+        clampViewBox(
+          { x: pan.startVB.x + svgDX, y: pan.startVB.y + svgDY, w: pan.startVB.w, h: pan.startVB.h },
+          fullW,
+          fullH
+        )
+      );
+    };
+
+    const onMouseUp = () => {
+      mousePanRef.current = null;
+    };
+
+    svg.addEventListener("mousedown", onMouseDown);
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+    return () => {
+      svg.removeEventListener("mousedown", onMouseDown);
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+    };
+  }, [svgRef, fullW, fullH]);
+
+  return { viewBox, zoom, zoomIn, zoomOut, resetZoom, centerOn, didDragRef };
 }
 
 // --- Main Canvas ---
 
-export function GladeCanvas({ decisions, readOnly = false, now }: { decisions: Decision[]; readOnly?: boolean; now?: number }) {
+// SVG <defs> (filters + per-node/per-connection gradients). Memoised on the
+// stable node/connection arrays so it is skipped entirely on hover, zoom, pan,
+// filter and search re-renders — previously these gradients rebuilt every frame.
+const CanvasDefs = memo(function CanvasDefs({
+  nodes,
+  connections,
+}: {
+  nodes: TreeNode[];
+  connections: RootConnection[];
+}) {
+  return (
+    <defs>
+      {/* Soft shadow for tree nodes */}
+      <filter id="tree-shadow" x="-30%" y="-30%" width="160%" height="160%">
+        <feGaussianBlur in="SourceAlpha" stdDeviation="6" />
+        <feOffset dx="0" dy="2" />
+        <feComponentTransfer>
+          <feFuncA type="linear" slope="0.08" />
+        </feComponentTransfer>
+        <feMerge>
+          <feMergeNode />
+          <feMergeNode in="SourceGraphic" />
+        </feMerge>
+      </filter>
+
+      {/* Root glow filter — applied to highlighted roots */}
+      <filter id="root-glow" x="-20%" y="-20%" width="140%" height="140%">
+        <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur" />
+        <feMerge>
+          <feMergeNode in="blur" />
+          <feMergeNode in="SourceGraphic" />
+        </feMerge>
+      </filter>
+
+      {/* Dappled light spots */}
+      <radialGradient id="light-spot-1" cx="0.3" cy="0.25">
+        <stop offset="0%" stopColor="oklch(0.68 0.14 70)" stopOpacity="0.04" />
+        <stop offset="100%" stopColor="oklch(0.68 0.14 70)" stopOpacity="0" />
+      </radialGradient>
+      <radialGradient id="light-spot-2" cx="0.7" cy="0.6">
+        <stop offset="0%" stopColor="oklch(0.52 0.07 155)" stopOpacity="0.03" />
+        <stop offset="100%" stopColor="oklch(0.52 0.07 155)" stopOpacity="0" />
+      </radialGradient>
+      <radialGradient id="light-spot-3" cx="0.5" cy="0.5">
+        <stop offset="0%" stopColor="oklch(0.97 0.008 80)" stopOpacity="0.06" />
+        <stop offset="100%" stopColor="oklch(0.97 0.008 80)" stopOpacity="0" />
+      </radialGradient>
+
+      {/* Per-supersedes taper gradient */}
+      {connections.map((conn, i) =>
+        conn.relation === "supersedes" ? (
+          <linearGradient
+            key={`root-grad-${i}`}
+            id={`root-grad-${i}`}
+            gradientUnits="userSpaceOnUse"
+            x1={conn.from.x}
+            y1={conn.from.y}
+            x2={conn.to.x}
+            y2={conn.to.y}
+          >
+            <stop offset="0%" stopColor={ROOT_STYLES.supersedes.color} stopOpacity="1" />
+            <stop offset="100%" stopColor={ROOT_STYLES.supersedes.color} stopOpacity="0.5" />
+          </linearGradient>
+        ) : null
+      )}
+
+      {/* Per-node gradients */}
+      {nodes.map((node) => (
+        <radialGradient
+          key={`grad-${node.decision.id}`}
+          id={`tree-grad-${node.decision.id}`}
+          cx="0.4"
+          cy="0.35"
+        >
+          <stop offset="0%" stopColor={node.colorLight} stopOpacity="0.9" />
+          <stop offset="50%" stopColor={node.colorMid} stopOpacity="0.5" />
+          <stop offset="100%" stopColor={node.color} stopOpacity="0.25" />
+        </radialGradient>
+      ))}
+    </defs>
+  );
+});
+
+export function GladeCanvas({ decisions, readOnly = false, now, publicSlug }: { decisions: Decision[]; readOnly?: boolean; now?: number; publicSlug?: string }) {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [focusedId, setFocusedId] = useState<string | null>(null);
+  const [activeStatuses, setActiveStatuses] = useState<Set<DecisionStatus>>(() => new Set(ALL_STATUSES));
+  const [query, setQuery] = useState("");
   const [hoveredRootIndex, setHoveredRootIndex] = useState<number | null>(null);
   const [rootTooltip, setRootTooltip] = useState<{ x: number; y: number; label: string } | null>(null);
   const [viewMode, setViewMode] = useState<"trees" | "rings" | "silhouettes">("trees");
@@ -969,7 +1172,7 @@ export function GladeCanvas({ decisions, readOnly = false, now }: { decisions: D
   const W = 1200;
   const H = 750;
 
-  const { viewBox, zoom, zoomIn: rawZoomIn, zoomOut: rawZoomOut, resetZoom: rawResetZoom } = useZoomPan(W, H, svgRef);
+  const { viewBox, zoom, zoomIn: rawZoomIn, zoomOut: rawZoomOut, resetZoom: rawResetZoom, centerOn, didDragRef } = useZoomPan(W, H, svgRef);
   const { announce } = useLiveRegion();
 
   const zoomIn = useCallback(() => {
@@ -1006,7 +1209,7 @@ export function GladeCanvas({ decisions, readOnly = false, now }: { decisions: D
     [connections]
   );
 
-  const activeId = hoveredId || selectedId;
+  const activeId = hoveredId || selectedId || focusedId;
 
   // IDs of decisions connected to the active one
   const connectedIds = useMemo(() => {
@@ -1075,9 +1278,111 @@ export function GladeCanvas({ decisions, readOnly = false, now }: { decisions: D
 
   const handleNodeClick = useCallback(
     (id: string) => {
-      setSelectedId(selectedId === id ? null : id);
+      // Ignore the click that ends a drag-pan.
+      if (didDragRef.current) return;
+      setSelectedId((prev) => (prev === id ? null : id));
     },
-    [selectedId]
+    [didDragRef]
+  );
+
+  // Reading-order traversal list (top-to-bottom, left-to-right) for keyboard nav.
+  const orderedIds = useMemo(
+    () =>
+      [...nodes]
+        .sort((a, b) => (Math.abs(a.y - b.y) > 40 ? a.y - b.y : a.x - b.x))
+        .map((n) => n.decision.id),
+    [nodes]
+  );
+
+  const focusNode = useCallback(
+    (id: string) => {
+      const node = nodes.find((n) => n.decision.id === id);
+      if (!node) return;
+      setFocusedId(id);
+      setSelectedId(id);
+      centerOn(node.x, node.y);
+      announce(
+        `Decision #${node.decision.number}, ${node.decision.title}, status ${node.decision.status}`
+      );
+    },
+    [nodes, centerOn, announce]
+  );
+
+  // Status filter (legend). Never allow an empty set (would hide everything).
+  const toggleStatus = useCallback((status: DecisionStatus) => {
+    setActiveStatuses((prev) => {
+      const next = new Set(prev);
+      if (next.has(status)) next.delete(status);
+      else next.add(status);
+      return next.size === 0 ? new Set(ALL_STATUSES) : next;
+    });
+  }, []);
+
+  const hiddenIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const n of nodes) if (!activeStatuses.has(n.decision.status)) ids.add(n.decision.id);
+    return ids;
+  }, [nodes, activeStatuses]);
+
+  const connHidden = useCallback(
+    (conn: RootConnection) =>
+      hiddenIds.has(conn.from.decision.id) || hiddenIds.has(conn.to.decision.id),
+    [hiddenIds]
+  );
+
+  // Search: null = inactive; otherwise the set of matching decision ids.
+  const normalizedQuery = query.trim().toLowerCase();
+  const matchedIds = useMemo(() => {
+    if (!normalizedQuery) return null;
+    const numQuery = normalizedQuery.replace(/^#/, "");
+    const ids = new Set<string>();
+    for (const n of nodes) {
+      const d = n.decision;
+      if (
+        d.title.toLowerCase().includes(normalizedQuery) ||
+        String(d.number) === numQuery ||
+        `#${d.number}`.includes(normalizedQuery)
+      ) {
+        ids.add(d.id);
+      }
+    }
+    return ids;
+  }, [normalizedQuery, nodes]);
+
+  const runSearch = useCallback(() => {
+    if (!matchedIds || matchedIds.size === 0) return;
+    const firstId = orderedIds.find((id) => matchedIds.has(id) && !hiddenIds.has(id));
+    if (!firstId) return;
+    const node = nodes.find((n) => n.decision.id === firstId);
+    if (!node) return;
+    centerOn(node.x, node.y, 1.8);
+    setSelectedId(firstId);
+    announce(`${matchedIds.size} match${matchedIds.size === 1 ? "" : "es"}. Showing #${node.decision.number} ${node.decision.title}`);
+  }, [matchedIds, orderedIds, hiddenIds, nodes, centerOn, announce]);
+
+  const handleCanvasKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (orderedIds.length === 0) return;
+      const current = focusedId ?? selectedId;
+      const idx = current ? orderedIds.indexOf(current) : -1;
+      if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+        e.preventDefault();
+        focusNode(orderedIds[(idx + 1 + orderedIds.length) % orderedIds.length]);
+      } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+        e.preventDefault();
+        focusNode(orderedIds[(idx - 1 + orderedIds.length) % orderedIds.length]);
+      } else if (e.key === "Enter" || e.key === " ") {
+        if (current) {
+          e.preventDefault();
+          const node = nodes.find((n) => n.decision.id === current);
+          if (node && !readOnly) router.push(`/decisions/${node.decision.number}`);
+        }
+      } else if (e.key === "Escape") {
+        setFocusedId(null);
+        setSelectedId(null);
+      }
+    },
+    [orderedIds, focusedId, selectedId, focusNode, nodes, readOnly, router]
   );
 
   // Ground cover: scattered nature elements avoiding tree positions
@@ -1135,21 +1440,59 @@ export function GladeCanvas({ decisions, readOnly = false, now }: { decisions: D
           </p>
         </div>
 
-        {/* View mode toggle */}
-        <div className="flex items-center gap-1 bg-paper/90 backdrop-blur-sm rounded-lg border border-border px-1 py-1 self-start shrink-0">
-          {(["trees", "rings", "silhouettes"] as const).map((mode) => (
-            <button
-              key={mode}
-              onClick={() => setViewMode(mode)}
-              className={`px-2.5 sm:px-3 py-1.5 text-xs rounded-md transition-colors ${
-                viewMode === mode
-                  ? "bg-canopy text-paper font-medium"
-                  : "text-bark-muted hover:text-bark hover:bg-paper-deep"
-              }`}
-            >
-              {mode === "trees" ? "Canopy" : mode === "rings" ? "Rings" : "Silhouette"}
-            </button>
-          ))}
+        <div className="flex flex-col items-stretch sm:items-end gap-2 shrink-0">
+          {/* View mode toggle */}
+          <div className="flex items-center gap-1 bg-paper/90 backdrop-blur-sm rounded-lg border border-border px-1 py-1 self-start sm:self-auto">
+            {(["trees", "rings", "silhouettes"] as const).map((mode) => (
+              <button
+                key={mode}
+                onClick={() => setViewMode(mode)}
+                className={`px-2.5 sm:px-3 py-1.5 text-xs rounded-md transition-colors ${
+                  viewMode === mode
+                    ? "bg-canopy text-paper font-medium"
+                    : "text-bark-muted hover:text-bark hover:bg-paper-deep"
+                }`}
+              >
+                {mode === "trees" ? "Canopy" : mode === "rings" ? "Rings" : "Silhouette"}
+              </button>
+            ))}
+          </div>
+
+          {/* Search */}
+          <div className="flex items-center gap-1.5 bg-paper/90 backdrop-blur-sm rounded-lg border border-border px-2.5 py-1.5 w-full sm:w-56">
+            <Search size={14} className="text-bark-muted shrink-0" />
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  runSearch();
+                } else if (e.key === "Escape") {
+                  setQuery("");
+                }
+              }}
+              placeholder="Search decisions…"
+              aria-label="Search decisions on the canvas"
+              className="flex-1 min-w-0 bg-transparent text-xs text-bark placeholder:text-bark-muted/60 focus:outline-none"
+            />
+            {matchedIds && (
+              <span className="text-[0.625rem] text-bark-muted tabular-nums shrink-0">
+                {matchedIds.size}
+              </span>
+            )}
+            {query && (
+              <button
+                type="button"
+                onClick={() => setQuery("")}
+                aria-label="Clear search"
+                className="text-bark-muted hover:text-bark shrink-0"
+              >
+                <X size={13} />
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -1187,86 +1530,23 @@ export function GladeCanvas({ decisions, readOnly = false, now }: { decisions: D
         ref={svgRef}
         role="img"
         aria-labelledby="glade-canvas-title glade-canvas-desc"
+        tabIndex={0}
         viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`}
-        className="w-full h-full touch-none"
+        className="w-full h-full touch-none select-none cursor-grab active:cursor-grabbing outline-none focus-visible:ring-2 focus-visible:ring-canopy/50 rounded-lg"
         style={{ minHeight: "600px" }}
-        onClick={() => setSelectedId(null)}
+        onKeyDown={handleCanvasKeyDown}
+        onClick={() => {
+          if (didDragRef.current) return;
+          setSelectedId(null);
+        }}
       >
         <title id="glade-canvas-title">Decision relationship canvas</title>
         <desc id="glade-canvas-desc">
           Visual map showing {decisions.length} decisions and their connections
         </desc>
 
-        {/* Defs: filters and gradients */}
-        <defs>
-          {/* Soft shadow for tree nodes */}
-          <filter id="tree-shadow" x="-30%" y="-30%" width="160%" height="160%">
-            <feGaussianBlur in="SourceAlpha" stdDeviation="6" />
-            <feOffset dx="0" dy="2" />
-            <feComponentTransfer>
-              <feFuncA type="linear" slope="0.08" />
-            </feComponentTransfer>
-            <feMerge>
-              <feMergeNode />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-
-          {/* Root glow filter — applied to highlighted roots */}
-          <filter id="root-glow" x="-20%" y="-20%" width="140%" height="140%">
-            <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur" />
-            <feMerge>
-              <feMergeNode in="blur" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-
-          {/* Dappled light spots */}
-          <radialGradient id="light-spot-1" cx="0.3" cy="0.25">
-            <stop offset="0%" stopColor="oklch(0.68 0.14 70)" stopOpacity="0.04" />
-            <stop offset="100%" stopColor="oklch(0.68 0.14 70)" stopOpacity="0" />
-          </radialGradient>
-          <radialGradient id="light-spot-2" cx="0.7" cy="0.6">
-            <stop offset="0%" stopColor="oklch(0.52 0.07 155)" stopOpacity="0.03" />
-            <stop offset="100%" stopColor="oklch(0.52 0.07 155)" stopOpacity="0" />
-          </radialGradient>
-          <radialGradient id="light-spot-3" cx="0.5" cy="0.5">
-            <stop offset="0%" stopColor="oklch(0.97 0.008 80)" stopOpacity="0.06" />
-            <stop offset="100%" stopColor="oklch(0.97 0.008 80)" stopOpacity="0" />
-          </radialGradient>
-
-          {/* Per-supersedes taper gradient */}
-          {connections.map((conn, i) =>
-            conn.relation === "supersedes" ? (
-              <linearGradient
-                key={`root-grad-${i}`}
-                id={`root-grad-${i}`}
-                gradientUnits="userSpaceOnUse"
-                x1={conn.from.x}
-                y1={conn.from.y}
-                x2={conn.to.x}
-                y2={conn.to.y}
-              >
-                <stop offset="0%" stopColor={ROOT_STYLES.supersedes.color} stopOpacity="1" />
-                <stop offset="100%" stopColor={ROOT_STYLES.supersedes.color} stopOpacity="0.5" />
-              </linearGradient>
-            ) : null
-          )}
-
-          {/* Per-node gradients */}
-          {nodes.map((node) => (
-            <radialGradient
-              key={`grad-${node.decision.id}`}
-              id={`tree-grad-${node.decision.id}`}
-              cx="0.4"
-              cy="0.35"
-            >
-              <stop offset="0%" stopColor={node.colorLight} stopOpacity="0.9" />
-              <stop offset="50%" stopColor={node.colorMid} stopOpacity="0.5" />
-              <stop offset="100%" stopColor={node.color} stopOpacity="0.25" />
-            </radialGradient>
-          ))}
-        </defs>
+        {/* Defs: filters and gradients (memoised — skipped on interaction) */}
+        <CanvasDefs nodes={nodes} connections={connections} />
 
         {/* Background light spots */}
         <rect x="0" y="0" width={W} height={H} fill="url(#light-spot-3)" />
@@ -1278,6 +1558,7 @@ export function GladeCanvas({ decisions, readOnly = false, now }: { decisions: D
 
         {/* Root paths — non-highlighted (below nodes) */}
         {connections.map((conn, ci) => {
+          if (connHidden(conn)) return null;
           const style = ROOT_STYLES[conn.relation];
           const isHighlighted =
             highlightedConnections.has(ci) || hoveredRootIndex === ci;
@@ -1310,6 +1591,7 @@ export function GladeCanvas({ decisions, readOnly = false, now }: { decisions: D
 
         {/* Root paths — highlighted (above non-highlighted, below nodes) */}
         {connections.map((conn, ci) => {
+          if (connHidden(conn)) return null;
           const style = ROOT_STYLES[conn.relation];
           const isHighlighted =
             highlightedConnections.has(ci) || hoveredRootIndex === ci;
@@ -1342,6 +1624,7 @@ export function GladeCanvas({ decisions, readOnly = false, now }: { decisions: D
 
         {/* Invisible fat hit-area paths for root hover */}
         {connections.map((conn, ci) => {
+          if (connHidden(conn)) return null;
           const style = ROOT_STYLES[conn.relation];
           return rootPaths[ci].map((d, pi) => (
             <path
@@ -1470,15 +1753,22 @@ export function GladeCanvas({ decisions, readOnly = false, now }: { decisions: D
 
         {/* Tree nodes */}
         {nodes.map((node) => {
+          // Status filter — hidden statuses don't render at all.
+          if (hiddenIds.has(node.decision.id)) return null;
+
           const isHovered = hoveredId === node.decision.id;
           const isSelected = selectedId === node.decision.id;
           const isActive = isHovered || isSelected;
           const isConnected = connectedIds.has(node.decision.id);
           const scale = isActive ? 1.08 : 1;
+          const isMatch = matchedIds ? matchedIds.has(node.decision.id) : true;
 
-          // Dim non-connected nodes when there's an active highlight
-          const nodeOpacity =
-            hasActiveHighlight && !isActive && !isConnected ? 0.4 : 1;
+          // Dim non-matching (search) and non-connected (hover/focus) nodes.
+          const nodeOpacity = !isMatch
+            ? 0.12
+            : hasActiveHighlight && !isActive && !isConnected
+              ? 0.4
+              : 1;
 
           const params = TREE_PARAMS[node.decision.status];
           const trunkH = node.radius * params.trunkScale;
@@ -1835,6 +2125,7 @@ export function GladeCanvas({ decisions, readOnly = false, now }: { decisions: D
         <h2>Decision relationships</h2>
         <ul>
           {nodes.map((node) => {
+            if (hiddenIds.has(node.decision.id)) return null;
             const d = node.decision;
             const linked = d.linkedDecisions || [];
             return (
@@ -1874,12 +2165,13 @@ export function GladeCanvas({ decisions, readOnly = false, now }: { decisions: D
               !readOnly && router.push(`/decisions/${selectedNode.decision.number}`)
             }
             readOnly={readOnly}
+            publicSlug={publicSlug}
           />
         );
       })()}
 
       {/* Legend */}
-      <Legend />
+      <Legend activeStatuses={activeStatuses} onToggleStatus={toggleStatus} />
     </div>
   );
 }

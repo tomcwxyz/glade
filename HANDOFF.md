@@ -1,3 +1,22 @@
+# Handoff — 2026-06-16 (Tranche 4c — The Glade canvas)
+
+## What happened this session
+
+Implemented **Tranche 4c (Canvas)** — the last of the full-app-review tranches — on branch `tranche-4c-canvas` (off `main`). Full review §5 scope, 5 phases, build/lint clean per phase, commit per phase. Plan: `~/.claude/plans/cosmic-painting-gray.md`. All in `src/app/(app)/glade/glade-canvas.tsx` unless noted.
+
+- **P1** — Forest no longer reshuffles when a decision is added (jitter now seeds from `hashId(decision.id)` instead of one shared sequential RNG); retuned `STATUS_COLORS` so the four statuses are clearly distinct (bright green / deep green / amber / brown).
+- **P2** — Mouse drag-to-pan (`useZoomPan` + `didDragRef` to suppress the click that ends a drag); keyboard arrow-key traversal (focusable SVG, reading-order nav, pans to + announces each tree, Enter opens) via a new `centerOn()` helper.
+- **P3** — Legend lifecycle entries are clickable status filters (hide trees + their roots); new search box highlights matches and pans/zooms to the first on Enter.
+- **P4** — Extracted the SVG `<defs>` (per-node gradients + filters) into a `React.memo` `CanvasDefs` so they're skipped on every interaction frame; stabilised `handleNodeClick`. Verified pixel-identical via screenshot. **Deferred (noted in commit):** extracting per-node `TreeNode` + ground cover into memo components — higher risk, marginal gain at current scale.
+- **P5** — Public canvas empty state uses shared `EmptyState`; readOnly tooltips link to the public permalink (`/public/[slug]/decisions/[number]`) via a threaded `publicSlug`; tooltip height measured via ref (no clip); `getPublicGladeDecisions` indexes into Maps (was O(n²)).
+
+No schema/migrations/deps. Verified end-to-end via Playwright on the demo account: distinct colours, stable layout under filtering, legend filter, search-to-pan, keyboard traversal, and P4 pixel-identical.
+
+### Next steps
+- Push `tranche-4c-canvas` + PR into `main` (clean FF base). **This completes the review roadmap (tranches 1–4c).** The only remaining roadmap track is **4d (AI)** — structured outputs + model upgrade, error handling, input caps, then governance Q&A / agenda drafting / auto-tagging. Smaller deferred items still open: per-decision OG images, the 4c TreeNode/ground-cover memoisation, review-due render on the meeting summary.
+
+---
+
 # Handoff — 2026-06-16 (Tags, meeting capture, multi-owner actions)
 
 ## What happened this session
