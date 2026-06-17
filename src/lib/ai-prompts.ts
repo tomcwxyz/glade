@@ -11,6 +11,9 @@ export function patternAnalysisPrompt(decisionsJson: string): string {
 Provide a list of insights ("patterns"), each with:
 - title: short headline (max 80 chars)
 - content: 1-2 paragraph analysis
+- category: the single best fit from: participation (who takes part), cadence (timing/frequency of decisions & reviews), follow_through (actions completed), documentation (governance docs currency), method_mix (decision-method choice & spread), risk (conflicts, gaps, things to watch), other
+- signal: "positive" (a strength worth recognising), "watch" (neutral/keep an eye on), or "concern" (needs attention)
+- suggestedAction: one concrete next step the organisation could take (max ~120 chars; empty string if none is warranted)
 - relatedDecisionNumber: number of the most relevant decision (or null)
 
 Decisions:
@@ -89,14 +92,27 @@ Current document text:
 ${documentText}`;
 }
 
-export function governanceDigestPrompt(decisionsJson: string, actionsJson: string, documentsJson: string): string {
+export function governanceDigestPrompt(
+  decisionsJson: string,
+  actionsJson: string,
+  documentsJson: string,
+  previousDigest?: { content: string; date: string } | null
+): string {
+  const comparisonCover = previousDigest
+    ? `\n6. **Since last digest** — compare this period to the previous digest (dated ${previousDigest.date}): call out concrete changes such as decision volume up/down, action follow-through, new themes emerging, and whether previously-flagged concerns were resolved. Lead with this section so readers see the trend first.`
+    : "";
+
+  const comparisonReference = previousDigest
+    ? `\n\nFor comparison, here is the PREVIOUS digest. Use it to ground the "Since last digest" section — highlight what has changed; do not simply repeat it.\n\nPrevious digest (${previousDigest.date}):\n${previousDigest.content}`
+    : "";
+
   return `Create a monthly governance digest summarising recent governance activity. Cover:
 
 1. **Decisions made** — summarise key decisions, grouped by theme if possible
 2. **Action progress** — highlight completed actions and any overdue items
 3. **Document updates** — note any documents that were updated
 4. **Upcoming reviews** — list decisions with upcoming review dates
-5. **Recommendations** — 2-3 actionable suggestions for governance improvement
+5. **Recommendations** — 2-3 actionable suggestions for governance improvement${comparisonCover}
 
 Write in a clear, professional tone suitable for all members. Use markdown formatting with headings and bullet points. Keep it under 800 words.
 
@@ -107,7 +123,7 @@ Actions:
 ${actionsJson}
 
 Documents:
-${documentsJson}`;
+${documentsJson}${comparisonReference}`;
 }
 
 export function meetingSummaryPrompt(meetingJson: string): string {

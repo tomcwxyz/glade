@@ -26,6 +26,7 @@ import {
   Search,
   Settings,
   Shield,
+  Sparkles,
   TreePine,
   UserCircle,
   Users,
@@ -40,6 +41,7 @@ const NAV_ITEMS = [
   { href: "/documents", label: "Documents", icon: FileText, walkthrough: "documents" },
   { href: "/proposals", label: "Proposals", icon: MessageSquare, walkthrough: "proposals" },
   { href: "/topics", label: "Topics", icon: Lightbulb, walkthrough: undefined },
+  { href: "/insights", label: "Insights", icon: Sparkles, walkthrough: undefined },
 ];
 
 const BOTTOM_ITEMS = [

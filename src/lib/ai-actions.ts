@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, desc } from "drizzle-orm";
 import { db } from "@/db";
 import { insights, decisions, documents } from "@/db/schema";
 import { requireSpaceRole } from "@/lib/space";
@@ -41,10 +41,16 @@ const PATTERN_SCHEMA = {
       items: {
         type: "object",
         additionalProperties: false,
-        required: ["title", "content", "relatedDecisionNumber"],
+        required: ["title", "content", "category", "signal", "suggestedAction", "relatedDecisionNumber"],
         properties: {
           title: { type: "string" },
           content: { type: "string" },
+          category: {
+            type: "string",
+            enum: ["participation", "cadence", "follow_through", "documentation", "method_mix", "risk", "other"],
+          },
+          signal: { type: "string", enum: ["positive", "watch", "concern"] },
+          suggestedAction: { type: "string" },
           relatedDecisionNumber: { type: ["integer", "null"] },
         },
       },
@@ -188,6 +194,7 @@ export async function dismissInsight(insightId: string) {
     .where(and(eq(insights.id, insightId), eq(insights.spaceId, space.id)));
 
   revalidatePath("/dashboard");
+  revalidatePath("/insights");
 }
 
 export async function analysePatterns() {
@@ -214,6 +221,9 @@ export async function analysePatterns() {
   let parsed: Array<{
     title: string;
     content: string;
+    category: string;
+    signal: string;
+    suggestedAction: string;
     relatedDecisionNumber: number | null;
   }>;
   try {
@@ -252,10 +262,16 @@ export async function analysePatterns() {
       content: insight.content,
       relatedDecisionId,
       status: "active",
+      metadata: {
+        category: insight.category,
+        signal: insight.signal,
+        suggestedAction: insight.suggestedAction || "",
+      },
     });
   }
 
   revalidatePath("/dashboard");
+  revalidatePath("/insights");
   return { success: true };
 }
 
@@ -458,16 +474,7 @@ export async function generateMemberBriefing() {
     return aiError(e);
   }
 
-  // Remove old briefing
-  const old = await db
-    .select({ id: insights.id })
-    .from(insights)
-    .where(and(eq(insights.spaceId, space.id), eq(insights.type, "briefing")));
-
-  for (const o of old) {
-    await db.delete(insights).where(eq(insights.id, o.id));
-  }
-
+  // Append-only: keep prior briefings so the Insights hub can show a history.
   await db.insert(insights).values({
     spaceId: space.id,
     type: "briefing",
@@ -477,6 +484,7 @@ export async function generateMemberBriefing() {
   });
 
   revalidatePath("/dashboard");
+  revalidatePath("/insights");
   return { content: response };
 }
 
@@ -666,33 +674,39 @@ export async function generateGovernanceDigest() {
     }))
   );
 
+  // Most recent prior digest, so the AI can compare this period against it.
+  // Must mirror the archive's filter (active only) — a dismissed digest is
+  // removed from view and must not seed the "Since last digest" comparison.
+  const [prevDigest] = await db
+    .select({ content: insights.content, createdAt: insights.createdAt })
+    .from(insights)
+    .where(
+      and(
+        eq(insights.spaceId, space.id),
+        eq(insights.type, "briefing"),
+        eq(insights.status, "active"),
+        sql`${insights.metadata}->>'subtype' = 'digest'`
+      )
+    )
+    .orderBy(desc(insights.createdAt))
+    .limit(1);
+
+  const previousDigest = prevDigest
+    ? { content: capInput(prevDigest.content, 4000), date: prevDigest.createdAt.toISOString().split("T")[0] }
+    : null;
+
   let response: string;
   try {
     response = await generateText(
       SYSTEM_PROMPT,
-      governanceDigestPrompt(capInput(decisionsJson), capInput(actionsJson), capInput(docsJson)),
+      governanceDigestPrompt(capInput(decisionsJson), capInput(actionsJson), capInput(docsJson), previousDigest),
       { maxTokens: 3000 }
     );
   } catch (e) {
     return aiError(e);
   }
 
-  // Remove old digest insights
-  const oldInsights = await db
-    .select({ id: insights.id })
-    .from(insights)
-    .where(
-      and(
-        eq(insights.spaceId, space.id),
-        eq(insights.type, "briefing"),
-        sql`${insights.metadata}->>'subtype' = 'digest'`
-      )
-    );
-
-  for (const old of oldInsights) {
-    await db.delete(insights).where(eq(insights.id, old.id));
-  }
-
+  // Append-only: keep prior digests so they form a browsable archive.
   await db.insert(insights).values({
     spaceId: space.id,
     type: "briefing",
@@ -703,6 +717,7 @@ export async function generateGovernanceDigest() {
   });
 
   revalidatePath("/dashboard");
+  revalidatePath("/insights");
   return { content: response };
 }
 
