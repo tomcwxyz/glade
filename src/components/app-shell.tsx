@@ -33,12 +33,16 @@ export function AppShell({ children, currentSpace, userSpaces, isSuperAdmin }: A
   return (
     <LiveRegionProvider>
       <SkipLink />
-      <div className="flex flex-col md:flex-row h-screen overflow-hidden">
-        <MobileNav currentSpace={currentSpace} userSpaces={userSpaces} />
-        <div className="hidden md:flex">
+      {/* print: collapse the shell so print/PDF routes render as a clean
+          document — no sidebar/mobile nav, no h-screen clipping. */}
+      <div className="flex flex-col md:flex-row h-screen overflow-hidden print:block print:h-auto print:overflow-visible">
+        <div className="print:hidden">
+          <MobileNav currentSpace={currentSpace} userSpaces={userSpaces} />
+        </div>
+        <div className="hidden md:flex print:hidden">
           <Sidebar currentSpace={currentSpace} userSpaces={userSpaces} isSuperAdmin={isSuperAdmin} />
         </div>
-        <main id="main-content" className="flex-1 overflow-y-auto" tabIndex={-1}>{children}</main>
+        <main id="main-content" className="flex-1 overflow-y-auto print:overflow-visible" tabIndex={-1}>{children}</main>
         <Walkthrough />
         <CommandPalette />
       </div>
