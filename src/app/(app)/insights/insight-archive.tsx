@@ -8,6 +8,7 @@ import {
   dismissInsight,
 } from "@/lib/ai-actions";
 import { MarkdownContent } from "@/components/markdown-content";
+import { DownloadButton } from "@/components/download-button";
 import { formatDate } from "@/lib/utils";
 import { Sparkles, Loader2, X, Newspaper, Users } from "lucide-react";
 
@@ -25,6 +26,7 @@ const KINDS = {
     description: "A periodic summary of governance activity. Each digest is kept, so you can look back over time — and the AI compares each one to the previous period.",
     generateLabel: "Generate digest",
     empty: "No digests yet. Generate one to start the archive.",
+    fileSlug: "governance-digest",
     action: generateGovernanceDigest,
   },
   briefing: {
@@ -33,6 +35,7 @@ const KINDS = {
     description: "An onboarding briefing for new members. Past briefings are kept here for reference.",
     generateLabel: "Generate briefing",
     empty: "No briefings yet. Generate one to brief new members.",
+    fileSlug: "member-briefing",
     action: generateMemberBriefing,
   },
 } as const;
@@ -130,7 +133,14 @@ export function InsightArchive({
                   <X size={14} />
                 </button>
               </summary>
-              <div className="px-4 pb-4 pt-1 border-t border-border">
+              <div className="px-4 pb-4 pt-3 border-t border-border">
+                <div className="flex justify-end mb-2">
+                  <DownloadButton
+                    content={item.content}
+                    filename={`${config.fileSlug}-${item.createdAt.split("T")[0]}.md`}
+                    label="Download .md"
+                  />
+                </div>
                 <MarkdownContent content={item.content} />
               </div>
             </details>
