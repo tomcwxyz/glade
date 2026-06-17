@@ -1,6 +1,6 @@
 # State
 
-> Last updated: 2026-06-16
+> Last updated: 2026-06-17
 
 ## System State Diagram
 
@@ -259,6 +259,17 @@ Branch `tranche-4c-canvas` (off `main`). Full review §5 scope, 5 phases, build/
 - **P5:** public empty state (`EmptyState`), readOnly tooltip → public permalink, ref-measured tooltip height, `getPublicGladeDecisions` O(n²) → Maps.
 
 **This completes the full-app-review roadmap (tranches 1–4c).** Remaining roadmap track: **4d (AI)**. Verified end-to-end via Playwright.
+
+## AI Hardening & New AI Features (2026-06-17)
+
+Branch `tranche-4d-ai` (off `main`). Four phases, all build/lint clean, commit per phase. Centred on `src/lib/ai.ts`, `ai-actions.ts`, `ai-prompts.ts`:
+
+- **P1 — Foundations:** upgraded the legacy date-suffixed model to bare `claude-sonnet-4-6`. New `generateStructured()` (messages.parse + `output_config` json_schema); migrated the 4 fragile `JSON.parse(stripCodeFences())` actions (patterns, doc impact, stale docs, transcript) to schema-validated structured outputs; removed `stripCodeFences`. New `capInput()` bounds prompt size/cost on large serialized lists. Typed SDK error handling — every AI action now returns `{error}` instead of throwing; `try/finally` in all 6 trigger components fixes stuck spinners.
+- **P2 — Governance Q&A:** `askGovernanceQuestion()` answers a natural-language question grounded in the space's decisions + documents (capped inputs, cites decision numbers, says when unknown). New `GovernanceQa` dashboard card; ephemeral, no storage; gated on `canUseAi` + `isAiEnabled`.
+- **P3 — AI agenda drafting:** `draftMeetingAgenda()` returns structured agenda items (title/description/type/duration) from open proposals, available topics, and recent decisions. "AI draft agenda" button on the meeting form appends to the editable agenda.
+- **P4 — AI tag suggestions:** "Suggest tags" action on the decision form (new + edit). `suggestDecisionTags()` constrains the model to existing space tags via a dynamic per-space enum schema, then maps returned names back to tag IDs. Gated behind the per-space AI toggle (`aiEnabled` threaded through both pages).
+
+No new dependencies, no migration. All AI features remain gated on `ANTHROPIC_API_KEY` + the per-space AI toggle.
 
 ## Known Issues
 

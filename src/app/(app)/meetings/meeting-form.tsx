@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { createMeeting, updateMeeting } from "@/lib/meeting-actions";
 import { inputClass } from "@/lib/utils";
-import { Check, Clock, FileText, EyeOff, Loader2, Plus, X, MessageSquarePlus, Gavel, ListChecks } from "lucide-react";
+import { Check, Clock, FileText, EyeOff, Loader2, Plus, X, MessageSquarePlus, Gavel, ListChecks, Sparkles } from "lucide-react";
+import { draftMeetingAgenda, type DraftedAgendaItem } from "@/lib/ai-actions";
 import Link from "next/link";
 import { FormError } from "@/components/form-error";
 import { OwnerSelect } from "@/components/owner-select";
@@ -115,6 +116,7 @@ export function MeetingForm({
   proposals,
   decisions = [],
   publicEnabled,
+  aiEnabled,
 }: {
   members: Member[];
   meeting?: MeetingData;
@@ -122,6 +124,7 @@ export function MeetingForm({
   proposals?: Proposal[];
   decisions?: DecisionOption[];
   publicEnabled?: boolean;
+  aiEnabled?: boolean;
 }) {
   const isEditing = !!meeting;
   const [loading, setLoading] = useState(false);
@@ -142,7 +145,42 @@ export function MeetingForm({
   const [newDecisions, setNewDecisions] = useState<NewDecisionDraft[]>([]);
   const [meetingActionDrafts, setMeetingActionDrafts] = useState<MeetingActionDraft[]>([]);
 
+  const [draftingAgenda, setDraftingAgenda] = useState(false);
+  const [agendaError, setAgendaError] = useState<string | null>(null);
+
   const availableDecisions = decisions.filter((d) => !linkedDecisionIds.includes(d.id));
+
+  async function handleDraftAgenda(e: React.MouseEvent<HTMLButtonElement>) {
+    const form = e.currentTarget.closest("form");
+    const fd = form ? new FormData(form) : null;
+    const title = ((fd?.get("title") as string) || "").trim();
+    const date = (fd?.get("date") as string) || "";
+    if (!title) {
+      setAgendaError("Add a meeting title first.");
+      return;
+    }
+    setDraftingAgenda(true);
+    setAgendaError(null);
+    try {
+      const result = await draftMeetingAgenda(title, date);
+      if ("error" in result) {
+        setAgendaError(result.error as string);
+        return;
+      }
+      const drafted = (result.items as DraftedAgendaItem[]).map((it) => ({
+        ...emptyAgendaItem,
+        title: it.title,
+        description: it.description,
+        type: it.type,
+        durationMinutes: it.durationMinutes ? String(it.durationMinutes) : "",
+      }));
+      setAgendaItems((prev) => [...prev, ...drafted]);
+    } catch (err) {
+      setAgendaError(err instanceof Error ? err.message : "Something went wrong");
+    } finally {
+      setDraftingAgenda(false);
+    }
+  }
 
   function updateNewDecision(index: number, field: keyof NewDecisionDraft, value: string) {
     setNewDecisions((prev) => {
@@ -557,8 +595,27 @@ export function MeetingForm({
                 <Plus size={14} />
                 Add item
               </button>
+              {aiEnabled && (
+                <button
+                  type="button"
+                  onClick={handleDraftAgenda}
+                  disabled={draftingAgenda}
+                  className="flex items-center gap-1 text-xs text-canopy hover:text-canopy-light transition-colors disabled:opacity-50"
+                >
+                  {draftingAgenda ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : (
+                    <Sparkles size={14} />
+                  )}
+                  AI draft agenda
+                </button>
+              )}
             </div>
           </div>
+
+          {agendaError && (
+            <p className="text-xs text-earth mb-2">{agendaError}</p>
+          )}
 
           {agendaItems.length === 0 && (
             <p className="text-sm text-bark-muted/60 py-3">

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { generateGovernanceDigest, dismissInsight } from "@/lib/ai-actions";
+import { MarkdownContent } from "@/components/markdown-content";
 import { Sparkles, Loader2, X, Newspaper } from "lucide-react";
 
 interface DigestInsight {
@@ -22,13 +23,18 @@ export function GovernanceDigest({
   async function handleGenerate() {
     setLoading(true);
     setError(null);
-    const result = await generateGovernanceDigest();
-    if ("error" in result) {
-      setError(result.error as string);
-    } else if ("content" in result) {
-      setContent(result.content as string);
+    try {
+      const result = await generateGovernanceDigest();
+      if ("error" in result) {
+        setError(result.error as string);
+      } else if ("content" in result) {
+        setContent(result.content as string);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Something went wrong");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   async function handleDismiss() {
@@ -85,24 +91,7 @@ export function GovernanceDigest({
           >
             <X size={14} />
           </button>
-          <div className="prose prose-sm max-w-none text-bark [&_h1]:text-lg [&_h1]:font-semibold [&_h2]:text-base [&_h2]:font-semibold [&_h3]:text-sm [&_h3]:font-semibold [&_p]:text-[0.8125rem] [&_li]:text-[0.8125rem]">
-            {content.split("\n").map((line, i) => {
-              if (line.startsWith("# "))
-                return <h1 key={i}>{line.slice(2)}</h1>;
-              if (line.startsWith("## "))
-                return <h2 key={i}>{line.slice(3)}</h2>;
-              if (line.startsWith("### "))
-                return <h3 key={i}>{line.slice(4)}</h3>;
-              if (line.startsWith("- "))
-                return (
-                  <p key={i} className="ml-4">
-                    &bull; {line.slice(2)}
-                  </p>
-                );
-              if (line.trim() === "") return <br key={i} />;
-              return <p key={i}>{line}</p>;
-            })}
-          </div>
+          <MarkdownContent content={content} />
           <p className="text-xs text-bark-muted/60 mt-4 pt-3 border-t border-border">
             Email delivery coming soon.
           </p>

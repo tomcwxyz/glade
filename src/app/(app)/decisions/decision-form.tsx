@@ -3,11 +3,13 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createDecision, updateDecision } from "@/lib/decision-actions";
+import { suggestDecisionTags } from "@/lib/ai-actions";
 import { inputClass, textareaClass, tagDotClass } from "@/lib/utils";
 import {
   EyeOff,
   Loader2,
   Plus,
+  Sparkles,
   X,
 } from "lucide-react";
 import Link from "next/link";
@@ -71,11 +73,13 @@ export function DecisionForm({
   members,
   decision,
   publicEnabled,
+  aiEnabled,
 }: {
   tags: Tag[];
   members: Member[];
   decision?: DecisionData;
   publicEnabled?: boolean;
+  aiEnabled?: boolean;
 }) {
   const router = useRouter();
   const isEditing = !!decision;
@@ -93,6 +97,31 @@ export function DecisionForm({
   const [selectedTags, setSelectedTags] = useState<string[]>(
     decision?.tagIds || []
   );
+  const [suggestingTags, setSuggestingTags] = useState(false);
+  const [tagError, setTagError] = useState<string | null>(null);
+
+  async function handleSuggestTags(e: React.MouseEvent<HTMLButtonElement>) {
+    const form = e.currentTarget.closest("form");
+    const fd = form ? new FormData(form) : null;
+    const title = (fd?.get("title") as string) || "";
+    const description = (fd?.get("description") as string) || "";
+    const rationale = (fd?.get("rationale") as string) || "";
+    setSuggestingTags(true);
+    setTagError(null);
+    try {
+      const result = await suggestDecisionTags(title, description, rationale);
+      if ("error" in result) {
+        setTagError(result.error as string);
+        return;
+      }
+      const ids = result.tagIds as string[];
+      setSelectedTags((prev) => Array.from(new Set([...prev, ...ids])));
+    } catch (err) {
+      setTagError(err instanceof Error ? err.message : "Something went wrong");
+    } finally {
+      setSuggestingTags(false);
+    }
+  }
 
   // Action items
   const [actionItems, setActionItems] = useState<
@@ -380,7 +409,25 @@ export function DecisionForm({
 
         {/* Tags */}
         <div>
-          <InputLabel htmlFor="tags-section">Tags</InputLabel>
+          <div className="flex items-center justify-between">
+            <InputLabel htmlFor="tags-section">Tags</InputLabel>
+            {aiEnabled && tags.length > 0 && (
+              <button
+                type="button"
+                onClick={handleSuggestTags}
+                disabled={suggestingTags}
+                className="flex items-center gap-1 text-xs text-canopy hover:text-canopy-light transition-colors disabled:opacity-50"
+              >
+                {suggestingTags ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <Sparkles size={14} />
+                )}
+                Suggest tags
+              </button>
+            )}
+          </div>
+          {tagError && <p className="text-xs text-earth mb-2">{tagError}</p>}
           {tags.length > 0 ? (
             <div id="tags-section" className="flex flex-wrap gap-2">
               {tags.map((tag) => {

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getCurrentSpace } from "@/lib/space";
+import { isAiEnabled } from "@/lib/ai";
 import { getSpaceTags, getSpaceMembers } from "@/lib/queries";
 import { canAddDecision } from "@/lib/billing";
 import { Breadcrumbs } from "@/components/breadcrumbs";
@@ -58,6 +59,7 @@ export default async function NewDecisionPage() {
             tags={tags}
             members={members.map((m) => ({ id: m.userId, name: m.name || m.email }))}
             publicEnabled={((space.settings as Record<string, unknown>) || {}).publicDecisionLog === true}
+            aiEnabled={isAiEnabled(space.settings)}
           />
         </>
       )}

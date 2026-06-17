@@ -4,6 +4,22 @@ All notable changes to Glade will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-03-04] — Account security, member invites, and branded emails
+
+### Added
+
+- **Password reset** — forgotten your password? Click "Forgot password?" on the sign-in page, enter your email, and you'll receive a secure link to set a new one.
+- **Change your password** — a new "Your Account" section on the Settings page lets you change your password at any time. You'll need to enter your current password to confirm it's you.
+- **Invite people who don't have an account yet** — admins can now invite anyone by email from the Members page. If they don't have a Glade account, they receive an invitation email with a sign-up link, and they're added to your space automatically as soon as they sign up or sign in.
+- **"Check your email" page** — after requesting a magic link, you now see a friendly confirmation page telling you to check your inbox.
+
+### Changed
+
+- **Branded emails** — all emails from Glade (magic links, password resets, invitations, and added-to-space notifications) now share a consistent, recognisable Glade design.
+- **Signing out** — clicking "Sign out" now shows a confirmation dialog instead of taking you to a separate page.
+
+---
+
 ## [2026-03-03] — Proposals in agendas, transcript import, entity linking, and more
 
 ### Added

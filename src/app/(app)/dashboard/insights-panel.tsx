@@ -29,9 +29,14 @@ export function InsightsPanel({
   async function handleAnalyse() {
     setLoading(true);
     setError(null);
-    const result = await analysePatterns();
-    if (result?.error) setError(result.error);
-    setLoading(false);
+    try {
+      const result = await analysePatterns();
+      if (result?.error) setError(result.error);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Something went wrong");
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function handleDismiss(id: string) {

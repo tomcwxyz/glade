@@ -18,13 +18,18 @@ export function DocumentSuggestions({
   async function handleCheck() {
     setLoading(true);
     setError(null);
-    const result = await suggestDocumentUpdates(decisionId);
-    if ("error" in result) {
-      setError(result.error as string);
-    } else if ("suggestions" in result) {
-      setSuggestions(result.suggestions as Array<{ documentTitle: string; reason: string }>);
+    try {
+      const result = await suggestDocumentUpdates(decisionId);
+      if ("error" in result) {
+        setError(result.error as string);
+      } else if ("suggestions" in result) {
+        setSuggestions(result.suggestions as Array<{ documentTitle: string; reason: string }>);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Something went wrong");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   return (

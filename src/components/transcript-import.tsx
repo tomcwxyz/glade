@@ -107,18 +107,22 @@ export function TranscriptImport({ spaceId, existingMeeting, memberNames }: Prop
     setError(null);
 
     startTransition(async () => {
-      const result = await extractFromTranscript(
-        transcript,
-        existingMeeting?.id
-      );
+      try {
+        const result = await extractFromTranscript(
+          transcript,
+          existingMeeting?.id
+        );
 
-      if ("error" in result) {
-        setError((result as { error: string }).error);
-        return;
+        if ("error" in result) {
+          setError((result as { error: string }).error);
+          return;
+        }
+
+        setExtraction(result as TranscriptExtraction);
+        setStage("preview");
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Something went wrong");
       }
-
-      setExtraction(result as TranscriptExtraction);
-      setStage("preview");
     });
   }
 
