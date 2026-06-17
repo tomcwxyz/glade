@@ -282,6 +282,17 @@ Branch `tranche-4f-insights` (off `main`, after 4d). Four phases, build/lint cle
 - **P3 — Digest comparison:** `generateGovernanceDigest` feeds the most recent prior digest (capped) into the prompt; `governanceDigestPrompt` adds a leading "Since last digest" comparison section when a prior exists.
 - **P4 — Downloads:** reusable `<DownloadButton>` (client blob → `.md`, zero-dep) in each archive entry's header row. PDF deferred as a fast-follow.
 
+## Universal Tags & Action Editing (2026-06-17)
+
+Branch `tranche-4g-tags-actions` (off `main`, after 4f). Seven phases, build/lint clean, commit per phase. Four **additive** join-table migrations applied to Neon (`action_tags`, `topic_tags`, `document_tags`, `meeting_tags`) — existing untagged rows unaffected. No new dependencies.
+
+- **P1 — Action editing:** `updateAction` + `getActionForEdit` (structured snapshot; list folds owners into a display string). `<EditAction>` modal (pencil on `/actions` rows, non-observers) reusing `OwnerSelect`/date.
+- **P2 — Inline decision creation in meetings:** `createDecisionForMeeting` (lightweight decision dated to the meeting, created + linked in one tx). "New decision" form in `MeetingLinksEditor` beside "Link existing" — no more leaving the meeting to record + link back.
+- **P3 — Reusable tag foundation:** extracted `<TagPicker>` (controlled chip selector; optional header-action slot + hidden-input mode) and `syncEntityTags(tx, joinTable, fkColumn, fkKey, id, tagIds)` (shared delete-then-insert). Retrofitted decision + proposal forms/actions onto both (no behaviour change).
+- **P4–P7 — Tags on actions / topics / documents / meetings:** each gets a join table, `<TagPicker>` in its create/edit surface, tag-name folding + `tagId` filter in its list query, a filter bar, per-row chips, filtered-empty state, and tag-preserving paging. Topics (no edit form) also got an inline `<TopicTags>` editor on the detail page.
+
+**Tags now span decisions, proposals, actions, topics, documents, and meetings.** Tag UI/persistence is unified through `<TagPicker>` + `syncEntityTags`. DB now has ~34 tables (added the four `*_tags` joins). Verified in-browser.
+
 ## Known Issues
 
 - **Deployment:** app is **live** (per owner) — set `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` in Vercel for rate limiting (fails open without them). Earlier "deploy pending" notes in PLAN/CLAUDE are stale.
