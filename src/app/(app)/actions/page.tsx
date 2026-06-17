@@ -9,6 +9,7 @@ import Link from "next/link";
 import { EmptyState } from "@/components/empty-state";
 import { ActionToggle } from "./action-toggle";
 import { ActionVisibilityToggle } from "./action-visibility";
+import { EditAction } from "@/components/edit-action";
 import { AddActionWithParent } from "@/components/add-action-with-parent";
 import { Pagination, PAGE_SIZE, parsePage } from "@/components/pagination";
 
@@ -157,7 +158,10 @@ export default async function ActionsPage({
                 </div>
               </div>
               {canEdit && (
-                <ActionVisibilityToggle actionId={action.id} isPublic={action.isPublic} />
+                <div className="flex items-center gap-3 pt-0.5">
+                  <EditAction actionId={action.id} members={ownerMembers} />
+                  <ActionVisibilityToggle actionId={action.id} isPublic={action.isPublic} />
+                </div>
               )}
             </div>
           );

@@ -78,6 +78,86 @@ export async function createAction(
   revalidatePath("/dashboard");
 }
 
+/** Editable snapshot of an action — the list folds owners into one display
+ *  string, so the edit dialog lazy-loads structured fields instead. */
+export async function getActionForEdit(actionId: string) {
+  const auth = await requireSpaceRole("member");
+  if ("error" in auth) return auth;
+  const { space } = auth;
+
+  const [row] = await db
+    .select({
+      description: actions.description,
+      ownerName: actions.ownerName,
+      dueDate: actions.dueDate,
+    })
+    .from(actions)
+    .where(and(eq(actions.id, actionId), eq(actions.spaceId, space.id)))
+    .limit(1);
+
+  if (!row) return { error: "Action not found" };
+
+  const owners = await db
+    .select({ userId: actionOwners.userId })
+    .from(actionOwners)
+    .where(eq(actionOwners.actionId, actionId));
+
+  return {
+    description: row.description,
+    ownerName: row.ownerName ?? "",
+    dueDate: row.dueDate ? row.dueDate.toISOString().split("T")[0] : "",
+    ownerUserIds: owners.map((o) => o.userId),
+  };
+}
+
+export async function updateAction(
+  actionId: string,
+  description: string,
+  ownerName?: string,
+  dueDate?: string,
+  ownerUserIds?: string[]
+) {
+  const auth = await requireSpaceRole("member");
+  if ("error" in auth) return auth;
+  const { space } = auth;
+
+  if (!description.trim()) return { error: "Description is required" };
+
+  const [existing] = await db
+    .select({ id: actions.id })
+    .from(actions)
+    .where(and(eq(actions.id, actionId), eq(actions.spaceId, space.id)))
+    .limit(1);
+
+  if (!existing) return { error: "Action not found" };
+
+  const ownerIds = await validateOwnerIds(space.id, ownerUserIds);
+
+  // Atomic: the row update and its member owners change together.
+  await db.transaction(async (tx) => {
+    await tx
+      .update(actions)
+      .set({
+        description: description.trim(),
+        ownerName: ownerName?.trim() || null,
+        dueDate: dueDate ? new Date(dueDate) : null,
+        updatedAt: new Date(),
+      })
+      .where(eq(actions.id, actionId));
+
+    await tx.delete(actionOwners).where(eq(actionOwners.actionId, actionId));
+    if (ownerIds.length > 0) {
+      await tx.insert(actionOwners).values(
+        ownerIds.map((userId) => ({ actionId, userId }))
+      );
+    }
+  });
+
+  revalidatePath("/actions");
+  revalidatePath("/dashboard");
+  return { success: true };
+}
+
 export async function updateActionStatus(
   actionId: string,
   status: "open" | "in_progress" | "complete" | "overdue"
