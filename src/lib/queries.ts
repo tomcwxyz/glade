@@ -1315,6 +1315,28 @@ export async function getActiveInsights(spaceId: string) {
     .orderBy(desc(insights.createdAt));
 }
 
+export async function getInsightById(spaceId: string, insightId: string) {
+  const [insight] = await db
+    .select({
+      id: insights.id,
+      type: insights.type,
+      title: insights.title,
+      content: insights.content,
+      metadata: insights.metadata,
+      createdAt: insights.createdAt,
+    })
+    .from(insights)
+    .where(
+      and(
+        eq(insights.id, insightId),
+        eq(insights.spaceId, spaceId),
+        eq(insights.status, "active")
+      )
+    )
+    .limit(1);
+  return insight || null;
+}
+
 export async function getDecisionReviewInsight(decisionId: string) {
   const [insight] = await db
     .select({ id: insights.id, content: insights.content })
