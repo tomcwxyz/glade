@@ -82,6 +82,8 @@ Click **Log a decision** from the decision list or dashboard. Fill in:
 - **Review date** — when it should be revisited (optional)
 - **Tags** — for organising and filtering (optional)
 
+If your space is on the Canopy plan with AI enabled, a **Suggest tags** button next to the tag picker reads your decision and selects the most relevant existing tags for you.
+
 If your space has public visibility enabled, decisions are public by default. Tick "Hide from public page" to keep a specific decision private.
 
 ### Decision lifecycle
@@ -122,7 +124,11 @@ Click **Export to CSV** on the decision list to download all decisions as a spre
 
 Actions are follow-up tasks that flow from governance work. They can be attached to decisions, proposals, or topics — wherever a next step is identified.
 
-Add actions from a decision, proposal, or topic detail page, or create them directly from the **Actions** page. Each action has a description, owner, and optional due date.
+Add actions from a decision, proposal, or topic detail page, or create them directly from the **Actions** page. Each action has a description, one or more owners, an optional due date, and optional tags. Owners can be members of your space, and you can also add a free-text name for someone outside it.
+
+### Editing an action
+
+Click the **pencil** icon on any action to open an edit dialog. You can change the description, owners, due date, and tags. (Members can edit; observers can view only.)
 
 ### Action statuses
 
@@ -134,7 +140,7 @@ Click the status icon on any action to cycle through:
 
 Actions past their due date are automatically marked **overdue** and highlighted in red.
 
-The actions list sorts by urgency: overdue actions first, then in-progress, then open, then complete.
+The actions list sorts by urgency: overdue actions first, then in-progress, then open, then complete. Use the tag bar at the top of the list to filter actions by tag.
 
 ---
 
@@ -152,7 +158,9 @@ From the meetings list, create a meeting with:
 - **Notes** — free text for any pre-meeting notes
 - **Agenda items** — each with a title, type (For Decision, For Discussion, or For Information), estimated duration, and optional description
 
-You can pull existing proposals or topics directly into the agenda. The proposal picker includes draft proposals as well as those open for discussion or ready for decision.
+You can pull existing proposals or topics directly into the agenda. The proposal picker includes draft proposals as well as those open for discussion or ready for decision. If your space has AI enabled, click **AI draft agenda** to generate agenda items from your open proposals, topics, and recent decisions.
+
+The meeting form also has **Decisions** and **Actions** sections, so you can record what was decided and what needs doing right alongside the meeting — link existing decisions or write new ones, and capture follow-up actions with their owners. You can also assign **tags** to the meeting.
 
 ### Sharing the agenda
 
@@ -189,6 +197,8 @@ When a flow completes, the facilitator records the decision directly from the me
 ### Linking entities to meetings
 
 From a meeting's detail page, you can link related decisions, documents, and proposals to the meeting record. This creates a cross-reference that appears on both the meeting and the linked item. Actions created during live meeting decision flows are linked automatically.
+
+If a decision came out of the meeting that isn't logged yet, click **New decision** in the meeting's Decisions section to create it and link it to the meeting in one step — it's dated to the meeting and added straight to your decision log, ready to flesh out later.
 
 ### Importing transcripts
 
@@ -288,7 +298,29 @@ Topics are lightweight prompts for surfacing things that need governance attenti
 
 When a topic is ready for more structured discussion, use **Promote to proposal** to convert it into a full proposal. The topic and proposal are linked, and the topic shows a "Promoted" badge.
 
-Topics can also be pulled directly into meeting agendas.
+Topics can also be pulled directly into meeting agendas. Add tags when you raise a topic, or from the topic's detail page afterwards.
+
+---
+
+## Tags
+
+Tags are a flexible way to group and find related governance work by theme — for example "finance", "safeguarding", or "strategy".
+
+### Creating tags
+
+Create and manage your space's tags in **Settings**, where you give each tag a name and a colour.
+
+### Applying tags
+
+Once you've created some tags, you can apply them across almost everything in Glade — decisions, proposals, actions, topics, documents, and meetings — and they show up as small coloured chips wherever the item is listed.
+
+- For decisions, proposals, documents, and meetings, choose tags on the create or edit form.
+- For actions, choose tags when you add or edit an action.
+- For topics, choose tags when you raise the topic, or add them later from its detail page.
+
+### Filtering by tag
+
+Each list page — decisions, proposals, actions, topics, documents, and meetings — has a tag bar across the top. Click a tag to show only the items carrying it, then click it again (or **All**) to clear the filter.
 
 ---
 
@@ -310,8 +342,10 @@ Small dots around each node show action progress — filled dots are complete, h
 ### Interacting
 
 - **Click** a node to open a popover with the decision's full details — number, title, status, method, date, rationale, outcome, participants, tags, action progress, and linked decisions
-- **Pan and zoom** using the controls or mouse/touch gestures
-- Use the **keyboard** to navigate between nodes
+- **Pan** by dragging anywhere on the canvas, and **zoom** with the controls or your mouse/touchpad
+- **Navigate with the keyboard** — use the arrow keys to move between decisions; the canvas pans to each one and announces it, and Enter opens its details
+- **Search** — type in the search box to highlight matching decisions and jump to the first match
+- **Filter by status** — click an entry in the legend to hide or show all decisions at that lifecycle stage
 
 The Glade respects your system's reduced-motion preference — if you have "reduce motion" enabled, node animations are turned off.
 
@@ -321,9 +355,17 @@ The Glade respects your system's reduced-motion preference — if you have "redu
 
 AI features are available on the **Canopy plan** and must be enabled per-space in Settings. All AI actions are triggered manually — nothing runs in the background.
 
+### The Insights page
+
+**Insights** (in the sidebar) is the home for Glade's AI intelligence. It gathers your pattern insights, the monthly digest archive, and member briefings in one place. The dashboard shows a quick summary that links through to the full page.
+
+### Ask about your governance
+
+A question box on the dashboard lets you ask plain-language questions — "What did we decide about the lease?" — and get an answer grounded in your decisions and documents, with the relevant decision numbers cited. If Glade can't find an answer in your record, it says so rather than guessing. Answers aren't stored.
+
 ### Pattern analysis
 
-From the AI Insights panel on the dashboard, analyse your governance patterns. Glade reviews all your decisions and surfaces insights about decision-method distribution, action follow-through, review patterns, and governance health. Insights appear as cards that you can dismiss when read.
+From the Insights page, analyse your governance patterns. Glade reviews all your decisions and surfaces trends about participation, cadence, follow-through, documentation, decision-method mix, and risks. Each insight appears as a card with a **category**, a **signal** (strength, watch, or needs attention), a short analysis, and a suggested next step — with a link to the most relevant decision. Re-analysing replaces the current set, and you can dismiss individual cards.
 
 ### Decision review questions
 
@@ -343,11 +385,11 @@ After a stale flag, ask AI to draft specific text changes — it quotes the exis
 
 ### Governance digest
 
-A monthly summary covering decisions made, action progress, document updates, upcoming reviews, and governance improvement recommendations.
+A monthly summary covering decisions made, action progress, document updates, upcoming reviews, and governance improvement recommendations. Generate digests from the Insights page. Every digest is kept in an **archive**, so you can look back over time, and each new digest opens with a comparison to the previous period. You can **download** any digest as Markdown or open a **printable view** to save it as PDF.
 
 ### New member briefing
 
-An onboarding document for new members covering how decisions are typically made, key active decisions, document summaries, ongoing actions, and upcoming reviews.
+An onboarding document for new members covering how decisions are typically made, key active decisions, document summaries, ongoing actions, and upcoming reviews. Generate briefings from the Insights page; past briefings are kept for reference, and each can be downloaded as Markdown or saved as PDF.
 
 ### Meeting summary
 

@@ -4,6 +4,35 @@ All notable changes to Glade will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-06-17] — The Insights hub, tags everywhere, editable actions, and a richer Glade
+
+### Added
+
+- **Tag anything** — tags now work across decisions, proposals, actions, topics, documents, and meetings (previously only decisions and proposals). Add tags when you create or edit any of these, and narrow any of those lists to a single tag using the new filter bar at the top of the page.
+- **Suggest tags with AI** — on the decision form, click "Suggest tags" and Glade picks the most relevant existing tags for what you've written (Canopy plan, AI enabled).
+- **Edit actions** — actions can now be edited. Click the pencil on any action to change its description, owners, due date, and tags.
+- **More than one owner per action** — an action can now have several owners, plus an optional free-text name for someone outside your space.
+- **Record decisions and actions during a meeting** — the meeting form now has Decisions and Actions sections, so you can capture what was decided and what needs doing without leaving the page. And on a meeting's detail page, a new **New decision** button creates a decision and links it to the meeting in one step — no more hopping out to the decision log and back.
+- **The Insights page** — a dedicated home for Glade's AI intelligence, reached from the sidebar, bringing pattern insights, the monthly digest archive, and member briefings together in one place.
+- **Digest archive and comparison** — every monthly digest is now kept, so you can look back over time. Each new digest also compares the current period against the previous one.
+- **Visual pattern insights** — pattern analysis now appears as a grid of cards, each with a category, a signal (strength, watch, or needs attention), and a suggested next step.
+- **Download and print AI documents** — digests and briefings can be downloaded as Markdown or opened in a printable view to save as PDF.
+- **Ask about your governance** — a question box on the dashboard answers plain-language questions about your decisions and documents, citing the decision numbers it drew on.
+- **AI-drafted agendas** — when creating a meeting, click "AI draft agenda" to generate agenda items from your open proposals, topics, and recent decisions.
+- **A more navigable Glade** — the decision canvas now supports click-and-drag panning, arrow-key navigation between decisions, a search box that jumps to a matching decision, and clickable legend filters to show or hide decisions by status.
+
+### Changed
+
+- **Clearer AI content** — briefings, digests, and answers now render tables, headings, and lists properly instead of showing raw text.
+- **Tidier dashboard** — the AI panels moved off the cramped sidebar; quick questions stay on the dashboard while the longer reports (digests, briefings) now live on the Insights page.
+- **Wider tag colour palette** — more colours to choose from when creating tags.
+
+### Fixed
+
+- **Notifications panel position** — the notifications dropdown no longer opens off the edge of the screen.
+
+---
+
 ## [2026-03-04] — Account security, member invites, and branded emails
 
 ### Added
