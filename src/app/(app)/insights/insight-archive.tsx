@@ -10,7 +10,7 @@ import {
 import { MarkdownContent } from "@/components/markdown-content";
 import { DownloadButton } from "@/components/download-button";
 import { formatDate } from "@/lib/utils";
-import { Sparkles, Loader2, X, Newspaper, Users } from "lucide-react";
+import { Sparkles, Loader2, X, Newspaper, Users, Printer } from "lucide-react";
 
 export interface ArchiveItem {
   id: string;
@@ -121,6 +121,20 @@ export function InsightArchive({
                   </p>
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      window.open(`/insights/${item.id}/print`, "_blank");
+                    }}
+                    className="flex items-center gap-1 text-bark-muted hover:text-canopy transition-colors"
+                    title="Open printable view (save as PDF)"
+                    aria-label="Open printable view to save as PDF"
+                  >
+                    <Printer size={14} />
+                    <span className="text-xs">PDF</span>
+                  </button>
                   <DownloadButton
                     content={item.content}
                     filename={`${config.fileSlug}-${item.createdAt.split("T")[0]}.md`}
