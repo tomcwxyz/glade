@@ -2,24 +2,8 @@
 
 import { useState } from "react";
 import { askGovernanceQuestion } from "@/lib/ai-actions";
+import { MarkdownContent } from "@/components/markdown-content";
 import { Sparkles, Loader2, MessageCircleQuestion } from "lucide-react";
-
-/** Render a small subset of markdown (headings, bullets) like the other AI cards. */
-function renderMarkdown(text: string) {
-  return text.split("\n").map((line, i) => {
-    if (line.startsWith("# ")) return <h1 key={i}>{line.slice(2)}</h1>;
-    if (line.startsWith("## ")) return <h2 key={i}>{line.slice(3)}</h2>;
-    if (line.startsWith("### ")) return <h3 key={i}>{line.slice(4)}</h3>;
-    if (line.startsWith("- "))
-      return (
-        <p key={i} className="ml-4">
-          &bull; {line.slice(2)}
-        </p>
-      );
-    if (line.trim() === "") return <br key={i} />;
-    return <p key={i}>{line}</p>;
-  });
-}
 
 export function GovernanceQa() {
   const [question, setQuestion] = useState("");
@@ -88,9 +72,7 @@ export function GovernanceQa() {
 
       {answer && (
         <div className="mt-3 p-4 bg-paper-warm rounded-xl border border-border">
-          <div className="prose prose-sm max-w-none text-bark [&_h1]:text-lg [&_h1]:font-semibold [&_h2]:text-base [&_h2]:font-semibold [&_h3]:text-sm [&_h3]:font-semibold [&_p]:text-[0.8125rem] [&_li]:text-[0.8125rem]">
-            {renderMarkdown(answer)}
-          </div>
+          <MarkdownContent content={answer} />
           <p className="text-[0.625rem] text-bark-muted/60 mt-3">
             AI-generated from your decisions and documents — verify against the record.
           </p>

@@ -19,6 +19,7 @@ import {
   Circle,
   Clock,
   ListChecks,
+  Sparkles,
   TreePine,
   TriangleAlert,
   Users,
@@ -394,30 +395,8 @@ export default async function DashboardPage() {
           </div>
         </section>
 
-        {/* Right column */}
+        {/* Right column — operational status widgets */}
         <div className="space-y-10">
-          {/* Upgrade prompt for free tier */}
-          {!planLimits.canUseAi && (
-            <UpgradePrompt
-              feature="AI Governance Insights"
-              description="Get pattern analysis, review questions, and document intelligence powered by AI."
-            />
-          )}
-
-          {/* AI Insights */}
-          {aiEnabled && (
-            <InsightsPanel
-              insights={activeInsights.map((i) => ({
-                ...i,
-                createdAt: i.createdAt.toISOString(),
-              }))}
-              relatedDecisions={relatedDecisions}
-            />
-          )}
-
-          {/* Governance Q&A */}
-          {aiEnabled && <GovernanceQa />}
-
           {/* Open actions */}
           <section>
             <div className="flex items-center justify-between mb-4">
@@ -574,27 +553,60 @@ export default async function DashboardPage() {
             )}
           </section>
 
-          {/* Governance digest */}
-          {aiEnabled && (
+        </div>
+      </div>
+
+      {/* Upgrade prompt for free tier — sits where the AI band would be */}
+      {!planLimits.canUseAi && (
+        <section className="mt-14 pt-10 border-t border-border">
+          <UpgradePrompt
+            feature="AI Governance Insights"
+            description="Get pattern analysis, review questions, and document intelligence powered by AI."
+          />
+        </section>
+      )}
+
+      {/* Governance intelligence — full-width AI band.
+          Lengthy, document-like AI output (briefings, digests, tables) needs
+          room the 320px rail can't give it. Kept as a self-contained section so
+          it can later be lifted onto a dedicated /insights page if needed. */}
+      {aiEnabled && (
+        <section className="mt-14 pt-10 border-t border-border">
+          <h2
+            className="text-xl font-medium tracking-tight mb-8 flex items-center gap-2"
+            style={{ fontFamily: "var(--font-display)" }}
+          >
+            <Sparkles size={18} className="text-canopy" />
+            Governance intelligence
+          </h2>
+
+          <div className="space-y-12">
+            <InsightsPanel
+              insights={activeInsights.map((i) => ({
+                ...i,
+                createdAt: i.createdAt.toISOString(),
+              }))}
+              relatedDecisions={relatedDecisions}
+            />
+
+            <GovernanceQa />
+
             <GovernanceDigest
               existing={digestInsight ? {
                 id: digestInsight.id,
                 content: digestInsight.content,
               } : null}
             />
-          )}
 
-          {/* Member briefing */}
-          {aiEnabled && (
             <MemberBriefing
               existing={briefingInsight ? {
                 id: briefingInsight.id,
                 content: briefingInsight.content,
               } : null}
             />
-          )}
-        </div>
-      </div>
+          </div>
+        </section>
+      )}
     </div>
   );
 }

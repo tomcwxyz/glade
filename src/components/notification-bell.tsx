@@ -103,7 +103,7 @@ export function NotificationBell() {
         <div
           role="menu"
           aria-label="Notifications"
-          className="absolute right-0 top-full mt-1 w-80 max-w-[calc(100vw-2rem)] bg-paper border border-border rounded-xl shadow-lg z-40 overflow-hidden"
+          className="absolute left-0 top-full mt-1 w-80 max-w-[calc(100vw-2rem)] bg-paper border border-border rounded-xl shadow-lg z-40 overflow-hidden"
         >
           <div className="flex items-center justify-between px-3 py-2.5 border-b border-border">
             <span className="text-[0.8125rem] font-medium text-bark">Notifications</span>
