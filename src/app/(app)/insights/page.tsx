@@ -7,7 +7,7 @@ import { getSpacePlan } from "@/lib/billing";
 import { PLAN_LIMITS } from "@/lib/plans";
 import { getActiveInsights, getDecisions } from "@/lib/queries";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
-import { InsightsPanel } from "../dashboard/insights-panel";
+import { InsightsPanel } from "./insights-panel";
 import { InsightArchive, type ArchiveItem } from "./insight-archive";
 
 export const metadata: Metadata = { title: "Insights" };

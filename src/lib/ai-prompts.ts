@@ -11,6 +11,9 @@ export function patternAnalysisPrompt(decisionsJson: string): string {
 Provide a list of insights ("patterns"), each with:
 - title: short headline (max 80 chars)
 - content: 1-2 paragraph analysis
+- category: the single best fit from: participation (who takes part), cadence (timing/frequency of decisions & reviews), follow_through (actions completed), documentation (governance docs currency), method_mix (decision-method choice & spread), risk (conflicts, gaps, things to watch), other
+- signal: "positive" (a strength worth recognising), "watch" (neutral/keep an eye on), or "concern" (needs attention)
+- suggestedAction: one concrete next step the organisation could take (max ~120 chars; empty string if none is warranted)
 - relatedDecisionNumber: number of the most relevant decision (or null)
 
 Decisions:

@@ -41,10 +41,16 @@ const PATTERN_SCHEMA = {
       items: {
         type: "object",
         additionalProperties: false,
-        required: ["title", "content", "relatedDecisionNumber"],
+        required: ["title", "content", "category", "signal", "suggestedAction", "relatedDecisionNumber"],
         properties: {
           title: { type: "string" },
           content: { type: "string" },
+          category: {
+            type: "string",
+            enum: ["participation", "cadence", "follow_through", "documentation", "method_mix", "risk", "other"],
+          },
+          signal: { type: "string", enum: ["positive", "watch", "concern"] },
+          suggestedAction: { type: "string" },
           relatedDecisionNumber: { type: ["integer", "null"] },
         },
       },
@@ -215,6 +221,9 @@ export async function analysePatterns() {
   let parsed: Array<{
     title: string;
     content: string;
+    category: string;
+    signal: string;
+    suggestedAction: string;
     relatedDecisionNumber: number | null;
   }>;
   try {
@@ -253,6 +262,11 @@ export async function analysePatterns() {
       content: insight.content,
       relatedDecisionId,
       status: "active",
+      metadata: {
+        category: insight.category,
+        signal: insight.signal,
+        suggestedAction: insight.suggestedAction || "",
+      },
     });
   }
 
