@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { createMeeting, updateMeeting } from "@/lib/meeting-actions";
 import { inputClass } from "@/lib/utils";
+import { TagPicker, type TagOption } from "@/components/tag-picker";
 import { Check, Clock, FileText, EyeOff, Loader2, Plus, X, MessageSquarePlus, Gavel, ListChecks, Sparkles } from "lucide-react";
 import { draftMeetingAgenda, type DraftedAgendaItem } from "@/lib/ai-actions";
 import Link from "next/link";
@@ -75,6 +76,7 @@ interface MeetingData {
   facilitatorId: string | null;
   attendeeIds: string[];
   agendaItems: AgendaItem[];
+  tagIds?: string[];
 }
 
 const MEETING_TYPES = [
@@ -117,6 +119,7 @@ export function MeetingForm({
   decisions = [],
   publicEnabled,
   aiEnabled,
+  tags = [],
 }: {
   members: Member[];
   meeting?: MeetingData;
@@ -125,6 +128,7 @@ export function MeetingForm({
   decisions?: DecisionOption[];
   publicEnabled?: boolean;
   aiEnabled?: boolean;
+  tags?: TagOption[];
 }) {
   const isEditing = !!meeting;
   const [loading, setLoading] = useState(false);
@@ -132,6 +136,13 @@ export function MeetingForm({
   const [selectedAttendees, setSelectedAttendees] = useState<string[]>(
     meeting?.attendeeIds || []
   );
+  const [selectedTags, setSelectedTags] = useState<string[]>(meeting?.tagIds || []);
+
+  function toggleTag(id: string) {
+    setSelectedTags((prev) =>
+      prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id]
+    );
+  }
   const [agendaItems, setAgendaItems] = useState<AgendaItem[]>(
     meeting?.agendaItems || []
   );
@@ -899,6 +910,16 @@ export function MeetingForm({
             ))}
           </div>
         </div>
+
+        {/* Tags */}
+        <TagPicker
+          tags={tags}
+          selectedIds={selectedTags}
+          onToggle={toggleTag}
+          name="tagIds"
+          entityLabel="meetings"
+          id="meeting-tags"
+        />
 
         {/* Public visibility */}
         {publicEnabled && (

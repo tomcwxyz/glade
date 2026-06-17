@@ -11,6 +11,7 @@ import {
   meetingAttendees,
   meetingDecisions,
   meetingActions,
+  meetingTags,
   actions,
   actionOwners,
   decisions,
@@ -22,7 +23,7 @@ import { requireSpaceRole } from "@/lib/space";
 import { createInitialState } from "@/lib/meeting-state";
 import { canUseLiveMeetings } from "@/lib/billing";
 import { logDeletion } from "@/lib/audit";
-import { insertDecisionWithUniqueNumber } from "@/lib/queries";
+import { insertDecisionWithUniqueNumber, syncEntityTags } from "@/lib/queries";
 import { notifyMeetingStarted } from "@/lib/notification-actions";
 
 type MeetingStatus = "draft" | "scheduled" | "in_progress" | "completed";
@@ -246,6 +247,9 @@ export async function createMeeting(formData: FormData) {
     }
 
     await persistMeetingCapture(tx, space.id, user.id, meeting.id, new Date(dateStr), formData);
+
+    const tagIds = ((formData.get("tagIds") as string) || "").split(",").filter(Boolean);
+    await syncEntityTags(tx, meetingTags, meetingTags.meetingId, "meetingId", meeting.id, tagIds);
   });
 
   redirect("/meetings");
@@ -332,6 +336,9 @@ export async function updateMeeting(meetingId: string, formData: FormData) {
     }
 
     await persistMeetingCapture(tx, space.id, user.id, meetingId, new Date(dateStr), formData);
+
+    const tagIds = ((formData.get("tagIds") as string) || "").split(",").filter(Boolean);
+    await syncEntityTags(tx, meetingTags, meetingTags.meetingId, "meetingId", meetingId, tagIds);
   });
 
   redirect("/meetings");

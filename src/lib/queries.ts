@@ -11,6 +11,7 @@ import {
   actionTags,
   topicTags,
   documentTags,
+  meetingTags,
   meetings,
   meetingAgendaItems,
   meetingAttendees,
@@ -382,12 +383,22 @@ export async function getActionsByProposal(proposalId: string) {
 
 export async function getMeetings(
   spaceId: string,
-  opts: { limit?: number; offset?: number } = {}
+  opts: { limit?: number; offset?: number; tagId?: string } = {}
 ) {
+  const tagFilter = opts.tagId
+    ? inArray(
+        meetings.id,
+        db
+          .select({ id: meetingTags.meetingId })
+          .from(meetingTags)
+          .where(eq(meetingTags.tagId, opts.tagId))
+      )
+    : undefined;
+
   let mq = db
     .select()
     .from(meetings)
-    .where(eq(meetings.spaceId, spaceId))
+    .where(and(eq(meetings.spaceId, spaceId), tagFilter))
     .orderBy(desc(meetings.date))
     .$dynamic();
   if (opts.limit != null) mq = mq.limit(opts.limit);
@@ -397,7 +408,7 @@ export async function getMeetings(
   const ids = rows.map((m) => m.id);
   if (ids.length === 0) return [];
 
-  const [allAttendees, allDecisionCounts] = await Promise.all([
+  const [allAttendees, allDecisionCounts, tagRows] = await Promise.all([
     db
       .select({ meetingId: meetingAttendees.meetingId, name: users.name })
       .from(meetingAttendees)
@@ -408,6 +419,11 @@ export async function getMeetings(
       .from(meetingDecisions)
       .where(inArray(meetingDecisions.meetingId, ids))
       .groupBy(meetingDecisions.meetingId),
+    db
+      .select({ meetingId: meetingTags.meetingId, name: tags.name })
+      .from(meetingTags)
+      .innerJoin(tags, eq(tags.id, meetingTags.tagId))
+      .where(inArray(meetingTags.meetingId, ids)),
   ]);
 
   const attendeeMap = new Map<string, string[]>();
@@ -422,11 +438,27 @@ export async function getMeetings(
     decisionCountMap.set(d.meetingId, d.count);
   }
 
+  const tagMap = new Map<string, string[]>();
+  for (const t of tagRows) {
+    const arr = tagMap.get(t.meetingId) || [];
+    arr.push(t.name);
+    tagMap.set(t.meetingId, arr);
+  }
+
   return rows.map((m) => ({
     ...m,
     attendees: attendeeMap.get(m.id) || [],
     decisionsCount: decisionCountMap.get(m.id) || 0,
+    tags: tagMap.get(m.id) || [],
   }));
+}
+
+export async function getMeetingTagIds(meetingId: string) {
+  const rows = await db
+    .select({ tagId: meetingTags.tagId })
+    .from(meetingTags)
+    .where(eq(meetingTags.meetingId, meetingId));
+  return rows.map((r) => r.tagId);
 }
 
 export async function getMeetingById(spaceId: string, meetingId: string) {

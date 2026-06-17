@@ -1,6 +1,6 @@
 import { getCurrentSpace } from "@/lib/space";
 import { isAiEnabled } from "@/lib/ai";
-import { getSpaceMembers, getAvailableTopics, getProposals, getDecisionsList } from "@/lib/queries";
+import { getSpaceMembers, getAvailableTopics, getProposals, getDecisionsList, getSpaceTags } from "@/lib/queries";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { MeetingForm } from "../meeting-form";
 
@@ -8,12 +8,14 @@ export default async function NewMeetingPage() {
   const space = await getCurrentSpace();
   if (!space) return null;
 
-  const [members, topics, allProposals, decisions] = await Promise.all([
+  const [members, topics, allProposals, decisions, spaceTags] = await Promise.all([
     getSpaceMembers(space.id),
     getAvailableTopics(space.id),
     getProposals(space.id),
     getDecisionsList(space.id),
+    getSpaceTags(space.id),
   ]);
+  const tagOptions = spaceTags.map((t) => ({ id: t.id, name: t.name, color: t.color }));
 
   const agendaProposals = allProposals
     .filter((p) => p.status === "draft" || p.status === "open_for_discussion" || p.status === "ready_for_decision")
@@ -44,6 +46,7 @@ export default async function NewMeetingPage() {
         decisions={decisions.map((d) => ({ id: d.id, number: d.number, title: d.title }))}
         publicEnabled={((space.settings as Record<string, unknown>) || {}).publicMeetings === true}
         aiEnabled={isAiEnabled(space.settings)}
+        tags={tagOptions}
       />
     </div>
   );

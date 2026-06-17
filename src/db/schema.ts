@@ -458,6 +458,19 @@ export const documentTags = pgTable(
   (dt) => [primaryKey({ columns: [dt.documentId, dt.tagId] })]
 );
 
+export const meetingTags = pgTable(
+  "meeting_tags",
+  {
+    meetingId: uuid("meeting_id")
+      .notNull()
+      .references(() => meetings.id, { onDelete: "cascade" }),
+    tagId: uuid("tag_id")
+      .notNull()
+      .references(() => tags.id, { onDelete: "cascade" }),
+  },
+  (mt) => [primaryKey({ columns: [mt.meetingId, mt.tagId] })]
+);
+
 // --- Meetings ---
 
 export const meetings = pgTable(
@@ -941,6 +954,7 @@ export const tagsRelations = relations(tags, ({ one, many }) => ({
   actions: many(actionTags),
   topics: many(topicTags),
   documents: many(documentTags),
+  meetings: many(meetingTags),
 }));
 
 export const proposalTagsRelations = relations(proposalTags, ({ one }) => ({
@@ -961,6 +975,7 @@ export const meetingsRelations = relations(meetings, ({ one, many }) => ({
   decisions: many(meetingDecisions),
   actions: many(meetingActions),
   documents: many(meetingDocuments),
+  tags: many(meetingTags),
 }));
 
 export const meetingAttendeesRelations = relations(meetingAttendees, ({ one }) => ({
@@ -1018,6 +1033,11 @@ export const topicTagsRelations = relations(topicTags, ({ one }) => ({
 export const documentTagsRelations = relations(documentTags, ({ one }) => ({
   document: one(documents, { fields: [documentTags.documentId], references: [documents.id] }),
   tag: one(tags, { fields: [documentTags.tagId], references: [tags.id] }),
+}));
+
+export const meetingTagsRelations = relations(meetingTags, ({ one }) => ({
+  meeting: one(meetings, { fields: [meetingTags.meetingId], references: [meetings.id] }),
+  tag: one(tags, { fields: [meetingTags.tagId], references: [tags.id] }),
 }));
 
 // --- Document relations ---

@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
-import { formatDate } from "@/lib/utils";
+import { formatDate, tagDotClass } from "@/lib/utils";
 import { BookOpen, Calendar, FileUp, Plus, Users } from "lucide-react";
 
 export const metadata: Metadata = { title: "Meetings" };
 import Link from "next/link";
 import { getCurrentSpace } from "@/lib/space";
-import { getMeetings } from "@/lib/queries";
+import { getMeetings, getSpaceTags } from "@/lib/queries";
 import { canUseAi } from "@/lib/billing";
 import { isAiEnabled } from "@/lib/ai";
 import { EmptyState } from "@/components/empty-state";
@@ -14,21 +14,24 @@ import { Pagination, PAGE_SIZE, parsePage } from "@/components/pagination";
 export default async function MeetingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string }>;
+  searchParams: Promise<{ page?: string; tag?: string }>;
 }) {
   const space = await getCurrentSpace();
   if (!space) return null;
-  const page = parsePage((await searchParams).page);
+  const sp = await searchParams;
+  const page = parsePage(sp.page);
   const offset = (page - 1) * PAGE_SIZE;
+  const spaceTags = await getSpaceTags(space.id);
+  const activeTag = sp.tag && spaceTags.some((t) => t.id === sp.tag) ? sp.tag : undefined;
   const [fetchedMeetings, aiCanUse] = await Promise.all([
-    getMeetings(space.id, { limit: PAGE_SIZE + 1, offset }),
+    getMeetings(space.id, { limit: PAGE_SIZE + 1, offset, tagId: activeTag }),
     canUseAi(space.id),
   ]);
   const hasMore = fetchedMeetings.length > PAGE_SIZE;
   const meetings = fetchedMeetings.slice(0, PAGE_SIZE);
   const aiAvailable = aiCanUse && isAiEnabled(space.settings);
 
-  if (meetings.length === 0) {
+  if (meetings.length === 0 && !activeTag) {
     return (
       <div className="max-w-4xl mx-auto px-4 sm:px-8 py-6 sm:py-10">
         <header className="mb-10">
@@ -83,6 +86,47 @@ export default async function MeetingsPage({
         </div>
       </header>
 
+      {/* Tag filter */}
+      {spaceTags.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 mb-8">
+          <Link
+            href="/meetings"
+            className={`px-3 py-1.5 text-xs rounded-lg border transition-colors ${
+              !activeTag
+                ? "bg-canopy-pale text-canopy border-canopy/30 font-medium"
+                : "bg-paper-warm text-bark-muted border-border hover:text-bark hover:border-canopy/30"
+            }`}
+          >
+            All
+          </Link>
+          {spaceTags.map((tag) => {
+            const isActive = activeTag === tag.id;
+            return (
+              <Link
+                key={tag.id}
+                href={isActive ? "/meetings" : `/meetings?tag=${tag.id}`}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-colors ${
+                  isActive
+                    ? "bg-canopy-pale text-canopy border-canopy/30 font-medium"
+                    : "bg-paper-warm text-bark-muted border-border hover:text-bark hover:border-canopy/30"
+                }`}
+              >
+                <span className={`w-2 h-2 rounded-full shrink-0 ${tagDotClass(tag.color)}`} />
+                {tag.name}
+              </Link>
+            );
+          })}
+        </div>
+      )}
+
+      {meetings.length === 0 ? (
+        <p className="text-bark-muted text-sm py-8 text-center">
+          No meetings with this tag.{" "}
+          <Link href="/meetings" className="text-canopy hover:text-canopy-light">
+            Clear filter
+          </Link>
+        </p>
+      ) : (
       <div className="space-y-3">
         {meetings.map((meeting) => (
           <Link
@@ -124,12 +168,25 @@ export default async function MeetingsPage({
                   {meeting.decisionsCount} decision{meeting.decisionsCount !== 1 ? "s" : ""}
                 </span>
               </div>
+              {meeting.tags.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mt-1.5">
+                  {meeting.tags.map((tag) => (
+                    <span
+                      key={tag}
+                      className="text-[0.6875rem] px-1.5 py-0.5 rounded bg-paper-deep text-bark-muted"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           </Link>
         ))}
       </div>
+      )}
 
-      <Pagination page={page} hasMore={hasMore} basePath="/meetings" />
+      <Pagination page={page} hasMore={hasMore} basePath="/meetings" params={{ tag: activeTag }} />
     </div>
   );
 }
