@@ -12,6 +12,16 @@ import {
   X,
 } from "lucide-react";
 import { linkToMeeting, unlinkFromMeeting } from "@/lib/meeting-link-actions";
+import { createDecisionForMeeting } from "@/lib/meeting-actions";
+
+const DECISION_METHODS = [
+  { value: "consent", label: "Consent" },
+  { value: "majority_vote", label: "Majority Vote" },
+  { value: "advice_process", label: "Advice Process" },
+  { value: "delegation", label: "Delegation" },
+  { value: "consensus", label: "Consensus" },
+  { value: "lazy_consensus", label: "Lazy Consensus" },
+];
 
 type LinkedDecision = {
   id: string;
@@ -76,6 +86,40 @@ export function MeetingLinksEditor({
     "decision" | "action" | "document" | "proposal" | null
   >(null);
   const [target, setTarget] = useState("");
+
+  // Inline "record a new decision" (created + linked to this meeting in one step).
+  const [creatingDecision, setCreatingDecision] = useState(false);
+  const [newTitle, setNewTitle] = useState("");
+  const [newMethod, setNewMethod] = useState("consent");
+  const [newOutcome, setNewOutcome] = useState("");
+  const [createError, setCreateError] = useState<string | null>(null);
+
+  function resetCreate() {
+    setCreatingDecision(false);
+    setNewTitle("");
+    setNewMethod("consent");
+    setNewOutcome("");
+    setCreateError(null);
+  }
+
+  function handleCreateDecision() {
+    if (!newTitle.trim()) return;
+    setCreateError(null);
+    startTransition(async () => {
+      const result = await createDecisionForMeeting(
+        meetingId,
+        newTitle,
+        newMethod,
+        newOutcome || undefined
+      );
+      if (result && "error" in result) {
+        setCreateError(result.error as string);
+        return;
+      }
+      resetCreate();
+      router.refresh();
+    });
+  }
 
   const selectClass =
     "w-full text-sm border border-border rounded-lg px-3 py-2 bg-paper text-bark focus:outline-none focus:ring-2 focus:ring-canopy/20";
@@ -169,20 +213,89 @@ export function MeetingLinksEditor({
             <CircleDot size={13} />
             Decisions ({decisions.length})
           </h2>
-          {availableDecisions.length > 0 && (
+          <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={() => {
-                setShowForm("decision");
-                setTarget("");
+                resetCreate();
+                setCreatingDecision(true);
+                setShowForm(null);
               }}
               className="flex items-center gap-1 text-xs text-canopy hover:text-canopy-light transition-colors"
             >
               <Plus size={13} />
-              Link decision
+              New decision
             </button>
-          )}
+            {availableDecisions.length > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  setShowForm("decision");
+                  setTarget("");
+                  setCreatingDecision(false);
+                }}
+                className="flex items-center gap-1 text-xs text-bark-muted hover:text-bark transition-colors"
+              >
+                <Plus size={13} />
+                Link existing
+              </button>
+            )}
+          </div>
         </div>
+
+        {creatingDecision && (
+          <div className="mb-4 p-3 bg-paper-warm rounded-lg border border-border space-y-2">
+            <input
+              type="text"
+              value={newTitle}
+              onChange={(e) => setNewTitle(e.target.value)}
+              placeholder="What was decided?"
+              className={selectClass}
+              autoFocus
+            />
+            <select
+              value={newMethod}
+              onChange={(e) => setNewMethod(e.target.value)}
+              className={selectClass}
+              aria-label="Decision method"
+            >
+              {DECISION_METHODS.map((m) => (
+                <option key={m.value} value={m.value}>
+                  {m.label}
+                </option>
+              ))}
+            </select>
+            <textarea
+              value={newOutcome}
+              onChange={(e) => setNewOutcome(e.target.value)}
+              placeholder="Outcome / summary (optional)"
+              rows={2}
+              className={`${selectClass} resize-none`}
+            />
+            {createError && <p className="text-xs text-earth">{createError}</p>}
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={handleCreateDecision}
+                disabled={!newTitle.trim() || isPending}
+                className="px-3 py-1.5 text-xs font-medium text-paper bg-canopy rounded-lg hover:bg-canopy-light transition-colors disabled:opacity-50"
+              >
+                {isPending ? "Creating…" : "Create & link"}
+              </button>
+              <button
+                type="button"
+                onClick={resetCreate}
+                className="px-3 py-1.5 text-xs text-bark-muted hover:text-bark transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+            <p className="text-[0.6875rem] text-bark-muted/70">
+              Creates a decision dated to this meeting — refine the details on the decision page later.
+            </p>
+          </div>
+        )}
+
         {renderForm(
           "decision",
           availableDecisions.map((d) => ({
