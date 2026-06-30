@@ -30,6 +30,7 @@ import {
   invitations,
 } from "@/db/schema";
 import { eq, and, or, desc, asc, count, sql, inArray } from "drizzle-orm";
+import { deriveActionStatus } from "@/lib/utils";
 
 // ============================================================
 // Decisions
@@ -229,7 +230,7 @@ export async function getActions(spaceId: string) {
       description: r.description,
       ownerName: r.ownerName,
       dueDate: r.dueDate,
-      status: r.status,
+      status: deriveActionStatus(r.status, r.dueDate),
       decisionNumber: r.decisionNumber,
       decisionTitle: r.decisionTitle,
       parentType,
@@ -240,19 +241,21 @@ export async function getActions(spaceId: string) {
 }
 
 export async function getActionsByTopic(topicId: string) {
-  return db
+  const rows = await db
     .select()
     .from(actions)
     .where(eq(actions.topicId, topicId))
     .orderBy(desc(actions.createdAt));
+  return rows.map((r) => ({ ...r, status: deriveActionStatus(r.status, r.dueDate) }));
 }
 
 export async function getActionsByProposal(proposalId: string) {
-  return db
+  const rows = await db
     .select()
     .from(actions)
     .where(eq(actions.proposalId, proposalId))
     .orderBy(desc(actions.createdAt));
+  return rows.map((r) => ({ ...r, status: deriveActionStatus(r.status, r.dueDate) }));
 }
 
 // ============================================================

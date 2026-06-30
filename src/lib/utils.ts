@@ -46,3 +46,20 @@ export function formatDateMonth(dateString: string): string {
     year: "numeric",
   });
 }
+
+export type ActionStatus = "open" | "in_progress" | "complete" | "overdue";
+
+/**
+ * Derive an action's effective status at read time. `overdue` is never stored —
+ * an open/in-progress action whose due date has passed is overdue. Computed on
+ * read so badges stay correct without a background job.
+ */
+export function deriveActionStatus(
+  status: ActionStatus,
+  dueDate: Date | string | null
+): ActionStatus {
+  if (status !== "open" && status !== "in_progress") return status;
+  if (!dueDate) return status;
+  const due = dueDate instanceof Date ? dueDate : new Date(dueDate);
+  return due.getTime() < Date.now() ? "overdue" : status;
+}
