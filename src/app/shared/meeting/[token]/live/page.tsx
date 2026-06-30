@@ -28,7 +28,7 @@ export default async function SharedLiveMeetingPage({
 
   return (
     <ObserverView
-      meetingId={meeting.id}
+      token={token}
       meetingTitle={meeting.title}
       agendaItems={meeting.agendaItems.map((item) => ({
         id: item.id,

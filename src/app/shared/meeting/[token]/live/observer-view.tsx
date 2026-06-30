@@ -26,11 +26,11 @@ const AGENDA_TYPE_LABELS: Record<string, { label: string; color: string }> = {
 };
 
 export function ObserverView({
-  meetingId,
+  token,
   meetingTitle,
   agendaItems,
 }: {
-  meetingId: string;
+  token: string;
   meetingTitle: string;
   agendaItems: AgendaItem[];
 }) {
@@ -39,8 +39,8 @@ export function ObserverView({
 
   const fetchState = useCallback(async () => {
     try {
-      // Public observer uses unauthenticated poll — reuse the same API but handle 401
-      const res = await fetch(`/api/meetings/${meetingId}/state`, {
+      // Public observer polls the token-scoped endpoint (no auth required).
+      const res = await fetch(`/api/shared/meeting/${token}/state`, {
         cache: "no-store",
       });
       if (!res.ok) return;
@@ -53,7 +53,7 @@ export function ObserverView({
     } catch {
       // Ignore
     }
-  }, [meetingId]);
+  }, [token]);
 
   useEffect(() => {
     fetchState();

@@ -381,6 +381,20 @@ export async function getMeetingById(spaceId: string, meetingId: string) {
   };
 }
 
+/**
+ * Public live-observer state, scoped by share token (the revocable access
+ * grant). Returns null when the token doesn't match — callers treat as 404.
+ */
+export async function getMeetingSessionStateByShareToken(token: string) {
+  if (!token) return null;
+  const [m] = await db
+    .select({ sessionState: meetings.sessionState, status: meetings.status })
+    .from(meetings)
+    .where(eq(meetings.shareToken, token))
+    .limit(1);
+  return m || null;
+}
+
 export async function getMeetingByShareToken(token: string) {
   const [m] = await db
     .select()
