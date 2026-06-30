@@ -12,7 +12,7 @@ import {
   proposals,
 } from "@/db/schema";
 import { getCurrentSpace, requireUser } from "@/lib/space";
-import { insertDecisionWithUniqueNumber } from "@/lib/queries";
+import { insertDecisionWithUniqueNumber, updateMeetingSessionState } from "@/lib/queries";
 import type { MeetingSessionState } from "@/lib/meeting-state";
 import { advanceItem, skipItem, goToItem, startDecisionFlow } from "@/lib/meeting-state";
 
@@ -31,11 +31,29 @@ async function getMeetingState(meetingId: string, spaceId: string) {
   return m || null;
 }
 
-async function saveState(meetingId: string, state: MeetingSessionState) {
-  await db
-    .update(meetings)
-    .set({ sessionState: state, updatedAt: new Date() })
-    .where(eq(meetings.id, meetingId));
+/**
+ * Apply a pure state transition under optimistic locking. The mutator MUST bump
+ * `version` by 1. We write only if the DB version still matches the version we
+ * based the change on; on conflict we re-read the latest state and re-apply, so
+ * concurrent votes / speaker-stack entries are never silently lost.
+ */
+async function applyStateChange(
+  meetingId: string,
+  spaceId: string,
+  baseState: MeetingSessionState,
+  mutate: (s: MeetingSessionState) => MeetingSessionState
+): Promise<MeetingSessionState> {
+  let current = baseState;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const next = mutate(current);
+    const ok = await updateMeetingSessionState(meetingId, next, current.version);
+    if (ok) return next;
+
+    const fresh = await getMeetingState(meetingId, spaceId);
+    if (!fresh?.sessionState) throw new Error("Meeting state not found");
+    current = fresh.sessionState as MeetingSessionState;
+  }
+  throw new Error("Could not save meeting state — too many concurrent updates");
 }
 
 async function getAgendaCount(meetingId: string) {
@@ -87,35 +105,38 @@ async function withFacilitatorState<T>(
 }
 
 export async function advanceAgendaItem(meetingId: string, outcome?: string, decisionId?: string) {
-  return withFacilitatorState(meetingId, async ({ state }) => {
+  return withFacilitatorState(meetingId, async ({ state, space }) => {
     const totalItems = await getAgendaCount(meetingId);
-    const newState = advanceItem(state, totalItems, outcome, decisionId);
-    await saveState(meetingId, newState);
+    const newState = await applyStateChange(meetingId, space.id, state, (s) =>
+      advanceItem(s, totalItems, outcome, decisionId)
+    );
     return { state: newState };
   });
 }
 
 export async function skipAgendaItem(meetingId: string) {
-  return withFacilitatorState(meetingId, async ({ state }) => {
+  return withFacilitatorState(meetingId, async ({ state, space }) => {
     const totalItems = await getAgendaCount(meetingId);
-    const newState = skipItem(state, totalItems);
-    await saveState(meetingId, newState);
+    const newState = await applyStateChange(meetingId, space.id, state, (s) =>
+      skipItem(s, totalItems)
+    );
     return { state: newState };
   });
 }
 
 export async function goToAgendaItem(meetingId: string, index: number) {
-  return withFacilitatorState(meetingId, async ({ state }) => {
-    const newState = goToItem(state, index);
-    await saveState(meetingId, newState);
+  return withFacilitatorState(meetingId, async ({ state, space }) => {
+    const newState = await applyStateChange(meetingId, space.id, state, (s) =>
+      goToItem(s, index)
+    );
     return { state: newState };
   });
 }
 
 export async function startTimer(meetingId: string, durationMinutes: number) {
-  return withFacilitatorState(meetingId, async ({ state }) => {
-    const newState: MeetingSessionState = {
-      ...state,
+  return withFacilitatorState(meetingId, async ({ state, space }) => {
+    const newState = await applyStateChange(meetingId, space.id, state, (s) => ({
+      ...s,
       timer: {
         startedAt: new Date().toISOString(),
         durationMinutes,
@@ -123,78 +144,77 @@ export async function startTimer(meetingId: string, durationMinutes: number) {
         pausedAt: null,
         elapsed: 0,
       },
-      version: state.version + 1,
+      version: s.version + 1,
       updatedAt: new Date().toISOString(),
-    };
-    await saveState(meetingId, newState);
+    }));
     return { state: newState };
   });
 }
 
 export async function pauseTimer(meetingId: string) {
-  return withFacilitatorState(meetingId, async ({ state }) => {
-    const now = new Date();
-    const startedAt = state.timer.startedAt ? new Date(state.timer.startedAt) : now;
-    const elapsed = state.timer.elapsed + (now.getTime() - startedAt.getTime()) / 1000;
-
-    const newState: MeetingSessionState = {
-      ...state,
-      timer: {
-        ...state.timer,
-        paused: true,
-        pausedAt: now.toISOString(),
-        elapsed,
-        startedAt: null,
-      },
-      version: state.version + 1,
-      updatedAt: now.toISOString(),
-    };
-    await saveState(meetingId, newState);
+  return withFacilitatorState(meetingId, async ({ state, space }) => {
+    const newState = await applyStateChange(meetingId, space.id, state, (s) => {
+      const now = new Date();
+      const startedAt = s.timer.startedAt ? new Date(s.timer.startedAt) : now;
+      const elapsed = s.timer.elapsed + (now.getTime() - startedAt.getTime()) / 1000;
+      return {
+        ...s,
+        timer: {
+          ...s.timer,
+          paused: true,
+          pausedAt: now.toISOString(),
+          elapsed,
+          startedAt: null,
+        },
+        version: s.version + 1,
+        updatedAt: now.toISOString(),
+      };
+    });
     return { state: newState };
   });
 }
 
 export async function resetTimer(meetingId: string) {
-  return withFacilitatorState(meetingId, async ({ state }) => {
-    const newState: MeetingSessionState = {
-      ...state,
+  return withFacilitatorState(meetingId, async ({ state, space }) => {
+    const newState = await applyStateChange(meetingId, space.id, state, (s) => ({
+      ...s,
       timer: {
         startedAt: null,
-        durationMinutes: state.timer.durationMinutes,
+        durationMinutes: s.timer.durationMinutes,
         paused: false,
         pausedAt: null,
         elapsed: 0,
       },
-      version: state.version + 1,
+      version: s.version + 1,
       updatedAt: new Date().toISOString(),
-    };
-    await saveState(meetingId, newState);
+    }));
     return { state: newState };
   });
 }
 
 export async function beginDecisionFlow(meetingId: string, method: string, proposalText?: string) {
-  return withFacilitatorState(meetingId, async ({ state }) => {
-    const newState = startDecisionFlow(state, method, proposalText);
-    await saveState(meetingId, newState);
+  return withFacilitatorState(meetingId, async ({ state, space }) => {
+    const newState = await applyStateChange(meetingId, space.id, state, (s) =>
+      startDecisionFlow(s, method, proposalText)
+    );
     return { state: newState };
   });
 }
 
 export async function advanceDecisionStage(meetingId: string, nextStage: string) {
-  return withFacilitatorState(meetingId, async ({ state }) => {
+  return withFacilitatorState(meetingId, async ({ state, space }) => {
     if (!state.decisionFlow) return { error: "No decision flow active" };
 
-    const newState: MeetingSessionState = {
-      ...state,
-      decisionFlow: {
-        ...state.decisionFlow,
-        stage: nextStage,
-      },
-      version: state.version + 1,
-      updatedAt: new Date().toISOString(),
-    };
-    await saveState(meetingId, newState);
+    const newState = await applyStateChange(meetingId, space.id, state, (s) =>
+      s.decisionFlow
+        ? {
+            ...s,
+            decisionFlow: { ...s.decisionFlow, stage: nextStage },
+            version: s.version + 1,
+            updatedAt: new Date().toISOString(),
+          }
+        : s
+    );
     return { state: newState };
   });
 }
@@ -204,58 +224,69 @@ export async function submitResponse(
   value: string,
   comment?: string
 ) {
-  return withMeetingState(meetingId, async ({ state, user }) => {
+  return withMeetingState(meetingId, async ({ state, space, user }) => {
     if (!state.decisionFlow) return { error: "No decision flow active" };
 
-    const newState: MeetingSessionState = {
-      ...state,
-      decisionFlow: {
-        ...state.decisionFlow,
-        responses: [
-          ...state.decisionFlow.responses,
-          {
-            participantId: user.id,
-            name: user.name || "Unknown",
-            value,
-            comment,
-            respondedAt: new Date().toISOString(),
-          },
-        ],
-      },
-      version: state.version + 1,
-      updatedAt: new Date().toISOString(),
-    };
-    await saveState(meetingId, newState);
+    const newState = await applyStateChange(meetingId, space.id, state, (s) => {
+      if (!s.decisionFlow) return s;
+      const stage = s.decisionFlow.stage;
+      // Dedupe: a participant has one response per stage — replace any prior one.
+      const others = s.decisionFlow.responses.filter(
+        (r) => !(r.participantId === user.id && (r.stage ?? null) === stage)
+      );
+      return {
+        ...s,
+        decisionFlow: {
+          ...s.decisionFlow,
+          responses: [
+            ...others,
+            {
+              participantId: user.id,
+              name: user.name || "Unknown",
+              value,
+              comment,
+              stage,
+              respondedAt: new Date().toISOString(),
+            },
+          ],
+        },
+        version: s.version + 1,
+        updatedAt: new Date().toISOString(),
+      };
+    });
     return { state: newState };
   });
 }
 
 export async function requestToSpeak(meetingId: string) {
-  return withMeetingState(meetingId, async ({ state, user }) => {
+  return withMeetingState(meetingId, async ({ state, space, user }) => {
     if (state.speakerStack.some((s) => s.participantId === user.id)) {
       return { state };
     }
 
-    const newState: MeetingSessionState = {
-      ...state,
-      speakerStack: [
-        ...state.speakerStack,
-        {
-          participantId: user.id,
-          name: user.name || "Unknown",
-          requestedAt: new Date().toISOString(),
-        },
-      ],
-      version: state.version + 1,
-      updatedAt: new Date().toISOString(),
-    };
-    await saveState(meetingId, newState);
+    const newState = await applyStateChange(meetingId, space.id, state, (s) =>
+      s.speakerStack.some((e) => e.participantId === user.id)
+        ? s
+        : {
+            ...s,
+            speakerStack: [
+              ...s.speakerStack,
+              {
+                participantId: user.id,
+                name: user.name || "Unknown",
+                requestedAt: new Date().toISOString(),
+              },
+            ],
+            version: s.version + 1,
+            updatedAt: new Date().toISOString(),
+          }
+    );
     return { state: newState };
   });
 }
 
 export async function withdrawSpeaker(meetingId: string, participantId?: string) {
-  return withMeetingState(meetingId, async ({ state, user, meeting }) => {
+  return withMeetingState(meetingId, async ({ state, space, user, meeting }) => {
     const targetId = participantId || user.id;
 
     // Anyone may withdraw themselves; removing someone else is facilitator-only.
@@ -266,27 +297,25 @@ export async function withdrawSpeaker(meetingId: string, participantId?: string)
       }
     }
 
-    const newState: MeetingSessionState = {
-      ...state,
-      speakerStack: state.speakerStack.filter((s) => s.participantId !== targetId),
-      version: state.version + 1,
+    const newState = await applyStateChange(meetingId, space.id, state, (s) => ({
+      ...s,
+      speakerStack: s.speakerStack.filter((e) => e.participantId !== targetId),
+      version: s.version + 1,
       updatedAt: new Date().toISOString(),
-    };
-    await saveState(meetingId, newState);
+    }));
     return { state: newState };
   });
 }
 
 export async function cancelDecisionFlow(meetingId: string) {
-  return withFacilitatorState(meetingId, async ({ state }) => {
-    const newState: MeetingSessionState = {
-      ...state,
+  return withFacilitatorState(meetingId, async ({ state, space }) => {
+    const newState = await applyStateChange(meetingId, space.id, state, (s) => ({
+      ...s,
       phase: "agenda_item",
       decisionFlow: null,
-      version: state.version + 1,
+      version: s.version + 1,
       updatedAt: new Date().toISOString(),
-    };
-    await saveState(meetingId, newState);
+    }));
     return { state: newState };
   });
 }
@@ -364,22 +393,19 @@ export async function recordMeetingAction(
 }
 
 export async function endMeeting(meetingId: string) {
-  return withFacilitatorState(meetingId, async ({ state }) => {
-    const finalState: MeetingSessionState = {
-      ...state,
+  return withFacilitatorState(meetingId, async ({ state, space }) => {
+    // Lock the phase transition so a last-second vote isn't clobbered.
+    await applyStateChange(meetingId, space.id, state, (s) => ({
+      ...s,
       phase: "completed",
-      version: state.version + 1,
+      version: s.version + 1,
       updatedAt: new Date().toISOString(),
-    };
+    }));
 
     await db
       .update(meetings)
-      .set({
-        status: "completed",
-        sessionState: finalState,
-        updatedAt: new Date(),
-      })
-      .where(eq(meetings.id, meetingId));
+      .set({ status: "completed", updatedAt: new Date() })
+      .where(and(eq(meetings.id, meetingId), eq(meetings.spaceId, space.id)));
 
     revalidatePath(`/meetings/${meetingId}`);
     return { success: true };

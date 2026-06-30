@@ -11,6 +11,7 @@ export interface DecisionResponse {
   name: string;
   value: string; // "consent" | "object" | "abstain" | vote choice etc
   comment?: string;
+  stage?: string; // flow stage the response was given in (dedupe key per participant+stage)
   respondedAt: string;
 }
 
