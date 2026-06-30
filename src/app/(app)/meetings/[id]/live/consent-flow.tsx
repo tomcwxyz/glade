@@ -20,7 +20,9 @@ export function ConsentFlow({
   state,
   mutate,
   isFacilitator,
+  currentUserId,
   onAdvanceStage,
+  onSubmit,
   onRecord,
 }: {
   meetingId: string;
@@ -28,12 +30,29 @@ export function ConsentFlow({
   state: MeetingSessionState;
   mutate: (s: MeetingSessionState) => void;
   isFacilitator: boolean;
+  currentUserId?: string;
   onAdvanceStage: (stage: string) => Promise<void>;
+  onSubmit?: (value: string, comment?: string) => Promise<void>;
   onRecord: (title: string, method: string, outcome?: string) => Promise<void>;
 }) {
   const { announce } = useLiveRegion();
   const [title, setTitle] = useState(flow.proposalText || "");
   const [outcome, setOutcome] = useState("");
+  const [comment, setComment] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  // The current participant's response in the current stage (if any).
+  const myResponse = flow.responses.find(
+    (r) => r.participantId === currentUserId && r.stage === flow.stage
+  );
+
+  async function submit(value: string, withComment?: string) {
+    if (!onSubmit) return;
+    setSubmitting(true);
+    await onSubmit(value, withComment);
+    setSubmitting(false);
+    setComment("");
+  }
 
   const currentStageIndex = CONSENT_STAGES.findIndex((s) => s.key === flow.stage);
 
@@ -161,6 +180,90 @@ export function ConsentFlow({
               {o.name}: {o.comment || "(no details)"}
             </p>
           ))}
+        </div>
+      )}
+
+      {/* Participant: reactions round */}
+      {flow.stage === "react" && !isFacilitator && onSubmit && (
+        <div className="mb-4">
+          {myResponse ? (
+            <p className="text-sm text-canopy">
+              Reaction recorded: <span className="font-medium">{myResponse.value}</span>
+            </p>
+          ) : (
+            <>
+              <h4 className="text-xs text-bark-muted font-medium mb-2">Your reaction</h4>
+              <div className="flex flex-wrap gap-2 mb-2">
+                {[
+                  { v: "support", label: "👍 Support" },
+                  { v: "concern", label: "🤔 Concern" },
+                  { v: "against", label: "👎 Against" },
+                  { v: "neutral", label: "😐 Neutral" },
+                ].map((r) => (
+                  <button
+                    key={r.v}
+                    type="button"
+                    onClick={() => submit(r.v, comment || undefined)}
+                    disabled={submitting}
+                    className="px-3 py-2 text-sm border border-border rounded-lg hover:bg-paper-deep transition-colors disabled:opacity-50"
+                  >
+                    {r.label}
+                  </button>
+                ))}
+              </div>
+              <textarea
+                placeholder="Optional comment…"
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                rows={2}
+                className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-paper resize-none focus:outline-none focus:ring-2 focus:ring-canopy/20"
+              />
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Participant: objection round */}
+      {flow.stage === "object" && !isFacilitator && onSubmit && (
+        <div className="mb-4">
+          {myResponse ? (
+            <p className="text-sm text-canopy">
+              {myResponse.value === "objection"
+                ? "Objection recorded."
+                : "Recorded: no objection."}
+            </p>
+          ) : (
+            <>
+              <h4 className="text-xs text-bark-muted font-medium mb-2">
+                Do you have a reasoned objection?
+              </h4>
+              <textarea
+                placeholder="Describe your objection (leave blank for none)…"
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                rows={3}
+                className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-paper resize-none focus:outline-none focus:ring-2 focus:ring-canopy/20 mb-2"
+              />
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => submit("no_objection")}
+                  disabled={submitting}
+                  className="px-4 py-2 text-sm bg-canopy text-paper rounded-lg font-medium hover:bg-canopy-light transition-colors disabled:opacity-50"
+                >
+                  No objection
+                </button>
+                <button
+                  type="button"
+                  onClick={() => submit("objection", comment)}
+                  disabled={submitting || !comment.trim()}
+                  className="px-4 py-2 text-sm bg-earth text-paper rounded-lg font-medium hover:bg-earth/90 transition-colors disabled:opacity-50"
+                >
+                  Raise objection
+                </button>
+              </div>
+            </>
+          )}
         </div>
       )}
 

@@ -42,11 +42,13 @@ export function ParticipantView({
   meetingTitle,
   agendaItems,
   voteThreshold,
+  currentUserId,
 }: {
   meetingId: string;
   meetingTitle: string;
   agendaItems: AgendaItem[];
   voteThreshold?: number;
+  currentUserId?: string;
 }) {
   const { announce } = useLiveRegion();
   const { state, loading, mutate } = useMeetingPoll(meetingId);
@@ -269,6 +271,7 @@ export function ParticipantView({
                 voteThreshold={voteThreshold}
                 agendaItems={agendaItems}
                 currentAgendaItemIndex={state.currentAgendaItemIndex}
+                currentUserId={currentUserId}
               />
             ) : (
               <ParticipantInteractions

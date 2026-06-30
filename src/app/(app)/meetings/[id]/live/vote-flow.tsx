@@ -17,7 +17,9 @@ export function VoteFlow({
   state,
   mutate,
   isFacilitator,
+  currentUserId,
   onAdvanceStage,
+  onSubmit,
   onRecord,
   passThreshold,
 }: {
@@ -26,12 +28,27 @@ export function VoteFlow({
   state: MeetingSessionState;
   mutate: (s: MeetingSessionState) => void;
   isFacilitator: boolean;
+  currentUserId?: string;
   onAdvanceStage: (stage: string) => Promise<void>;
+  onSubmit?: (value: string, comment?: string) => Promise<void>;
   onRecord: (title: string, method: string, outcome?: string) => Promise<void>;
   passThreshold?: number;
 }) {
   const { announce } = useLiveRegion();
   const [title, setTitle] = useState(flow.proposalText || "");
+  const [submitting, setSubmitting] = useState(false);
+
+  // The current participant's existing vote (if any) for this round.
+  const myVote = flow.responses.find(
+    (r) => r.participantId === currentUserId && r.stage === "vote"
+  )?.value;
+
+  async function castVote(choice: string) {
+    if (!onSubmit) return;
+    setSubmitting(true);
+    await onSubmit(choice);
+    setSubmitting(false);
+  }
   const currentStageIndex = VOTE_STAGES.findIndex((s) => s.key === flow.stage);
   const threshold = passThreshold ?? 0.5;
 
@@ -131,6 +148,38 @@ export function VoteFlow({
               <div className="text-xs text-bark-muted">Abstain</div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Participant: cast / change vote */}
+      {flow.stage === "vote" && !isFacilitator && onSubmit && (
+        <div className="mb-4">
+          <h4 className="text-xs text-bark-muted font-medium mb-2">
+            {myVote ? "Your vote (tap to change)" : "Cast your vote"}
+          </h4>
+          <div className="flex gap-2">
+            {["for", "against", "abstain"].map((choice) => (
+              <button
+                key={choice}
+                type="button"
+                onClick={() => castVote(choice)}
+                disabled={submitting}
+                aria-pressed={myVote === choice}
+                className={`flex-1 px-4 py-3 text-sm rounded-lg font-medium capitalize border transition-colors disabled:opacity-50 ${
+                  myVote === choice
+                    ? "bg-canopy text-paper border-canopy"
+                    : "border-border hover:bg-paper-deep"
+                }`}
+              >
+                {choice}
+              </button>
+            ))}
+          </div>
+          {myVote && (
+            <p className="text-xs text-canopy mt-2">
+              Vote recorded — you can change it until the round closes.
+            </p>
+          )}
         </div>
       )}
 

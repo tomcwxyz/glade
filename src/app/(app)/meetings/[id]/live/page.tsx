@@ -81,6 +81,7 @@ export default async function LiveMeetingPage({
       meetingTitle={meeting.title}
       agendaItems={agendaWithProposals}
       voteThreshold={voteThreshold}
+      currentUserId={user.id}
     />
   );
 }

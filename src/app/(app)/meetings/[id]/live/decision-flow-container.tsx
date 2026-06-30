@@ -24,6 +24,7 @@ export function DecisionFlowContainer({
   voteThreshold,
   agendaItems,
   currentAgendaItemIndex,
+  currentUserId,
 }: {
   meetingId: string;
   state: MeetingSessionState;
@@ -32,6 +33,7 @@ export function DecisionFlowContainer({
   voteThreshold?: number;
   agendaItems?: { proposalId: string | null }[];
   currentAgendaItemIndex?: number;
+  currentUserId?: string;
 }) {
   const handleAdvanceStage = useCallback(
     async (nextStage: string) => {
@@ -103,7 +105,9 @@ export function DecisionFlowContainer({
         state={state}
         mutate={mutate}
         isFacilitator={isFacilitator}
+        currentUserId={currentUserId}
         onAdvanceStage={handleAdvanceStage}
+        onSubmit={handleSubmitResponse}
         onRecord={handleRecordAndAdvance}
       />
     );
@@ -117,7 +121,9 @@ export function DecisionFlowContainer({
         state={state}
         mutate={mutate}
         isFacilitator={isFacilitator}
+        currentUserId={currentUserId}
         onAdvanceStage={handleAdvanceStage}
+        onSubmit={handleSubmitResponse}
         onRecord={handleRecordAndAdvance}
         passThreshold={voteThreshold}
       />
