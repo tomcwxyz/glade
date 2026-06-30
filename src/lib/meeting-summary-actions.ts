@@ -1,6 +1,6 @@
 "use server";
 
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { meetings, insights } from "@/db/schema";
 import { requireSpaceRole } from "@/lib/space";
@@ -51,29 +51,25 @@ export async function generateMeetingSummary(meetingId: string) {
     { maxTokens: 2000 }
   );
 
-  // Remove old meeting summary insight
-  const old = await db
-    .select({ id: insights.id })
-    .from(insights)
+  // Remove any prior summary for THIS meeting (keyed on metadata.meetingId).
+  // Uses a dedicated insight type so it never collides with member briefings.
+  await db
+    .delete(insights)
     .where(
       and(
         eq(insights.spaceId, space.id),
-        eq(insights.type, "briefing"),
-        eq(insights.relatedDecisionId, meetingId) // repurpose field for meeting reference
+        eq(insights.type, "meeting_summary"),
+        sql`${insights.metadata}->>'meetingId' = ${meetingId}`
       )
     );
 
-  for (const o of old) {
-    await db.delete(insights).where(eq(insights.id, o.id));
-  }
-
   await db.insert(insights).values({
     spaceId: space.id,
-    type: "briefing",
+    type: "meeting_summary",
     title: `Meeting summary: ${meeting.title}`,
     content: response,
     status: "active",
-    metadata: { subtype: "meeting_summary", meetingId },
+    metadata: { meetingId },
   });
 
   return { content: response };

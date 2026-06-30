@@ -93,6 +93,7 @@ export const insightTypeEnum = pgEnum("insight_type", [
   "review",
   "suggestion",
   "briefing",
+  "meeting_summary",
 ]);
 
 export const insightStatusEnum = pgEnum("insight_status", [
