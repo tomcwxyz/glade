@@ -74,7 +74,7 @@ export function InsightsPanel({
     setError(null);
     try {
       const result = await analysePatterns();
-      if (result?.error) setError(result.error);
+      if (result && "error" in result) setError(result.error);
       else router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong");

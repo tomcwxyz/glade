@@ -197,7 +197,7 @@ export async function dismissInsight(insightId: string) {
   revalidatePath("/insights");
 }
 
-export async function analysePatterns() {
+export async function analysePatterns(): Promise<{ error: string } | { success: true }> {
   const { error, space } = await checkAiEnabled();
   if (error || !space) return { error: error || "No space" };
 
