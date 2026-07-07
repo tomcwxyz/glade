@@ -234,7 +234,7 @@ const jsonLd = {
     {
       "@type": "Offer",
       name: "Canopy",
-      price: "15",
+      price: "10",
       priceCurrency: "GBP",
       billingIncrement: "P1M",
       description: "Pro tier — 25 members, unlimited decisions, AI insights, live meetings",
@@ -646,7 +646,7 @@ export default function LandingPage() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8 max-w-3xl mx-auto">
           {/* Seedling (Free) */}
           <div className="border border-border rounded-2xl p-6 sm:p-8 flex flex-col">
             <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-canopy-pale text-canopy mb-4">
@@ -713,10 +713,10 @@ export default function LandingPage() {
                 className="text-3xl font-light text-bark"
                 style={{ fontFamily: "var(--font-display)" }}
               >
-                &pound;15
+                &pound;10
               </span>
               <span className="text-sm text-bark-muted">/month</span>
-              <p className="text-xs text-bark-muted mt-1">or &pound;144/year (save 20%)</p>
+              <p className="text-xs text-bark-muted mt-1">or &pound;96/year (save 20%)</p>
             </div>
             <ul className="space-y-2.5 mb-8 flex-1">
               {[
@@ -739,52 +739,6 @@ export default function LandingPage() {
             >
               Start free, upgrade anytime
             </Link>
-          </div>
-
-          {/* Old Growth (Enterprise) */}
-          <div className="border border-border rounded-2xl p-6 sm:p-8 flex flex-col">
-            <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-paper-deep text-bark-muted mb-4">
-              <TreePine size={20} />
-            </div>
-            <h3
-              className="text-lg font-medium text-bark mb-1"
-              style={{ fontFamily: "var(--font-display)" }}
-            >
-              Old Growth
-            </h3>
-            <p className="text-sm text-bark-muted mb-5">
-              For complex governance needs
-            </p>
-            <div className="mb-6">
-              <span
-                className="text-3xl font-light text-bark"
-                style={{ fontFamily: "var(--font-display)" }}
-              >
-                Custom
-              </span>
-            </div>
-            <ul className="space-y-2.5 mb-8 flex-1">
-              {[
-                "Unlimited members",
-                "Unlimited decisions",
-                "AI governance insights",
-                "Live meeting mode",
-                "Unlimited spaces",
-                "Dedicated support",
-                "Custom integrations",
-              ].map((f) => (
-                <li key={f} className="flex items-start gap-2 text-sm text-bark-soft">
-                  <Check size={15} className="text-canopy mt-0.5 shrink-0" />
-                  {f}
-                </li>
-              ))}
-            </ul>
-            <a
-              href="mailto:hello@ourglade.app"
-              className="block text-center px-5 py-2.5 border border-border text-bark rounded-lg text-sm font-medium hover:bg-paper-deep transition-colors"
-            >
-              Contact us
-            </a>
           </div>
         </div>
       </section>

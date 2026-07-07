@@ -57,8 +57,8 @@ export const PLAN_DISPLAY: Record<PlanTier, PlanDisplay> = {
   pro: {
     name: "Canopy",
     tagline: "For growing organisations",
-    price: "£15/month",
-    priceYearly: "£144/year",
+    price: "£10/month",
+    priceYearly: "£96/year",
     features: [
       "25 members per space",
       "Unlimited decisions",
