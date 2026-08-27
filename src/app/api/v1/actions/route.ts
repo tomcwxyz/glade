@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { eq, and, desc } from "drizzle-orm";
 import { db } from "@/db";
 import { actions, decisions, topics, proposals } from "@/db/schema";
+import { z } from "zod";
 import { authenticateApiKey } from "@/lib/api-auth";
 import { limitApi, rateLimitedResponse } from "@/lib/rate-limit";
 
@@ -77,5 +78,73 @@ export async function GET(request: NextRequest) {
   return NextResponse.json(
     { data, meta: { limit, offset, count: data.length } },
     { headers: { "Cache-Control": "no-store" } }
+  );
+}
+
+
+const createActionApiSchema = z.object({
+  description: z.string().trim().min(1, "Description is required").max(2000),
+  ownerName: z.string().trim().max(255).optional(),
+  dueDate: z.coerce.date().optional(),
+});
+
+export async function POST(request: NextRequest) {
+  const auth = await authenticateApiKey(request);
+  if (!auth) {
+    return NextResponse.json(
+      { error: "Invalid or missing API key" },
+      { status: 401, headers: { "Cache-Control": "no-store" } }
+    );
+  }
+  if (auth.permissions !== "read_write") {
+    return NextResponse.json(
+      { error: "API key does not have write permission" },
+      { status: 403, headers: { "Cache-Control": "no-store" } }
+    );
+  }
+
+  const rl = await limitApi(auth.spaceId);
+  if (!rl.success) return rateLimitedResponse(rl);
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json(
+      { error: "Invalid JSON body" },
+      { status: 400, headers: { "Cache-Control": "no-store" } }
+    );
+  }
+
+  const parsed = createActionApiSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: parsed.error.issues[0]?.message || "Invalid action" },
+      { status: 422, headers: { "Cache-Control": "no-store" } }
+    );
+  }
+
+  const [action] = await db
+    .insert(actions)
+    .values({
+      spaceId: auth.spaceId,
+      description: parsed.data.description,
+      ownerName: parsed.data.ownerName || null,
+      dueDate: parsed.data.dueDate || null,
+      status: "open",
+      isPublic: false,
+    })
+    .returning({
+      id: actions.id,
+      description: actions.description,
+      ownerName: actions.ownerName,
+      dueDate: actions.dueDate,
+      status: actions.status,
+      isPublic: actions.isPublic,
+    });
+
+  return NextResponse.json(
+    { data: action },
+    { status: 201, headers: { "Cache-Control": "no-store" } }
   );
 }
