@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { eq, and, desc } from "drizzle-orm";
 import { db } from "@/db";
 import { actions, decisions, topics, proposals } from "@/db/schema";
-import { z } from "zod";
 import { authenticateApiKey } from "@/lib/api-auth";
 import { limitApi, rateLimitedResponse } from "@/lib/rate-limit";
 
@@ -82,11 +81,25 @@ export async function GET(request: NextRequest) {
 }
 
 
-const createActionApiSchema = z.object({
-  description: z.string().trim().min(1, "Description is required").max(2000),
-  ownerName: z.string().trim().max(255).optional(),
-  dueDate: z.coerce.date().optional(),
-});
+function parseCreateActionBody(body: unknown) {
+  if (!body || typeof body !== "object") return { error: "Invalid action" as const };
+  const value = body as Record<string, unknown>;
+  const description = typeof value.description === "string" ? value.description.trim() : "";
+  const ownerName = typeof value.ownerName === "string" ? value.ownerName.trim() : undefined;
+  const dueDateRaw = typeof value.dueDate === "string" ? value.dueDate.trim() : undefined;
+
+  if (!description) return { error: "Description is required" as const };
+  if (description.length > 2000) return { error: "Description must be 2000 characters or fewer" as const };
+  if (ownerName && ownerName.length > 255) return { error: "Owner name must be 255 characters or fewer" as const };
+
+  let dueDate: Date | undefined;
+  if (dueDateRaw) {
+    dueDate = new Date(dueDateRaw);
+    if (Number.isNaN(dueDate.getTime())) return { error: "Invalid due date" as const };
+  }
+
+  return { data: { description, ownerName, dueDate } };
+}
 
 export async function POST(request: NextRequest) {
   const auth = await authenticateApiKey(request);
@@ -116,10 +129,10 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const parsed = createActionApiSchema.safeParse(body);
-  if (!parsed.success) {
+  const parsed = parseCreateActionBody(body);
+  if ("error" in parsed) {
     return NextResponse.json(
-      { error: parsed.error.issues[0]?.message || "Invalid action" },
+      { error: parsed.error },
       { status: 422, headers: { "Cache-Control": "no-store" } }
     );
   }
