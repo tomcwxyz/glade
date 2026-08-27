@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { actions, decisions, topics, proposals } from "@/db/schema";
 import { authenticateApiKey } from "@/lib/api-auth";
 import { limitApi, rateLimitedResponse } from "@/lib/rate-limit";
+import { parseActionMetadata, parseOptionalDate, parseOptionalText } from "@/lib/action-api";
 
 export async function GET(request: NextRequest) {
   const auth = await authenticateApiKey(request);
@@ -37,6 +38,7 @@ export async function GET(request: NextRequest) {
       status: actions.status,
       dueDate: actions.dueDate,
       ownerName: actions.ownerName,
+      metadata: actions.metadata,
       decisionTitle: decisions.title,
       decisionNumber: decisions.number,
       topicTitle: topics.title,
@@ -60,6 +62,7 @@ export async function GET(request: NextRequest) {
     status: r.status,
     dueDate: r.dueDate,
     ownerName: r.ownerName,
+    metadata: r.metadata,
     // Backwards-compatible fields (now nullable)
     decisionTitle: r.decisionTitle,
     decisionNumber: r.decisionNumber,
@@ -84,21 +87,16 @@ export async function GET(request: NextRequest) {
 function parseCreateActionBody(body: unknown) {
   if (!body || typeof body !== "object") return { error: "Invalid action" as const };
   const value = body as Record<string, unknown>;
-  const description = typeof value.description === "string" ? value.description.trim() : "";
-  const ownerName = typeof value.ownerName === "string" ? value.ownerName.trim() : undefined;
-  const dueDateRaw = typeof value.dueDate === "string" ? value.dueDate.trim() : undefined;
-
-  if (!description) return { error: "Description is required" as const };
-  if (description.length > 2000) return { error: "Description must be 2000 characters or fewer" as const };
-  if (ownerName && ownerName.length > 255) return { error: "Owner name must be 255 characters or fewer" as const };
-
-  let dueDate: Date | undefined;
-  if (dueDateRaw) {
-    dueDate = new Date(dueDateRaw);
-    if (Number.isNaN(dueDate.getTime())) return { error: "Invalid due date" as const };
+  try {
+    const description = parseOptionalText(value.description, "Description", 2000);
+    if (!description) return { error: "Description is required" as const };
+    const ownerName = parseOptionalText(value.ownerName, "Owner name", 255);
+    const dueDate = parseOptionalDate(value.dueDate, "due date");
+    const metadata = parseActionMetadata(value.metadata);
+    return { data: { description, ownerName, dueDate, metadata } };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Invalid action" };
   }
-
-  return { data: { description, ownerName, dueDate } };
 }
 
 export async function POST(request: NextRequest) {
@@ -146,6 +144,7 @@ export async function POST(request: NextRequest) {
       dueDate: parsed.data.dueDate || null,
       status: "open",
       isPublic: false,
+      metadata: parsed.data.metadata ?? {},
     })
     .returning({
       id: actions.id,
@@ -154,6 +153,7 @@ export async function POST(request: NextRequest) {
       dueDate: actions.dueDate,
       status: actions.status,
       isPublic: actions.isPublic,
+      metadata: actions.metadata,
     });
 
   return NextResponse.json(
