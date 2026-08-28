@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { authenticateApiKey } from "@/lib/api-auth";
+import { authenticateApiKey, type ApiKeyAuth } from "@/lib/api-auth";
+import { db } from "@/db";
+import { spaces } from "@/db/schema";
+import { eq } from "drizzle-orm";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -12,6 +15,17 @@ type JsonRpcRequest = {
 };
 
 const tools = [
+  {
+    name: "glade_current_space",
+    description:
+      "Return the stable Glade space represented by this API key. Use for connection/resource discovery, not as governance content.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+      additionalProperties: false,
+    },
+    annotations: { readOnlyHint: true },
+  },
   {
     name: "glade_list_decisions",
     description: "List durable Glade decisions for the API key's space.",
@@ -171,8 +185,32 @@ async function apiCall(
   return payload;
 }
 
-async function callTool(request: NextRequest, name: string, args: Record<string, unknown>) {
+async function callTool(
+  request: NextRequest,
+  name: string,
+  args: Record<string, unknown>,
+  auth: ApiKeyAuth,
+) {
   switch (name) {
+    case "glade_current_space": {
+      const [space] = await db
+        .select({
+          id: spaces.id,
+          name: spaces.name,
+          slug: spaces.slug,
+          description: spaces.description,
+        })
+        .from(spaces)
+        .where(eq(spaces.id, auth.spaceId))
+        .limit(1);
+      if (!space) throw new Error("Glade space not found");
+      return {
+        space: {
+          ...space,
+          url: new URL("/public/" + space.slug, request.nextUrl.origin).toString(),
+        },
+      };
+    }
     case "glade_list_decisions": {
       const params = new URLSearchParams({ limit: String(positiveInt(args.limit, 50, 200)) });
       if (typeof args.status === "string") params.set("status", args.status);
@@ -260,7 +298,7 @@ export async function POST(request: NextRequest) {
     const args = asRecord(params.arguments);
     if (!name) return rpcError(body.id, -32602, "Tool name is required");
     try {
-      const result = await callTool(request, name, args);
+      const result = await callTool(request, name, args, auth);
       return rpc(body.id, {
         content: [{ type: "text", text: JSON.stringify(result) }],
         structuredContent: result,
