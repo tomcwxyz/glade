@@ -6,6 +6,9 @@ import { authenticateApiKey } from "@/lib/api-auth";
 import { limitApi, rateLimitedResponse } from "@/lib/rate-limit";
 import { parseActionMetadata, parseOptionalDate, parseOptionalText } from "@/lib/action-api";
 
+const ACTION_STATUSES = ["open", "in_progress", "complete", "overdue", "superseded"] as const;
+type ActionStatus = (typeof ACTION_STATUSES)[number];
+
 export async function GET(request: NextRequest) {
   const auth = await authenticateApiKey(request);
   if (!auth) {
@@ -19,7 +22,13 @@ export async function GET(request: NextRequest) {
   if (!rl.success) return rateLimitedResponse(rl);
 
   const { searchParams } = request.nextUrl;
-  const statusFilter = searchParams.get("status");
+  const rawStatus = searchParams.get("status");
+  const statusFilter = rawStatus && ACTION_STATUSES.includes(rawStatus as ActionStatus)
+    ? rawStatus as ActionStatus
+    : null;
+  if (rawStatus && !statusFilter) {
+    return NextResponse.json({ error: "Invalid action status" }, { status: 422, headers: { "Cache-Control": "no-store" } });
+  }
   const limit = Math.min(parseInt(searchParams.get("limit") || "50", 10), 200);
   const offset = parseInt(searchParams.get("offset") || "0", 10);
 
@@ -27,7 +36,7 @@ export async function GET(request: NextRequest) {
   const conditions = [eq(actions.spaceId, auth.spaceId)];
   if (statusFilter) {
     conditions.push(
-      eq(actions.status, statusFilter as "open" | "complete")
+      eq(actions.status, statusFilter)
     );
   }
 

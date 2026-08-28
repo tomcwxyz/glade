@@ -41,6 +41,7 @@ export const actionStatusEnum = pgEnum("action_status", [
   "in_progress",
   "complete",
   "overdue",
+  "superseded",
 ]);
 
 export const spaceRoleEnum = pgEnum("space_role", [

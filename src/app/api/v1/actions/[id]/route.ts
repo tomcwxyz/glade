@@ -6,7 +6,7 @@ import { authenticateApiKey } from "@/lib/api-auth";
 import { limitApi, rateLimitedResponse } from "@/lib/rate-limit";
 import { parseOptionalDate, parseOptionalText } from "@/lib/action-api";
 
-const ACTION_STATUSES = ["open", "in_progress", "complete", "overdue"] as const;
+const ACTION_STATUSES = ["open", "in_progress", "complete", "overdue", "superseded"] as const;
 type ActionStatus = (typeof ACTION_STATUSES)[number];
 
 function parsePatch(body: unknown) {

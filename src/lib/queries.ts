@@ -162,7 +162,7 @@ export async function getDecisions(
     if (!a.decisionId) continue;
     const entry = actionMap.get(a.decisionId) || { total: 0, complete: 0 };
     entry.total++;
-    if (a.status === "complete") entry.complete++;
+    if (a.status === "complete" || a.status === "superseded") entry.complete++;
     actionMap.set(a.decisionId, entry);
   }
 

@@ -82,7 +82,7 @@ export function tagDotClass(color: string | null | undefined): string {
   return (color && TAG_DOT_CLASS[color]) || "bg-bark-muted";
 }
 
-export type ActionStatus = "open" | "in_progress" | "complete" | "overdue";
+export type ActionStatus = "open" | "in_progress" | "complete" | "overdue" | "superseded";
 
 /**
  * Derive an action's effective status at read time. `overdue` is never stored —

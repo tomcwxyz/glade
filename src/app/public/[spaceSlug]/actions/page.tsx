@@ -19,6 +19,7 @@ const STATUS_STYLES: Record<string, string> = {
   in_progress: "bg-amber/10 text-amber",
   complete: "bg-canopy/10 text-canopy",
   overdue: "bg-earth/10 text-earth",
+  superseded: "bg-paper-deep text-bark-muted",
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -26,6 +27,7 @@ const STATUS_LABELS: Record<string, string> = {
   in_progress: "In progress",
   complete: "Complete",
   overdue: "Overdue",
+  superseded: "Superseded",
 };
 
 export default async function PublicActionsPage({
