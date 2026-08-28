@@ -174,7 +174,7 @@ export async function updateAction(
 
 export async function updateActionStatus(
   actionId: string,
-  status: "open" | "in_progress" | "complete" | "overdue"
+  status: "open" | "in_progress" | "complete" | "overdue" | "superseded"
 ) {
   const auth = await requireSpaceRole("member");
   if ("error" in auth) return auth;
