@@ -1,9 +1,9 @@
-import { CheckCircle2, Circle, Clock, ListChecks, TriangleAlert } from "lucide-react";
+import { CheckCircle2, Circle, Clock, ListChecks, MinusCircle, TriangleAlert } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { ActionToggle } from "@/app/(app)/actions/action-toggle";
 import { DeleteAction } from "@/components/delete-action";
 
-type ActionStatus = "open" | "in_progress" | "complete" | "overdue";
+type ActionStatus = "open" | "in_progress" | "complete" | "overdue" | "superseded";
 
 interface ActionItem {
   id: string;
@@ -39,6 +39,7 @@ function ActionRow({ action }: { action: ActionItem }) {
     in_progress: <Clock size={16} className="text-amber" />,
     overdue: <TriangleAlert size={16} className="text-earth" />,
     open: <Circle size={16} className="text-bark-muted" />,
+    superseded: <MinusCircle size={16} className="text-bark-muted" />,
   };
 
   return (
@@ -47,7 +48,7 @@ function ActionRow({ action }: { action: ActionItem }) {
         <ActionToggle actionId={action.id} initialStatus={action.status} />
       </div>
       <div className="flex-1 min-w-0">
-        <p className={`text-sm leading-snug ${action.status === "complete" ? "text-bark-muted line-through" : "text-bark"}`}>
+        <p className={`text-sm leading-snug ${action.status === "complete" || action.status === "superseded" ? "text-bark-muted line-through" : "text-bark"}`}>
           {action.description}
         </p>
         <div className="flex items-center gap-2 mt-1 text-xs text-bark-muted">
