@@ -2,15 +2,16 @@
 
 import { useState } from "react";
 import { updateActionStatus } from "@/lib/action-actions";
-import { CheckCircle2, Circle, Clock, Loader2, TriangleAlert } from "lucide-react";
+import { CheckCircle2, Circle, Clock, Loader2, MinusCircle, TriangleAlert } from "lucide-react";
 
-type ActionStatus = "open" | "in_progress" | "complete" | "overdue";
+type ActionStatus = "open" | "in_progress" | "complete" | "overdue" | "superseded";
 
 const STATUS_CYCLE: Record<ActionStatus, ActionStatus> = {
   open: "in_progress",
   in_progress: "complete",
   complete: "open",
   overdue: "complete",
+  superseded: "open",
 };
 
 const STATUS_ICONS: Record<ActionStatus, React.ReactNode> = {
@@ -18,6 +19,7 @@ const STATUS_ICONS: Record<ActionStatus, React.ReactNode> = {
   in_progress: <Clock size={16} className="text-amber" />,
   complete: <CheckCircle2 size={16} className="text-canopy" />,
   overdue: <TriangleAlert size={16} className="text-earth" />,
+  superseded: <MinusCircle size={16} className="text-bark-muted" />,
 };
 
 export function ActionToggle({
