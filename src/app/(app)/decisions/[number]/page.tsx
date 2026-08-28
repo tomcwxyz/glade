@@ -22,6 +22,7 @@ import {
   Clock,
   EyeOff,
   ListChecks,
+  MinusCircle,
   Pencil,
   TriangleAlert,
   Users,
@@ -50,7 +51,7 @@ type DecisionMethod =
   | "delegation"
   | "consensus"
   | "lazy_consensus";
-type ActionStatus = "open" | "in_progress" | "complete" | "overdue";
+type ActionStatus = "open" | "in_progress" | "complete" | "overdue" | "superseded";
 
 const METHOD_LABELS: Record<DecisionMethod, string> = {
   consent: "Consent",
@@ -113,13 +114,14 @@ function ActionRow({ action }: { action: { id: string; description: string; owne
     in_progress: <Clock size={16} className="text-amber" />,
     overdue: <TriangleAlert size={16} className="text-earth" />,
     open: <Circle size={16} className="text-bark-muted" />,
+    superseded: <MinusCircle size={16} className="text-bark-muted" />,
   };
 
   return (
     <div className="flex items-start gap-3 py-3 border-b border-border last:border-b-0">
       <div className="mt-0.5">{icons[action.status]}</div>
       <div className="flex-1 min-w-0">
-        <p className={`text-sm leading-snug ${action.status === "complete" ? "text-bark-muted line-through" : "text-bark"}`}>
+        <p className={`text-sm leading-snug ${action.status === "complete" || action.status === "superseded" ? "text-bark-muted line-through" : "text-bark"}`}>
           {action.description}
         </p>
         <div className="flex items-center gap-2 mt-1 text-xs text-bark-muted">
@@ -562,8 +564,8 @@ export default async function DecisionDetailPage({
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xs uppercase tracking-wider text-bark-muted font-medium flex items-center gap-2">
                   <ListChecks size={14} />
-                  Actions ({decision.actions.filter((a) => a.status === "complete").length}/
-                  {decision.actions.length} complete)
+                  Actions ({decision.actions.filter((a) => a.status === "complete" || a.status === "superseded").length}/
+                  {decision.actions.length} resolved)
                 </h2>
               </div>
               <div>
