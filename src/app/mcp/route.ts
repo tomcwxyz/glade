@@ -72,7 +72,7 @@ const tools = [
         description: { type: "string", minLength: 1, maxLength: 2000 },
         ownerName: { anyOf: [{ type: "string", maxLength: 255 }, { type: "null" }] },
         dueDate: { anyOf: [{ type: "string" }, { type: "null" }] },
-        status: { type: "string", enum: ["open", "in_progress", "complete", "overdue"] },
+        status: { type: "string", enum: ["open", "in_progress", "complete", "overdue", "superseded"] },
       },
       required: ["actionId"],
       additionalProperties: false,
