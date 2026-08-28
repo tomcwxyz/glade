@@ -61,6 +61,20 @@ const tools = [
     annotations: { readOnlyHint: true },
   },
   {
+    name: "glade_get_action",
+    description:
+      "Read one Glade action/commitment by stable action ID. Use after a broader action list when one specific commitment materially supports the answer.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        actionId: { type: "string", format: "uuid" },
+      },
+      required: ["actionId"],
+      additionalProperties: false,
+    },
+    annotations: { readOnlyHint: true },
+  },
+  {
     name: "glade_create_action",
     description: "Create a private Glade action. Requires a read_write Glade API key.",
     inputSchema: {
@@ -159,6 +173,33 @@ function positiveInt(value: unknown, fallback: number, max: number) {
     : fallback;
 }
 
+async function spaceIdentity(request: NextRequest, auth: ApiKeyAuth) {
+  const [space] = await db
+    .select({
+      id: spaces.id,
+      name: spaces.name,
+      slug: spaces.slug,
+      description: spaces.description,
+    })
+    .from(spaces)
+    .where(eq(spaces.id, auth.spaceId))
+    .limit(1);
+
+  if (!space) throw new Error("Glade space not found");
+
+  return {
+    ...space,
+    url: new URL("/public/" + space.slug, request.nextUrl.origin).toString(),
+  };
+}
+
+function actionCollectionUrl(request: NextRequest, spaceSlug: string) {
+  return new URL(
+    "/public/" + spaceSlug + "/actions",
+    request.nextUrl.origin,
+  ).toString();
+}
+
 async function apiCall(
   request: NextRequest,
   path: string,
@@ -192,25 +233,8 @@ async function callTool(
   auth: ApiKeyAuth,
 ) {
   switch (name) {
-    case "glade_current_space": {
-      const [space] = await db
-        .select({
-          id: spaces.id,
-          name: spaces.name,
-          slug: spaces.slug,
-          description: spaces.description,
-        })
-        .from(spaces)
-        .where(eq(spaces.id, auth.spaceId))
-        .limit(1);
-      if (!space) throw new Error("Glade space not found");
-      return {
-        space: {
-          ...space,
-          url: new URL("/public/" + space.slug, request.nextUrl.origin).toString(),
-        },
-      };
-    }
+    case "glade_current_space":
+      return { space: await spaceIdentity(request, auth) };
     case "glade_list_decisions": {
       const params = new URLSearchParams({ limit: String(positiveInt(args.limit, 50, 200)) });
       if (typeof args.status === "string") params.set("status", args.status);
@@ -218,10 +242,35 @@ async function callTool(
     }
     case "glade_get_decision":
       return apiCall(request, `/api/v1/decisions/${positiveInt(args.number, 1, Number.MAX_SAFE_INTEGER)}`);
-    case "glade_list_open_actions":
-      return apiCall(request, `/api/v1/actions?status=open&limit=${positiveInt(args.limit, 50, 200)}`);
-    case "glade_create_action":
-      return apiCall(request, "/api/v1/actions", {
+    case "glade_list_open_actions": {
+      const payload = await apiCall(
+        request,
+        `/api/v1/actions?status=open&limit=${positiveInt(args.limit, 50, 200)}`,
+      );
+      const space = await spaceIdentity(request, auth);
+      return {
+        ...asRecord(payload),
+        space,
+        collectionUrl: actionCollectionUrl(request, space.slug),
+      };
+    }
+    case "glade_get_action": {
+      if (typeof args.actionId !== "string" || !args.actionId) {
+        throw new Error("actionId is required");
+      }
+      const payload = await apiCall(
+        request,
+        `/api/v1/actions/${encodeURIComponent(args.actionId)}`,
+      );
+      const space = await spaceIdentity(request, auth);
+      return {
+        ...asRecord(payload),
+        space,
+        collectionUrl: actionCollectionUrl(request, space.slug),
+      };
+    }
+    case "glade_create_action": {
+      const payload = await apiCall(request, "/api/v1/actions", {
         method: "POST",
         body: JSON.stringify({
           description: args.description,
@@ -230,13 +279,30 @@ async function callTool(
           ...(args.metadata !== undefined ? { metadata: args.metadata } : {}),
         }),
       });
+      const space = await spaceIdentity(request, auth);
+      return {
+        ...asRecord(payload),
+        space,
+        collectionUrl: actionCollectionUrl(request, space.slug),
+      };
+    }
     case "glade_update_action": {
       if (typeof args.actionId !== "string" || !args.actionId) throw new Error("actionId is required");
       const { actionId, ...updates } = args;
-      return apiCall(request, `/api/v1/actions/${encodeURIComponent(actionId)}`, {
-        method: "PATCH",
-        body: JSON.stringify(updates),
-      });
+      const payload = await apiCall(
+        request,
+        `/api/v1/actions/${encodeURIComponent(actionId)}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify(updates),
+        },
+      );
+      const space = await spaceIdentity(request, auth);
+      return {
+        ...asRecord(payload),
+        space,
+        collectionUrl: actionCollectionUrl(request, space.slug),
+      };
     }
     case "glade_list_meetings":
       return apiCall(request, `/api/v1/meetings?limit=${positiveInt(args.limit, 30, 200)}`);

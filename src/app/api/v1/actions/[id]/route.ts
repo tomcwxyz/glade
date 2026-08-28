@@ -40,6 +40,55 @@ function parsePatch(body: unknown) {
   }
 }
 
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const auth = await authenticateApiKey(request);
+  if (!auth) {
+    return NextResponse.json(
+      { error: "Invalid or missing API key" },
+      { status: 401, headers: { "Cache-Control": "no-store" } },
+    );
+  }
+
+  const rl = await limitApi(auth.spaceId);
+  if (!rl.success) return rateLimitedResponse(rl);
+
+  const { id } = await params;
+  const [action] = await db
+    .select({
+      id: actions.id,
+      description: actions.description,
+      ownerName: actions.ownerName,
+      dueDate: actions.dueDate,
+      status: actions.status,
+      completedAt: actions.completedAt,
+      metadata: actions.metadata,
+      decisionId: actions.decisionId,
+      topicId: actions.topicId,
+      proposalId: actions.proposalId,
+      isPublic: actions.isPublic,
+      createdAt: actions.createdAt,
+      updatedAt: actions.updatedAt,
+    })
+    .from(actions)
+    .where(and(eq(actions.id, id), eq(actions.spaceId, auth.spaceId)))
+    .limit(1);
+
+  if (!action) {
+    return NextResponse.json(
+      { error: "Action not found" },
+      { status: 404, headers: { "Cache-Control": "no-store" } },
+    );
+  }
+
+  return NextResponse.json(
+    { data: action },
+    { headers: { "Cache-Control": "no-store" } },
+  );
+}
+
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
