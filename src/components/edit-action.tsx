@@ -10,10 +10,12 @@ export function EditAction({
   actionId,
   members = [],
   tags = [],
+  showLabel = false,
 }: {
   actionId: string;
   members?: OwnerMember[];
   tags?: TagOption[];
+  showLabel?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -104,11 +106,15 @@ export function EditAction({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="text-bark-muted hover:text-canopy transition-colors shrink-0"
+        className={showLabel
+          ? "inline-flex h-8 items-center gap-1.5 rounded-lg border border-border bg-paper-warm px-2.5 text-xs font-medium text-bark-muted hover:border-canopy/30 hover:text-canopy transition-colors shrink-0"
+          : "inline-flex h-8 w-8 items-center justify-center rounded-lg text-bark-muted hover:bg-paper-deep hover:text-canopy transition-colors shrink-0"
+        }
         title="Edit action"
         aria-label="Edit action"
       >
         <Pencil size={14} />
+        {showLabel && <span>Edit</span>}
       </button>
 
       {open && (
