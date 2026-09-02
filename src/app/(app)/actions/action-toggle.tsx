@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { updateActionStatus } from "@/lib/action-actions";
 import {
@@ -50,6 +50,10 @@ export function ActionToggle({
   const [status, setStatus] = useState<ActionStatus>(initialStatus);
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    setStatus(initialStatus);
+  }, [initialStatus]);
+
   async function handleToggle() {
     const previousStatus = status;
     const nextStatus = STATUS_CYCLE[status];
@@ -95,6 +99,10 @@ export function CompleteActionButton({
   const router = useRouter();
   const [status, setStatus] = useState<ActionStatus>(initialStatus);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    setStatus(initialStatus);
+  }, [initialStatus]);
 
   const isResolved = status === "complete" || status === "superseded";
   const nextStatus: ActionStatus = isResolved ? "open" : "complete";
