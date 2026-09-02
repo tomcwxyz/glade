@@ -20,21 +20,28 @@ export function ActionVisibilityToggle({
     const next = !pub;
     setPub(next);
     start(async () => {
-      await setActionPublic(actionId, next);
+      const result = await setActionPublic(actionId, next);
+      if (result?.error) {
+        setPub(pub);
+        return;
+      }
       router.refresh();
     });
   }
+
+  const label = pub ? "Public" : "Hidden";
 
   return (
     <button
       type="button"
       onClick={toggle}
       disabled={pending}
-      title={pub ? "Public — click to hide from the public page" : "Hidden from public — click to show"}
+      title={pub ? "Visible on the public actions page — click to hide" : "Hidden from the public actions page — click to show"}
       aria-label={pub ? "Hide action from public page" : "Show action on public page"}
-      className="shrink-0 text-bark-muted/70 hover:text-bark transition-colors disabled:opacity-50"
+      className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border bg-paper-warm px-2.5 text-xs font-medium text-bark-muted hover:border-canopy/30 hover:text-bark transition-colors disabled:opacity-50"
     >
-      {pub ? <Eye size={15} /> : <EyeOff size={15} className="text-earth/70" />}
+      {pub ? <Eye size={14} /> : <EyeOff size={14} className="text-earth/70" />}
+      <span>{label}</span>
     </button>
   );
 }
