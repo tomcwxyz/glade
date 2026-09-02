@@ -21,7 +21,7 @@ export function ActionVisibilityToggle({
     setPub(next);
     start(async () => {
       const result = await setActionPublic(actionId, next);
-      if (result?.error) {
+      if (result && "error" in result) {
         setPub(pub);
         return;
       }
