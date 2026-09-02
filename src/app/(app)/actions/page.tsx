@@ -7,7 +7,7 @@ export const metadata: Metadata = { title: "Actions" };
 import { CheckCircle2, Circle, Clock, ListChecks, MinusCircle, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { EmptyState } from "@/components/empty-state";
-import { ActionToggle } from "./action-toggle";
+import { ActionToggle, CompleteActionButton } from "./action-toggle";
 import { ActionVisibilityToggle } from "./action-visibility";
 import { EditAction } from "@/components/edit-action";
 import { AddActionWithParent } from "@/components/add-action-with-parent";
@@ -216,13 +216,19 @@ export default async function ActionsPage({
                     ))}
                   </div>
                 )}
+                {canEdit && (
+                  <div className="flex flex-wrap items-center gap-2 mt-2.5">
+                    <CompleteActionButton actionId={action.id} initialStatus={action.status} />
+                    <EditAction
+                      actionId={action.id}
+                      members={ownerMembers}
+                      tags={tagOptions}
+                      showLabel
+                    />
+                    <ActionVisibilityToggle actionId={action.id} isPublic={action.isPublic} />
+                  </div>
+                )}
               </div>
-              {canEdit && (
-                <div className="flex items-center gap-3 pt-0.5">
-                  <EditAction actionId={action.id} members={ownerMembers} tags={tagOptions} />
-                  <ActionVisibilityToggle actionId={action.id} isPublic={action.isPublic} />
-                </div>
-              )}
             </div>
           );
         })}
