@@ -609,8 +609,10 @@ export async function updateMeetingSessionState(
     .where(
       and(
         eq(meetings.id, meetingId),
-        sql`(${meetings.sessionState}->>'version')::int = ${expectedVersion}
-          OR ${meetings.sessionState} IS NULL`
+        // Parenthesised: AND binds tighter than OR, so without the outer
+        // brackets this matched every meeting with a NULL session state.
+        sql`((${meetings.sessionState}->>'version')::int = ${expectedVersion}
+          OR ${meetings.sessionState} IS NULL)`
       )
     )
     .returning({ id: meetings.id });
