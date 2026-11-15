@@ -14,6 +14,8 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
+import { ParticipantPicker } from "@/components/participant-picker";
+import type { ParticipantInput } from "@/lib/participants";
 import { FormError } from "@/components/form-error";
 
 interface Tag {
@@ -35,7 +37,7 @@ interface DecisionData {
   method: string;
   outcome: string | null;
   status: string;
-  participants: string[];
+  participants: ParticipantInput[];
   date: string; // ISO string
   conditions: string | null;
   reviewDate: string | null; // ISO string
@@ -94,12 +96,6 @@ export function DecisionForm({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Participants as string names
-  const [participants, setParticipants] = useState<string[]>(
-    decision?.participants || []
-  );
-  const [participantInput, setParticipantInput] = useState("");
-
   // Selected tag IDs
   const [selectedTags, setSelectedTags] = useState<string[]>(
     decision?.tagIds || []
@@ -135,18 +131,6 @@ export function DecisionForm({
     { description: string; owner: string; dueDate: string }[]
   >([]);
 
-  function addParticipant(name: string) {
-    const trimmed = name.trim();
-    if (trimmed && !participants.includes(trimmed)) {
-      setParticipants([...participants, trimmed]);
-    }
-    setParticipantInput("");
-  }
-
-  function removeParticipant(name: string) {
-    setParticipants(participants.filter((p) => p !== name));
-  }
-
   function toggleTag(tagId: string) {
     setSelectedTags((prev) =>
       prev.includes(tagId)
@@ -179,8 +163,7 @@ export function DecisionForm({
     const form = e.currentTarget;
     const formData = new FormData(form);
 
-    // Add participants and tags as comma-separated values
-    formData.set("participants", participants.join(","));
+    // Add tags as comma-separated values (participants come from ParticipantPicker)
     formData.set("tagIds", selectedTags.join(","));
 
     // Remove the individual action fields first, then add them properly
@@ -371,56 +354,10 @@ export function DecisionForm({
           />
         </div>
 
-        {/* Participants */}
+        {/* Participants: linked members or guests, with abstentions and interests */}
         <div>
-          <InputLabel htmlFor="participant-input">Participants</InputLabel>
-          <div className="flex flex-wrap gap-2 mb-2">
-            {participants.map((name) => (
-              <span
-                key={name}
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-canopy-pale text-canopy text-xs font-medium"
-              >
-                {name}
-                <button
-                  type="button"
-                  onClick={() => removeParticipant(name)}
-                  className="hover:text-earth transition-colors"
-                  aria-label={`Remove ${name}`}
-                >
-                  <X size={12} />
-                </button>
-              </span>
-            ))}
-          </div>
-          <div className="flex gap-2">
-            <input
-              id="participant-input"
-              type="text"
-              value={participantInput}
-              onChange={(e) => setParticipantInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  addParticipant(participantInput);
-                }
-              }}
-              placeholder="Type a name and press Enter"
-              className={inputClass}
-              list="member-suggestions"
-            />
-            <datalist id="member-suggestions">
-              {members.map((m) => (
-                <option key={m.id} value={m.name} />
-              ))}
-            </datalist>
-            <button
-              type="button"
-              onClick={() => addParticipant(participantInput)}
-              className="px-3 py-2 text-sm bg-paper-deep border border-border rounded-lg text-bark-muted hover:text-bark hover:bg-paper-warm transition-colors shrink-0"
-            >
-              Add
-            </button>
-          </div>
+          <span className="block text-[0.8125rem] font-medium text-bark mb-1.5">Participants</span>
+          <ParticipantPicker members={members} initial={decision?.participants ?? []} />
         </div>
 
         {/* Tags */}

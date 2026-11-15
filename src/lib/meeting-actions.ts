@@ -24,7 +24,12 @@ import { requireSpaceRole } from "@/lib/space";
 import { createInitialState } from "@/lib/meeting-state";
 import { canUseLiveMeetings } from "@/lib/billing";
 import { logDeletion } from "@/lib/audit";
-import { insertDecisionWithUniqueNumber, syncEntityTags } from "@/lib/queries";
+import {
+  insertDecisionWithUniqueNumber,
+  syncEntityTags,
+  replaceDecisionParticipants,
+  getMeetingAttendeeParticipants,
+} from "@/lib/queries";
 import { notifyMeetingStarted } from "@/lib/notification-actions";
 
 type MeetingStatus = "draft" | "scheduled" | "in_progress" | "completed";
@@ -51,7 +56,8 @@ async function persistMeetingCapture(
   meetingDate: Date,
   formData: FormData
 ) {
-  // New decisions recorded inline.
+  // New decisions recorded inline; participants default to the attendees.
+  const attendees = await getMeetingAttendeeParticipants(meetingId, tx);
   const newTitles = formData.getAll("newDecisionTitle") as string[];
   const newMethods = formData.getAll("newDecisionMethod") as string[];
   const newOutcomes = formData.getAll("newDecisionOutcome") as string[];
@@ -70,6 +76,7 @@ async function persistMeetingCapture(
       },
       tx
     );
+    await replaceDecisionParticipants(tx, spaceId, decision.id, attendees);
     await tx.insert(meetingDecisions).values({ meetingId, decisionId: decision.id });
   }
 
@@ -166,6 +173,7 @@ export async function createDecisionForMeeting(
       },
       tx
     );
+    await replaceDecisionParticipants(tx, space.id, created.id, await getMeetingAttendeeParticipants(meetingId, tx));
     await tx.insert(meetingDecisions).values({ meetingId, decisionId: created.id });
     return created;
   });
@@ -600,6 +608,7 @@ export async function importTranscript(data: {
       meetingId,
       decisionId: decision.id,
     });
+    await replaceDecisionParticipants(db, space.id, decision.id, await getMeetingAttendeeParticipants(meetingId));
   }
 
   // Create actions and link to meeting

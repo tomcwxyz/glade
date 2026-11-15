@@ -1,5 +1,5 @@
 import { getCurrentSpace } from "@/lib/space";
-import { getProposalById } from "@/lib/queries";
+import { getProposalById, getSpaceMembers } from "@/lib/queries";
 import { notFound, redirect } from "next/navigation";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { CreateDecisionFromProposal } from "./create-decision-form";
@@ -13,7 +13,7 @@ export default async function CreateDecisionFromProposalPage({
   const space = await getCurrentSpace();
   if (!space) return null;
 
-  const proposal = await getProposalById(space.id, id);
+  const [proposal, members] = await Promise.all([getProposalById(space.id, id), getSpaceMembers(space.id)]);
   if (!proposal) notFound();
 
   // If already linked to a decision, redirect
@@ -44,6 +44,7 @@ export default async function CreateDecisionFromProposalPage({
       <CreateDecisionFromProposal
         proposalId={proposal.id}
         suggestedMethod={proposal.suggestedMethod}
+        members={members.map((m) => ({ id: m.userId, name: m.name || m.email }))}
       />
     </div>
   );

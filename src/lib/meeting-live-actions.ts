@@ -13,7 +13,8 @@ import {
   decisionResponses,
 } from "@/db/schema";
 import { getCurrentSpace, requireUser } from "@/lib/space";
-import { insertDecisionWithUniqueNumber, updateMeetingSessionState } from "@/lib/queries";
+import { insertDecisionWithUniqueNumber, updateMeetingSessionState, replaceDecisionParticipants } from "@/lib/queries";
+import { participantsFromLiveSession } from "@/lib/participants";
 import type { MeetingSessionState, Deliberation } from "@/lib/meeting-state";
 import { advanceItem, skipItem, goToItem, startDecisionFlow } from "@/lib/meeting-state";
 
@@ -522,6 +523,9 @@ export async function recordMeetingDecision(
       );
 
       await tx.insert(meetingDecisions).values({ meetingId, decisionId: d.id });
+
+      // Who took part: the live session (minus observers) plus responders.
+      await replaceDecisionParticipants(tx, space.id, d.id, participantsFromLiveSession(state.participants, responses));
 
       if (responses.length > 0) {
         await tx.insert(decisionResponses).values(

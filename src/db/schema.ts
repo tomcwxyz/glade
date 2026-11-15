@@ -50,6 +50,12 @@ export const spaceRoleEnum = pgEnum("space_role", [
   "observer",
 ]);
 
+export const participationEnum = pgEnum("participation", [
+  "participated",
+  "abstained",
+  "left_room",
+]);
+
 export const decisionLinkTypeEnum = pgEnum("decision_link_type", [
   "supersedes",
   "relates_to",
@@ -379,6 +385,33 @@ export const decisionReviews = pgTable(
     reviewedAt: timestamp("reviewed_at", { mode: "date" }).defaultNow().notNull(),
   },
   (dr) => [index("decision_reviews_decision_idx").on(dr.decisionId)]
+);
+
+// --- Decision participants (members or guests; source of truth) ---
+// decisions.participants (names) is kept in sync as a display mirror.
+
+export const decisionParticipants = pgTable(
+  "decision_participants",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    decisionId: uuid("decision_id")
+      .notNull()
+      .references(() => decisions.id, { onDelete: "cascade" }),
+    // Null for a guest (someone outside the space).
+    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+    // Display name at the time of the decision (kept if the account goes).
+    name: varchar("name", { length: 255 }).notNull(),
+    participation: participationEnum("participation").default("participated").notNull(),
+    // Declared interest / conflict, if any.
+    interest: text("interest"),
+    // Order as entered.
+    position: integer("position").default(0).notNull(),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (dp) => [
+    index("decision_participants_decision_idx").on(dp.decisionId),
+    index("decision_participants_user_idx").on(dp.userId),
+  ]
 );
 
 // --- Decision revisions (append-only correction history) ---

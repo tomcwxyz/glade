@@ -1,6 +1,7 @@
 import { db } from "@/db";
 import {
   decisionRevisions,
+  decisionParticipants,
   decisions,
   decisionLinks,
   decisionResponses,
@@ -42,6 +43,13 @@ import { eq, and, or, desc, asc, count, sql, inArray, lt, isNull, notInArray, il
 import type { PgColumn, PgTable } from "drizzle-orm/pg-core";
 import { deriveActionStatus } from "@/lib/utils";
 import { decisionNotDeleted, actionDecisionNotDeleted } from "@/lib/soft-delete";
+import {
+  resolveParticipants,
+  participantNames,
+  type MemberRef,
+  type ParticipantInput,
+  type ResolvedParticipant,
+} from "@/lib/participants";
 
 /**
  * Fold member owners (action_owners → users) into each action row's display
@@ -948,6 +956,66 @@ export async function getSpaceMembers(spaceId: string) {
     .from(spaceMembers)
     .innerJoin(users, eq(users.id, spaceMembers.userId))
     .where(eq(spaceMembers.spaceId, spaceId));
+}
+
+// ============================================================
+// Decision participants
+// ============================================================
+
+/** Space members as name refs, for linking participants. */
+export async function getSpaceMemberRefs(spaceId: string, executor: DbOrTx = db): Promise<MemberRef[]> {
+  return executor
+    .select({ id: users.id, name: users.name, email: users.email })
+    .from(spaceMembers)
+    .innerJoin(users, eq(users.id, spaceMembers.userId))
+    .where(eq(spaceMembers.spaceId, spaceId));
+}
+
+/**
+ * Replace a decision's participants. Inputs are validated against the space's
+ * members (foreign user ids become guests) and the legacy
+ * decisions.participants name list is updated to match.
+ */
+export async function replaceDecisionParticipants(
+  executor: DbOrTx,
+  spaceId: string,
+  decisionId: string,
+  inputs: ParticipantInput[],
+  members?: MemberRef[]
+): Promise<ResolvedParticipant[]> {
+  const resolved = resolveParticipants(inputs, members ?? (await getSpaceMemberRefs(spaceId, executor)));
+  await executor.delete(decisionParticipants).where(eq(decisionParticipants.decisionId, decisionId));
+  if (resolved.length > 0) {
+    await executor.insert(decisionParticipants).values(resolved.map((p, position) => ({ decisionId, ...p, position })));
+  }
+  await executor
+    .update(decisions)
+    .set({ participants: participantNames(resolved) })
+    .where(eq(decisions.id, decisionId));
+  return resolved;
+}
+
+/** A meeting's attendees as participant inputs (decisions taken at the meeting default to them). */
+export async function getMeetingAttendeeParticipants(meetingId: string, executor: DbOrTx = db): Promise<ParticipantInput[]> {
+  const rows = await executor
+    .select({ userId: users.id, name: users.name, email: users.email })
+    .from(meetingAttendees)
+    .innerJoin(users, eq(users.id, meetingAttendees.userId))
+    .where(eq(meetingAttendees.meetingId, meetingId));
+  return rows.map((r) => ({ userId: r.userId, name: r.name || r.email || "" }));
+}
+
+export async function getDecisionParticipants(decisionId: string, executor: DbOrTx = db): Promise<ResolvedParticipant[]> {
+  return executor
+    .select({
+      userId: decisionParticipants.userId,
+      name: decisionParticipants.name,
+      participation: decisionParticipants.participation,
+      interest: decisionParticipants.interest,
+    })
+    .from(decisionParticipants)
+    .where(eq(decisionParticipants.decisionId, decisionId))
+    .orderBy(asc(decisionParticipants.position));
 }
 
 // ============================================================

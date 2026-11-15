@@ -57,6 +57,13 @@
       "when": 1795200100000,
       "tag": "0007_decision_soft_delete",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1795200200000,
+      "tag": "0008_decision_participants",
+      "breakpoints": true
     }
   ]
 }

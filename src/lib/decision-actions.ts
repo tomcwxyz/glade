@@ -7,7 +7,15 @@ import { db } from "@/db";
 import { decisions, decisionLinks, decisionReviews, decisionRevisions, decisionTags, tags, actions, meetingDecisions, meetings } from "@/db/schema";
 import { decisionNotDeleted } from "@/lib/soft-delete";
 import { requireSpaceRole } from "@/lib/space";
-import { insertDecisionWithUniqueNumber, getDecisions, syncEntityTags } from "@/lib/queries";
+import {
+  insertDecisionWithUniqueNumber,
+  getDecisions,
+  syncEntityTags,
+  getSpaceMemberRefs,
+  getDecisionParticipants,
+  replaceDecisionParticipants,
+} from "@/lib/queries";
+import { parseParticipantsField, participantSummaries, resolveParticipants } from "@/lib/participants";
 import { canAddDecision } from "@/lib/billing";
 import { fireWebhooks } from "@/lib/webhooks";
 import { logDeletion } from "@/lib/audit";
@@ -39,12 +47,10 @@ export async function createDecision(formData: FormData) {
   // later stages come from the lifecycle, never from the form.
   const status = initialStatus(formData.get("status"));
   const reviewDateStr = formData.get("reviewDate") as string;
-  const participantsRaw = formData.get("participants") as string;
   const tagIdsRaw = formData.get("tagIds") as string;
 
-  const participants = participantsRaw
-    ? participantsRaw.split(",").map((p) => p.trim()).filter(Boolean)
-    : [];
+  // Members (linked) or guests, with how each took part and any declared interest.
+  const participantInputs = parseParticipantsField(formData.get("participants"));
 
   const tagIds = tagIdsRaw
     ? tagIdsRaw.split(",").filter(Boolean)
@@ -74,7 +80,6 @@ export async function createDecision(formData: FormData) {
         method: method as "consent" | "majority_vote" | "advice_process" | "delegation" | "consensus" | "lazy_consensus",
         outcome,
         status,
-        participants,
         date: new Date(dateStr),
         conditions,
         reviewDate: reviewDateStr ? new Date(reviewDateStr) : null,
@@ -85,6 +90,7 @@ export async function createDecision(formData: FormData) {
     );
 
     await syncEntityTags(tx, decisionTags, decisionTags.decisionId, "decisionId", d.id, tagIds);
+    await replaceDecisionParticipants(tx, space.id, d.id, participantInputs);
 
     if (actionValues.length > 0) {
       await tx.insert(actions).values(
@@ -143,12 +149,10 @@ export async function updateDecision(decisionId: string, formData: FormData) {
   // Status is not editable here: it only moves forward via the lifecycle.
   const status = existing.status;
   const reviewDateStr = formData.get("reviewDate") as string;
-  const participantsRaw = formData.get("participants") as string;
   const tagIdsRaw = formData.get("tagIds") as string;
 
-  const participants = participantsRaw
-    ? participantsRaw.split(",").map((p) => p.trim()).filter(Boolean)
-    : [];
+  // Members (linked) or guests, with how each took part and any declared interest.
+  const participantInputs = parseParticipantsField(formData.get("participants"));
 
   const tagIds = tagIdsRaw
     ? tagIdsRaw.split(",").filter(Boolean)
@@ -171,13 +175,15 @@ export async function updateDecision(decisionId: string, formData: FormData) {
   ).map((t) => t.tagId);
 
   const isPublic = formData.get("hideFromPublic") !== "on";
+  const members = await getSpaceMemberRefs(space.id);
+  const newParticipants = resolveParticipants(participantInputs, members);
   const before: DecisionSnapshot = {
     title: existing.title,
     description: existing.description,
     rationale: existing.rationale,
     outcome: existing.outcome,
     method: existing.method,
-    participants: existing.participants ?? [],
+    participants: participantSummaries(await getDecisionParticipants(decisionId)),
     date: existing.date,
     conditions: existing.conditions,
     reviewDate: existing.reviewDate,
@@ -190,7 +196,7 @@ export async function updateDecision(decisionId: string, formData: FormData) {
     rationale,
     outcome,
     method,
-    participants,
+    participants: participantSummaries(newParticipants),
     date: new Date(dateStr),
     conditions,
     reviewDate: reviewDateStr ? new Date(reviewDateStr) : null,
@@ -223,7 +229,6 @@ export async function updateDecision(decisionId: string, formData: FormData) {
         rationale,
         method: method as "consent" | "majority_vote" | "advice_process" | "delegation" | "consensus" | "lazy_consensus",
         outcome,
-        participants,
         date: new Date(dateStr),
         conditions,
         reviewDate: reviewDateStr ? new Date(reviewDateStr) : null,
@@ -233,6 +238,7 @@ export async function updateDecision(decisionId: string, formData: FormData) {
       .where(eq(decisions.id, decisionId));
 
     await syncEntityTags(tx, decisionTags, decisionTags.decisionId, "decisionId", decisionId, tagIds);
+    await replaceDecisionParticipants(tx, space.id, decisionId, newParticipants, members);
   });
 
   fireWebhooks(space.id, "decision.updated", {

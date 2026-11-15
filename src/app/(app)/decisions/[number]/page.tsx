@@ -13,10 +13,12 @@ import {
   getDecisionResponses,
   getDecisionReviews,
   getDecisionRevisions,
+  getDecisionParticipants,
 } from "@/lib/queries";
 import { isAiEnabled } from "@/lib/ai";
 import { formatDate } from "@/lib/utils";
 import { REVISION_FIELD_LABELS, formatRevisionValue } from "@/lib/decision-revisions";
+import { PARTICIPATION_LABELS, type ResolvedParticipant } from "@/lib/participants";
 import {
   CalendarClock,
   CheckCircle2,
@@ -221,6 +223,7 @@ export default async function DecisionDetailPage({
     decisionResponses,
     reviewHistory,
     revisions,
+    structuredParticipants,
   ] = await Promise.all([
     getDecisionLinksWithIds(decision.id),
     getDecisionMeetings(decision.id),
@@ -233,6 +236,7 @@ export default async function DecisionDetailPage({
     getDecisionResponses(decision.id),
     getDecisionReviews(decision.id),
     getDecisionRevisions(decision.id),
+    getDecisionParticipants(decision.id),
   ]);
 
   // Topic→proposal→decision lineage: topic depends on the proposal id.
@@ -249,7 +253,17 @@ export default async function DecisionDetailPage({
   const hasProvenance =
     !!originProposal || !!originTopic || !!decidedAtMeeting || changedDocuments.length > 0 || relatedInsights.length > 0;
 
-  const participants = decision.participants as string[];
+  // Structured participants; legacy name-only decisions fall back to their names.
+  const participants: ResolvedParticipant[] =
+    structuredParticipants.length > 0
+      ? structuredParticipants
+      : ((decision.participants as string[]) || []).map((name) => ({
+          userId: null,
+          name,
+          participation: "participated" as const,
+          interest: null,
+        }));
+  const interests = participants.filter((p) => p.interest || p.participation !== "participated");
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-8 py-6 sm:py-10">
@@ -725,15 +739,31 @@ export default async function DecisionDetailPage({
               Participants ({participants.length})
             </h2>
             <div className="space-y-2">
-              {participants.map((name) => (
-                <div key={name} className="flex items-center gap-2.5">
+              {participants.map((p) => (
+                <div key={`${p.userId ?? "g"}-${p.name}`} className="flex items-start gap-2.5">
                   <div className="w-7 h-7 rounded-full bg-paper-deep border border-border flex items-center justify-center text-[0.6875rem] font-medium text-bark-muted shrink-0">
-                    {name.split(" ").map((n) => n[0]).join("")}
+                    {p.name.split(" ").map((n) => n[0]).join("").slice(0, 3)}
                   </div>
-                  <span className="text-sm text-bark">{name}</span>
+                  <div className="min-w-0">
+                    <span className="text-sm text-bark">{p.name}</span>
+                    {!p.userId && structuredParticipants.length > 0 && (
+                      <span className="ml-1.5 text-[0.6875rem] text-bark-muted">guest</span>
+                    )}
+                    {p.participation !== "participated" && (
+                      <span className="block text-xs text-amber">{PARTICIPATION_LABELS[p.participation]}</span>
+                    )}
+                    {p.interest && (
+                      <span className="block text-xs text-bark-muted">Interest: {p.interest}</span>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
+            {interests.length > 0 && (
+              <p className="mt-3 text-xs text-bark-muted">
+                {interests.length} {interests.length === 1 ? "person" : "people"} declared an interest, abstained or left the room.
+              </p>
+            )}
           </section>
 
           {/* AI: Review questions */}
