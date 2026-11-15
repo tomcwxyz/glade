@@ -1,9 +1,12 @@
 "use client";
 
-import { useCallback, useState, useEffect } from "react";
+import { useCallback, useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useLiveRegion } from "@/components/live-region";
 import { useMeetingPoll } from "./use-meeting-poll";
+import { QuorumIndicator } from "./quorum-indicator";
+import { withPresence } from "@/lib/meeting-state";
+import type { QuorumRule } from "@/lib/quorum";
 import { AgendaNavigator } from "./agenda-navigator";
 import { MeetingTimer } from "./meeting-timer";
 import { DecisionControls } from "./decision-controls";
@@ -57,15 +60,24 @@ export function FacilitatorView({
   meetingTitle,
   agendaItems,
   voteThreshold,
+  quorumRule = null,
+  quorumEligible = 0,
 }: {
   meetingId: string;
   meetingTitle: string;
   agendaItems: AgendaItem[];
   voteThreshold?: number;
+  quorumRule?: QuorumRule | null;
+  quorumEligible?: number;
 }) {
   const router = useRouter();
   const { announce } = useLiveRegion();
-  const { state, loading, mutate } = useMeetingPoll(meetingId);
+  const { state: polledState, presence, loading, mutate } = useMeetingPoll(meetingId);
+  // Everyone actually in the room, not just the facilitator.
+  const state = useMemo(
+    () => (polledState ? withPresence(polledState, presence) : null),
+    [polledState, presence]
+  );
   const [mobileAgendaOpen, setMobileAgendaOpen] = useState(false);
 
   const handleGoTo = useCallback(
@@ -214,6 +226,12 @@ export function FacilitatorView({
                 <Users size={11} />
                 {participantCount}
               </span>
+              {quorumRule && (
+                <>
+                  <span>·</span>
+                  <QuorumIndicator rule={quorumRule} eligible={quorumEligible} presence={presence} compact />
+                </>
+              )}
               <span>·</span>
               <span>
                 Item {state.currentAgendaItemIndex + 1}/{agendaItems.length}
@@ -271,6 +289,12 @@ export function FacilitatorView({
             </span>
           </div>
         </div>
+
+        {quorumRule && (
+          <div className="mb-4">
+            <QuorumIndicator rule={quorumRule} eligible={quorumEligible} presence={presence} />
+          </div>
+        )}
 
         <AgendaNavigator
           agendaItems={agendaItems}

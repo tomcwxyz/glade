@@ -13,10 +13,15 @@ import {
   decisionResponses,
 } from "@/db/schema";
 import { getCurrentSpace, requireUser } from "@/lib/space";
-import { insertDecisionWithUniqueNumber, updateMeetingSessionState, replaceDecisionParticipants } from "@/lib/queries";
+import {
+  insertDecisionWithUniqueNumber,
+  updateMeetingSessionState,
+  replaceDecisionParticipants,
+  getMeetingPresence,
+} from "@/lib/queries";
 import { participantsFromLiveSession } from "@/lib/participants";
 import type { MeetingSessionState, Deliberation } from "@/lib/meeting-state";
-import { advanceItem, skipItem, goToItem, startDecisionFlow } from "@/lib/meeting-state";
+import { advanceItem, skipItem, goToItem, startDecisionFlow, withPresence } from "@/lib/meeting-state";
 
 async function getMeetingState(meetingId: string, spaceId: string) {
   const [m] = await db
@@ -504,6 +509,13 @@ export async function recordMeetingDecision(
   return withFacilitatorState(meetingId, async ({ user, space, state }) => {
     const deliberation = buildDeliberation(state);
     const responses = state.decisionFlow?.responses ?? [];
+    // Who was in the room (2-minute grace for a dropped connection).
+    const presence = (await getMeetingPresence(meetingId, 120)).map((p) => ({
+      userId: p.userId,
+      name: p.name || p.email,
+      role: p.role,
+    }));
+    const inRoom = withPresence(state, presence).participants;
 
     // Atomic: decision + meeting link + per-response record + proposal update
     // either all land or none do.
@@ -525,7 +537,7 @@ export async function recordMeetingDecision(
       await tx.insert(meetingDecisions).values({ meetingId, decisionId: d.id });
 
       // Who took part: the live session (minus observers) plus responders.
-      await replaceDecisionParticipants(tx, space.id, d.id, participantsFromLiveSession(state.participants, responses));
+      await replaceDecisionParticipants(tx, space.id, d.id, participantsFromLiveSession(inRoom, responses));
 
       if (responses.length > 0) {
         await tx.insert(decisionResponses).values(

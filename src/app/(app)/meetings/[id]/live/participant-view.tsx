@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useLiveRegion } from "@/components/live-region";
 import { useMeetingPoll } from "./use-meeting-poll";
+import { withPresence } from "@/lib/meeting-state";
 import { AgendaNavigator } from "./agenda-navigator";
 import { MeetingTimer } from "./meeting-timer";
 import { DecisionFlowContainer } from "./decision-flow-container";
@@ -50,7 +51,12 @@ export function ParticipantView({
   currentUserId?: string;
 }) {
   const { announce } = useLiveRegion();
-  const { state, loading, mutate } = useMeetingPoll(meetingId);
+  const { state: polledState, presence, loading, mutate } = useMeetingPoll(meetingId);
+  // Everyone actually in the room, not just the facilitator.
+  const state = useMemo(
+    () => (polledState ? withPresence(polledState, presence) : null),
+    [polledState, presence]
+  );
   const [mobileAgendaOpen, setMobileAgendaOpen] = useState(false);
 
   // Announce agenda item changes to screen readers

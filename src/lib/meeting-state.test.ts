@@ -7,6 +7,7 @@ import {
   skipItem,
   speakerStatus,
   startDecisionFlow,
+  withPresence,
   type MeetingSessionState,
 } from "./meeting-state.ts";
 
@@ -106,4 +107,19 @@ test("startDecisionFlow enters the decision phase with no responses", () => {
 
 test("legacy speaker entries without a status count as waiting", () => {
   assert.equal(speakerStatus({ participantId: "u", name: "A", requestedAt: "t" }), "waiting");
+});
+
+test("withPresence adds present members (not observers) without touching existing entries", () => {
+  const s = started();
+  const merged = withPresence(s, [
+    { userId: "u1", name: "Renamed", role: "admin" },
+    { userId: "u2", name: "Ben", role: "member" },
+    { userId: "u3", name: "Watcher", role: "observer" },
+  ]);
+  assert.deepEqual(Object.keys(merged.participants).sort(), ["u1", "u2"]);
+  assert.equal(merged.participants.u1.name, "Asha");
+  assert.equal(merged.participants.u1.role, "facilitator");
+  assert.equal(merged.participants.u2.role, "participant");
+  assert.equal(merged.version, s.version);
+  assert.equal(Object.keys(s.participants).length, 1);
 });

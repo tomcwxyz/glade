@@ -15,6 +15,7 @@ import {
 import { relations } from "drizzle-orm";
 import type { AdapterAccountType } from "next-auth/adapters";
 import type { Deliberation } from "@/lib/meeting-state";
+import type { QuorumStamp } from "@/lib/quorum";
 
 // ============================================================
 // Enums
@@ -308,6 +309,9 @@ export const decisions = pgTable(
     learnings: text("learnings"),
     // Set when a review outcome retires the decision (terminal, off the lifecycle).
     retiredAt: timestamp("retired_at", { mode: "date" }),
+    // Quorum at the time of the decision: rule, eligible, present, required, met.
+    // Null when the space has no quorum rule.
+    quorum: jsonb("quorum").$type<QuorumStamp>(),
     isPublic: boolean("is_public").default(true).notNull(),
     createdBy: uuid("created_by").references(() => users.id),
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
@@ -572,6 +576,23 @@ export const meetingAttendees = pgTable(
       .references(() => users.id, { onDelete: "cascade" }),
   },
   (ma) => [primaryKey({ columns: [ma.meetingId, ma.userId] })]
+);
+
+// Who is in a live meeting right now. Kept out of session_state so presence
+// pings (from every polling client) don't contend with its optimistic lock.
+export const meetingPresence = pgTable(
+  "meeting_presence",
+  {
+    meetingId: uuid("meeting_id")
+      .notNull()
+      .references(() => meetings.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    firstSeenAt: timestamp("first_seen_at", { mode: "date" }).defaultNow().notNull(),
+    lastSeenAt: timestamp("last_seen_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (mp) => [primaryKey({ columns: [mp.meetingId, mp.userId] })]
 );
 
 export const meetingAgendaItems = pgTable(

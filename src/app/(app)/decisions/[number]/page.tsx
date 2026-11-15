@@ -19,6 +19,7 @@ import { isAiEnabled } from "@/lib/ai";
 import { formatDate } from "@/lib/utils";
 import { REVISION_FIELD_LABELS, formatRevisionValue } from "@/lib/decision-revisions";
 import { PARTICIPATION_LABELS, type ResolvedParticipant } from "@/lib/participants";
+import { describeQuorumRule } from "@/lib/quorum";
 import {
   CalendarClock,
   CheckCircle2,
@@ -759,6 +760,25 @@ export default async function DecisionDetailPage({
                 </div>
               ))}
             </div>
+            {decision.quorum && (
+              participants.length === 0 ? (
+                <p className="mt-3 text-xs text-bark-muted">
+                  Attendance wasn&apos;t recorded, so quorum can&apos;t be confirmed.
+                </p>
+              ) : (
+                <p
+                  className={`mt-3 text-xs rounded-md px-2 py-1.5 border ${
+                    decision.quorum.met
+                      ? "text-canopy bg-canopy-pale border-canopy/20"
+                      : "text-earth bg-earth/5 border-earth/20"
+                  }`}
+                  title={`Quorum rule: ${describeQuorumRule(decision.quorum.rule)}`}
+                >
+                  {decision.quorum.met ? "Quorate" : "Not quorate"}: {decision.quorum.present} of{" "}
+                  {decision.quorum.eligible} eligible members present, {decision.quorum.required} needed.
+                </p>
+              )
+            )}
             {interests.length > 0 && (
               <p className="mt-3 text-xs text-bark-muted">
                 {interests.length} {interests.length === 1 ? "person" : "people"} declared an interest, abstained or left the room.

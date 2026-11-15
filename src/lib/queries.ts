@@ -1,6 +1,7 @@
 import { db } from "@/db";
 import {
   decisionRevisions,
+  meetingPresence,
   decisionParticipants,
   decisions,
   decisionLinks,
@@ -50,6 +51,7 @@ import {
   type ParticipantInput,
   type ResolvedParticipant,
 } from "@/lib/participants";
+import { countPresentForQuorum, evaluateQuorum, isQuorumEligibleRole, parseQuorumRule } from "@/lib/quorum";
 
 /**
  * Fold member owners (action_owners → users) into each action row's display
@@ -647,19 +649,49 @@ export async function getMeetingSessionStateForUser(
   return m || null;
 }
 
-/**
- * Confirm the user is a member of the meeting's space. Used to gate the
- * version-locked state update at the API route.
- */
-export async function isMeetingSpaceMember(meetingId: string, userId: string) {
-  const [row] = await db
-    .select({ id: meetings.id })
-    .from(meetings)
-    .innerJoin(spaceMembers, eq(spaceMembers.spaceId, meetings.spaceId))
-    .where(and(eq(meetings.id, meetingId), eq(spaceMembers.userId, userId)))
-    .limit(1);
+/** How long after their last poll someone still counts as in the meeting. */
+export const PRESENCE_WINDOW_SECONDS = 30;
 
-  return !!row;
+/**
+ * Record that a member is in a live meeting. Called from the state poll; the
+ * row is only rewritten every 10s per person to keep write volume low.
+ * Caller must already have checked the user is a member of the meeting's space.
+ */
+export async function touchMeetingPresence(meetingId: string, userId: string) {
+  await db
+    .insert(meetingPresence)
+    .values({ meetingId, userId })
+    .onConflictDoUpdate({
+      target: [meetingPresence.meetingId, meetingPresence.userId],
+      set: { lastSeenAt: sql`now()` },
+      setWhere: sql`${meetingPresence.lastSeenAt} < now() - interval '10 seconds'`,
+    });
+}
+
+/**
+ * Members currently in a live meeting (seen within the window), with their
+ * role in the meeting's space. People who have since left the space drop out.
+ */
+export async function getMeetingPresence(
+  meetingId: string,
+  withinSeconds = PRESENCE_WINDOW_SECONDS,
+  executor: DbOrTx = db
+) {
+  return executor
+    .select({ userId: users.id, name: users.name, email: users.email, role: spaceMembers.role })
+    .from(meetingPresence)
+    .innerJoin(meetings, eq(meetings.id, meetingPresence.meetingId))
+    .innerJoin(users, eq(users.id, meetingPresence.userId))
+    .innerJoin(
+      spaceMembers,
+      and(eq(spaceMembers.spaceId, meetings.spaceId), eq(spaceMembers.userId, meetingPresence.userId))
+    )
+    .where(
+      and(
+        eq(meetingPresence.meetingId, meetingId),
+        sql`${meetingPresence.lastSeenAt} > now() - make_interval(secs => ${withinSeconds})`
+      )
+    );
 }
 
 // ============================================================
@@ -963,9 +995,12 @@ export async function getSpaceMembers(spaceId: string) {
 // ============================================================
 
 /** Space members as name refs, for linking participants. */
-export async function getSpaceMemberRefs(spaceId: string, executor: DbOrTx = db): Promise<MemberRef[]> {
+export async function getSpaceMemberRefs(
+  spaceId: string,
+  executor: DbOrTx = db
+): Promise<(MemberRef & { role: string })[]> {
   return executor
-    .select({ id: users.id, name: users.name, email: users.email })
+    .select({ id: users.id, name: users.name, email: users.email, role: spaceMembers.role })
     .from(spaceMembers)
     .innerJoin(users, eq(users.id, spaceMembers.userId))
     .where(eq(spaceMembers.spaceId, spaceId));
@@ -975,22 +1010,38 @@ export async function getSpaceMemberRefs(spaceId: string, executor: DbOrTx = db)
  * Replace a decision's participants. Inputs are validated against the space's
  * members (foreign user ids become guests) and the legacy
  * decisions.participants name list is updated to match.
+ *
+ * Also stamps the decision's quorum. The first stamp fixes the rule and the
+ * number of eligible members at the time; later corrections to who was
+ * present re-count against that same rule and eligibility.
  */
 export async function replaceDecisionParticipants(
   executor: DbOrTx,
   spaceId: string,
   decisionId: string,
   inputs: ParticipantInput[],
-  members?: MemberRef[]
+  members?: (MemberRef & { role: string })[]
 ): Promise<ResolvedParticipant[]> {
-  const resolved = resolveParticipants(inputs, members ?? (await getSpaceMemberRefs(spaceId, executor)));
+  const memberRefs = members ?? (await getSpaceMemberRefs(spaceId, executor));
+  const resolved = resolveParticipants(inputs, memberRefs);
   await executor.delete(decisionParticipants).where(eq(decisionParticipants.decisionId, decisionId));
   if (resolved.length > 0) {
     await executor.insert(decisionParticipants).values(resolved.map((p, position) => ({ decisionId, ...p, position })));
   }
+
+  const eligibleIds = new Set(memberRefs.filter((m) => isQuorumEligibleRole(m.role)).map((m) => m.id));
+  const present = countPresentForQuorum(resolved, eligibleIds);
+  const [current] = await executor
+    .select({ quorum: decisions.quorum, settings: spaces.settings })
+    .from(decisions)
+    .innerJoin(spaces, eq(spaces.id, decisions.spaceId))
+    .where(eq(decisions.id, decisionId));
+  const rule = current?.quorum?.rule ?? parseQuorumRule(current?.settings);
+  const quorum = rule ? evaluateQuorum(rule, current?.quorum?.eligible ?? eligibleIds.size, present) : null;
+
   await executor
     .update(decisions)
-    .set({ participants: participantNames(resolved) })
+    .set({ participants: participantNames(resolved), quorum })
     .where(eq(decisions.id, decisionId));
   return resolved;
 }

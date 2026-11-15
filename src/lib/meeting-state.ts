@@ -241,3 +241,20 @@ export function startDecisionFlow(
     updatedAt: new Date().toISOString(),
   };
 }
+
+/**
+ * Merge live presence (members currently polling the meeting) into the
+ * session's participant list, for display and counts. Observers are left out;
+ * existing entries (e.g. the facilitator) are kept as they are.
+ */
+export function withPresence(
+  state: MeetingSessionState,
+  presence: { userId: string; name: string; role: string }[]
+): MeetingSessionState {
+  const participants = { ...state.participants };
+  for (const p of presence) {
+    if (p.role === "observer" || participants[p.userId]) continue;
+    participants[p.userId] = { name: p.name, lastSeenAt: state.updatedAt, role: "participant" };
+  }
+  return { ...state, participants };
+}

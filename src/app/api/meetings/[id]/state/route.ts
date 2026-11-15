@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { getMeetingSessionStateForUser } from "@/lib/queries";
+import { getMeetingSessionStateForUser, touchMeetingPresence, getMeetingPresence } from "@/lib/queries";
 import { limitPoll, rateLimitedResponse } from "@/lib/rate-limit";
 
 export async function GET(
@@ -25,8 +25,19 @@ export async function GET(
     return NextResponse.json({ error: "Meeting not found" }, { status: 404 });
   }
 
+  // Polling a live meeting = being in it. Members only (checked above).
+  let presence: { userId: string; name: string; role: string }[] = [];
+  if (result.status === "in_progress") {
+    await touchMeetingPresence(id, session.user.id);
+    presence = (await getMeetingPresence(id)).map((p) => ({
+      userId: p.userId,
+      name: p.name || p.email,
+      role: p.role,
+    }));
+  }
+
   return NextResponse.json(
-    { state: result.sessionState, status: result.status },
+    { state: result.sessionState, status: result.status, presence },
     {
       headers: {
         "Cache-Control": "no-store, no-cache, must-revalidate",

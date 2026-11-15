@@ -11,6 +11,8 @@ import { createCheckoutSession, createCustomerPortalSession } from "@/lib/billin
 import { inputClass } from "@/lib/utils";
 import type { PlanTier } from "@/lib/plans";
 import { FormError } from "@/components/form-error";
+import { QuorumSetting } from "./quorum-setting";
+import type { QuorumRule } from "@/lib/quorum";
 
 export function SpaceSettingsForm({
   name,
@@ -27,6 +29,8 @@ export function SpaceSettingsForm({
   publicProposals,
   publicTopics,
   votePassThreshold,
+  quorumRule,
+  quorumEligible,
   planTier,
   planName,
   hasStripeSubscription,
@@ -51,6 +55,8 @@ export function SpaceSettingsForm({
   publicProposals: boolean;
   publicTopics: boolean;
   votePassThreshold: number;
+  quorumRule: QuorumRule | null;
+  quorumEligible: number;
   planTier: PlanTier;
   planName: string;
   hasStripeSubscription: boolean;
@@ -423,6 +429,8 @@ export function SpaceSettingsForm({
               Percentage of &quot;for&quot; votes (excluding abstentions) needed to carry a motion.
             </p>
           </div>
+
+          <QuorumSetting rule={quorumRule} eligible={quorumEligible} />
         </section>
       )}
 

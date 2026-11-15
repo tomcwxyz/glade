@@ -12,6 +12,7 @@ import { SpaceSettingsForm } from "./settings-form";
 import { ApiKeys } from "./api-keys";
 import { Webhooks } from "./webhooks";
 import { AuditLog } from "./audit-log";
+import { parseQuorumRule, isQuorumEligibleRole } from "@/lib/quorum";
 import { TagManager } from "./tag-manager";
 
 export default async function SettingsPage() {
@@ -84,6 +85,8 @@ export default async function SettingsPage() {
         publicProposals={((space.settings as Record<string, unknown>) || {}).publicProposals === true}
         publicTopics={((space.settings as Record<string, unknown>) || {}).publicTopics === true}
         votePassThreshold={typeof ((space.settings as Record<string, unknown>) || {}).votePassThreshold === "number" ? ((space.settings as Record<string, unknown>).votePassThreshold as number) : 0.5}
+        quorumRule={parseQuorumRule(space.settings)}
+        quorumEligible={members.filter((m) => isQuorumEligibleRole(m.role)).length}
         planTier={planTier}
         planName={PLAN_DISPLAY[planTier].name}
         hasStripeSubscription={!!subscription?.stripeSubscriptionId}
