@@ -2,6 +2,7 @@ import { getCurrentSpace, getCurrentMembership } from "@/lib/space";
 import {
   getMeetingById,
   getMeetingRefs,
+  getMeetingGuests,
   getDecisionsList,
   getActionsList,
   getDocumentsList,
@@ -29,6 +30,7 @@ import { Breadcrumbs } from "@/components/breadcrumbs";
 import { ShareAgendaButton } from "./share-agenda-button";
 import { DeleteMeeting } from "./delete-meeting";
 import { MinutesPanel } from "./minutes-panel";
+import { GuestInvites } from "./guest-invites";
 import { minutesHistory } from "@/lib/minutes";
 import { MeetingLinksEditor } from "./meeting-links-editor";
 
@@ -81,6 +83,10 @@ export default async function MeetingDetailPage({
   const membership = await getCurrentMembership();
   const isAdmin = membership?.role === "admin";
   const minutesLocked = !!meeting.minutesApprovedAt;
+  // Guests: managed by the facilitator (or creator) and admins.
+  const canManageGuests =
+    isAdmin || (!!membership && (meeting.facilitatorId ?? meeting.createdBy) === membership.user.id);
+  const guests = canManageGuests ? await getMeetingGuests(meeting.id) : [];
   const history = minutesHistory(meeting.metadata);
   const refIds = [
     ...new Set(
@@ -292,6 +298,9 @@ export default async function MeetingDetailPage({
 
         {/* Right sidebar */}
         <aside className="space-y-8">
+          {canManageGuests && meeting.status !== "completed" && (
+            <GuestInvites meetingId={meeting.id} guests={guests} />
+          )}
           {/* Attendees */}
           <section>
             <h2 className="text-xs uppercase tracking-wider text-bark-muted font-medium flex items-center gap-2 mb-3">

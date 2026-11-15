@@ -1,6 +1,7 @@
 import { db } from "@/db";
 import {
   decisionRevisions,
+  meetingGuests,
   meetingPresence,
   decisionParticipants,
   decisions,
@@ -52,6 +53,7 @@ import {
   type ResolvedParticipant,
 } from "@/lib/participants";
 import { minutesAwaitingApproval } from "@/lib/minutes";
+import { hashGuestToken, isWellFormedGuestToken } from "@/lib/guests";
 import { countPresentForQuorum, evaluateQuorum, isQuorumEligibleRole, parseQuorumRule } from "@/lib/quorum";
 
 /**
@@ -672,6 +674,38 @@ export async function getMeetingRefs(spaceId: string, ids: string[]) {
     .select({ id: meetings.id, title: meetings.title, date: meetings.date })
     .from(meetings)
     .where(and(eq(meetings.spaceId, spaceId), inArray(meetings.id, ids)));
+}
+
+/** Resolve a guest token to its guest and live meeting, or null. */
+export async function resolveGuestToken(token: string) {
+  if (!isWellFormedGuestToken(token)) return null;
+  const [row] = await db
+    .select({
+      id: meetingGuests.id,
+      name: meetingGuests.name,
+      label: meetingGuests.label,
+      canVote: meetingGuests.canVote,
+      meetingId: meetings.id,
+      spaceId: meetings.spaceId,
+      title: meetings.title,
+      status: meetings.status,
+      sessionState: meetings.sessionState,
+    })
+    .from(meetingGuests)
+    .innerJoin(meetings, eq(meetings.id, meetingGuests.meetingId))
+    .where(and(eq(meetingGuests.tokenHash, hashGuestToken(token)), isNull(meetingGuests.revokedAt)))
+    .limit(1);
+  return row ?? null;
+}
+
+
+/** Active (not revoked) guests invited to a meeting. */
+export async function getMeetingGuests(meetingId: string) {
+  return db
+    .select({ id: meetingGuests.id, name: meetingGuests.name, label: meetingGuests.label, canVote: meetingGuests.canVote, createdAt: meetingGuests.createdAt })
+    .from(meetingGuests)
+    .where(and(eq(meetingGuests.meetingId, meetingId), isNull(meetingGuests.revokedAt)))
+    .orderBy(asc(meetingGuests.createdAt));
 }
 
 /** Shown when something tries to change a meeting whose minutes are approved. */

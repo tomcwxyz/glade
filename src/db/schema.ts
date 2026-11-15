@@ -609,6 +609,29 @@ export const meetingPresence = pgTable(
   (mp) => [primaryKey({ columns: [mp.meetingId, mp.userId] })]
 );
 
+// Named guests invited to take part in a live meeting without an account
+// (co-opted members, staff, advisers). Each has their own secret link; only a
+// SHA-256 hash of its token is stored. canVote = may object / vote, not just
+// ask, react, advise and speak.
+export const meetingGuests = pgTable(
+  "meeting_guests",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    meetingId: uuid("meeting_id")
+      .notNull()
+      .references(() => meetings.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 255 }).notNull(),
+    // e.g. "Adviser", "Co-opted member", "Finance officer".
+    label: varchar("label", { length: 100 }),
+    canVote: boolean("can_vote").default(false).notNull(),
+    tokenHash: varchar("token_hash", { length: 64 }).notNull().unique(),
+    createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+    revokedAt: timestamp("revoked_at", { mode: "date" }),
+  },
+  (g) => [index("meeting_guests_meeting_idx").on(g.meetingId)]
+);
+
 export const meetingAgendaItems = pgTable(
   "meeting_agenda_items",
   {

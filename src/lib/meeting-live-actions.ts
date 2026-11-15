@@ -21,7 +21,9 @@ import {
 } from "@/lib/queries";
 import { applyDeclarations, participantsFromLiveSession } from "@/lib/participants";
 import { hasSpaceRole } from "@/lib/roles";
+import { isGuestParticipantId } from "@/lib/guests";
 import type { MeetingSessionState, Deliberation } from "@/lib/meeting-state";
+import { applyStateChange, getMeetingState } from "@/lib/meeting-state-store";
 import {
   advanceItem,
   skipItem,
@@ -33,46 +35,6 @@ import {
   declarationsFor,
   hasDeclaredOnCurrentItem,
 } from "@/lib/meeting-state";
-
-async function getMeetingState(meetingId: string, spaceId: string) {
-  const [m] = await db
-    .select({
-      id: meetings.id,
-      sessionState: meetings.sessionState,
-      createdBy: meetings.createdBy,
-      facilitatorId: meetings.facilitatorId,
-    })
-    .from(meetings)
-    .where(and(eq(meetings.id, meetingId), eq(meetings.spaceId, spaceId)))
-    .limit(1);
-
-  return m || null;
-}
-
-/**
- * Apply a pure state transition under optimistic locking. The mutator MUST bump
- * `version` by 1. We write only if the DB version still matches the version we
- * based the change on; on conflict we re-read the latest state and re-apply, so
- * concurrent votes / speaker-stack entries are never silently lost.
- */
-async function applyStateChange(
-  meetingId: string,
-  spaceId: string,
-  baseState: MeetingSessionState,
-  mutate: (s: MeetingSessionState) => MeetingSessionState
-): Promise<MeetingSessionState> {
-  let current = baseState;
-  for (let attempt = 0; attempt < 5; attempt++) {
-    const next = mutate(current);
-    const ok = await updateMeetingSessionState(meetingId, next, current.version);
-    if (ok) return next;
-
-    const fresh = await getMeetingState(meetingId, spaceId);
-    if (!fresh?.sessionState) throw new Error("Meeting state not found");
-    current = fresh.sessionState as MeetingSessionState;
-  }
-  throw new Error("Could not save meeting state — too many concurrent updates");
-}
 
 /**
  * Snapshot the live deliberation (tallies, objections + resolutions, clarifying
@@ -623,7 +585,8 @@ export async function recordMeetingDecision(
         await tx.insert(decisionResponses).values(
           responses.map((r) => ({
             decisionId: d.id,
-            participantId: r.participantId,
+            // Guests have no user id (their name is kept below).
+            participantId: isGuestParticipantId(r.participantId) ? null : r.participantId,
             name: r.name,
             value: r.value,
             comment: r.comment,

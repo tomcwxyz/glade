@@ -19,7 +19,8 @@ interface PollResult {
   mutate: (newState: MeetingSessionState) => void;
 }
 
-export function useMeetingPoll(meetingId: string, intervalMs = 2000): PollResult {
+/** Poll live meeting state. `url` overrides the member endpoint (e.g. for guests). */
+export function useMeetingPoll(meetingId: string, intervalMs = 2000, url?: string): PollResult {
   const [state, setState] = useState<MeetingSessionState | null>(null);
   const [status, setStatus] = useState<string>("draft");
   const [presence, setPresence] = useState<PresentMember[]>([]);
@@ -33,7 +34,7 @@ export function useMeetingPoll(meetingId: string, intervalMs = 2000): PollResult
 
   const fetchState = useCallback(async () => {
     try {
-      const res = await fetch(`/api/meetings/${meetingId}/state`, {
+      const res = await fetch(url ?? `/api/meetings/${meetingId}/state`, {
         cache: "no-store",
       });
       if (!res.ok) {
@@ -66,7 +67,7 @@ export function useMeetingPoll(meetingId: string, intervalMs = 2000): PollResult
     } finally {
       setLoading(false);
     }
-  }, [meetingId]);
+  }, [meetingId, url]);
 
   useEffect(() => {
     fetchState();

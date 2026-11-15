@@ -45,15 +45,20 @@ export function ParticipantView({
   agendaItems,
   voteThreshold,
   currentUserId,
+  pollUrl,
+  isGuest = false,
 }: {
   meetingId: string;
   meetingTitle: string;
   agendaItems: AgendaItem[];
   voteThreshold?: number;
   currentUserId?: string;
+  /** Guests poll their token endpoint instead of the member one. */
+  pollUrl?: string;
+  isGuest?: boolean;
 }) {
   const { announce } = useLiveRegion();
-  const { state: polledState, presence, loading, mutate } = useMeetingPoll(meetingId);
+  const { state: polledState, presence, loading, mutate } = useMeetingPoll(meetingId, 2000, pollUrl);
   // Everyone actually in the room, not just the facilitator.
   const state = useMemo(
     () => (polledState ? withPresence(polledState, presence) : null),
@@ -71,10 +76,18 @@ export function ParticipantView({
     }
   }, [currentAgendaItemId, currentAgendaItemTitle, announce]);
 
-  if (loading || !state) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <Loader2 size={24} className="animate-spin text-bark-muted" />
+      </div>
+    );
+  }
+
+  if (!state) {
+    return (
+      <div className="max-w-2xl mx-auto px-4 py-16 text-center text-bark-muted">
+        Waiting for the meeting to start. This page will update when it does.
       </div>
     );
   }
@@ -218,7 +231,7 @@ export function ParticipantView({
             </div>
 
             {/* Declarations of interest on this item */}
-            {currentUserId && (
+            {currentUserId && !isGuest && (
               <DeclarationsPanel meetingId={meetingId} state={state} currentUserId={currentUserId} mutate={mutate} />
             )}
 
