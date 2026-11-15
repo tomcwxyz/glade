@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, TriangleAlert, Sparkles, CreditCard, ArrowUpRight, Globe, RotateCcw, Calendar, Copy, Check, Link as LinkIcon } from "lucide-react";
 import { resetWalkthrough } from "@/components/walkthrough";
 import { updateSpace, deleteSpace, updateSpaceSettings, clearSpaceData } from "@/lib/space-actions";
+import { previewPublicSection, enablePublicSection } from "@/lib/public-exposure-actions";
+import { formatDate } from "@/lib/utils";
 import { createCheckoutSession, createCustomerPortalSession } from "@/lib/billing-actions";
 import { inputClass } from "@/lib/utils";
 import type { PlanTier } from "@/lib/plans";
@@ -63,6 +65,49 @@ export function SpaceSettingsForm({
   const billingStatus = searchParams.get("billing");
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
+  // Confirm step before a public section goes live: what's about to be published.
+  const [publishPreview, setPublishPreview] = useState<
+    { key: string; count: number; noun: string; since: string | null } | null
+  >(null);
+
+  function togglePublic(key: string, checked: boolean) {
+    setError(null);
+    startTransition(async () => {
+      if (checked) {
+        // Turning off is always safe.
+        const result = await updateSpaceSettings({ [key]: false });
+        if (result?.error) setError(result.error);
+        return;
+      }
+      const preview = await previewPublicSection(key);
+      if ("error" in preview) {
+        setError(preview.error);
+        return;
+      }
+      if (preview.count === 0) {
+        const result = await enablePublicSection(key, "publish_existing");
+        if ("error" in result) setError(result.error);
+        else router.refresh();
+        return;
+      }
+      setPublishPreview({ key, ...preview });
+    });
+  }
+
+  function confirmPublish(mode: "publish_existing" | "hide_existing") {
+    if (!publishPreview) return;
+    const { key } = publishPreview;
+    startTransition(async () => {
+      const result = await enablePublicSection(key, mode);
+      if ("error" in result) {
+        setError(result.error);
+        return;
+      }
+      setPublishPreview(null);
+      router.refresh();
+    });
+  }
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [showClearConfirm, setShowClearConfirm] = useState(false);
@@ -406,18 +451,14 @@ export function SpaceSettingsForm({
               { key: "publicProposals", checked: publicProposals, label: "Public proposals", desc: "Proposals open for discussion" },
               { key: "publicTopics", checked: publicTopics, label: "Public topics", desc: "Questions, tensions, and suggestions" },
             ] as const).map((toggle) => (
-              <label key={toggle.key} className="flex items-center gap-3 cursor-pointer">
+              <div key={toggle.key}>
+              <label className="flex items-center gap-3 cursor-pointer">
                 <button
                   type="button"
                   role="switch"
                   aria-checked={toggle.checked}
-                  onClick={() => {
-                    startTransition(async () => {
-                      const result = await updateSpaceSettings({ [toggle.key]: !toggle.checked });
-                      if (result?.error) setError(result.error);
-                    });
-                  }}
-                  disabled={isPending}
+                  onClick={() => togglePublic(toggle.key, toggle.checked)}
+                  disabled={isPending || !!publishPreview}
                   className={`relative w-10 h-5.5 rounded-full transition-colors ${
                     toggle.checked ? "bg-canopy" : "bg-paper-deep border border-border"
                   }`}
@@ -433,6 +474,44 @@ export function SpaceSettingsForm({
                   <span className="text-xs text-bark-muted">{toggle.desc}</span>
                 </div>
               </label>
+              {publishPreview?.key === toggle.key && (
+                <div role="alert" className="mt-3 ml-13 rounded-lg border border-amber/30 bg-amber/5 p-4 text-sm">
+                  <p className="text-bark font-medium">
+                    This will publish {publishPreview.count} existing {publishPreview.noun}
+                    {publishPreview.since ? `, going back to ${formatDate(publishPreview.since)}` : ""}.
+                  </p>
+                  <p className="text-xs text-bark-muted mt-1">
+                    Anyone with the link will be able to read them. Items already marked hidden stay private.
+                  </p>
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    <button
+                      type="button"
+                      disabled={isPending}
+                      onClick={() => confirmPublish("hide_existing")}
+                      className="px-3 py-1.5 text-sm font-medium text-paper bg-canopy rounded-lg hover:bg-canopy-light transition-colors disabled:opacity-50"
+                    >
+                      Keep existing private, publish new ones
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isPending}
+                      onClick={() => confirmPublish("publish_existing")}
+                      className="px-3 py-1.5 text-sm text-bark border border-border rounded-lg hover:border-amber/50 transition-colors disabled:opacity-50"
+                    >
+                      Publish all {publishPreview.count}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isPending}
+                      onClick={() => setPublishPreview(null)}
+                      className="px-3 py-1.5 text-sm text-bark-muted hover:text-bark transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+              </div>
             ))}
           </div>
 
