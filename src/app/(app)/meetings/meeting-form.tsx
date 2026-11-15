@@ -606,6 +606,26 @@ export function MeetingForm({
                 <Plus size={14} />
                 Add item
               </button>
+              {!agendaItems.some((it) => it.type === "minutes_approval") && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setAgendaItems([
+                      {
+                        ...emptyAgendaItem,
+                        title: "Approve the minutes of the previous meeting",
+                        type: "minutes_approval",
+                        durationMinutes: "5",
+                      },
+                      ...agendaItems,
+                    ])
+                  }
+                  className="flex items-center gap-1 text-xs text-canopy hover:text-canopy-light transition-colors"
+                >
+                  <Plus size={14} />
+                  Approve previous minutes
+                </button>
+              )}
               {aiEnabled && (
                 <button
                   type="button"
@@ -667,6 +687,7 @@ export function MeetingForm({
                       <option value="for_discussion">For discussion</option>
                       <option value="for_decision">For decision</option>
                       <option value="for_information">For information</option>
+                      <option value="minutes_approval">Approve previous minutes</option>
                     </select>
                     <input
                       type="number"

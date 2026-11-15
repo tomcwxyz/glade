@@ -14,6 +14,7 @@ const TYPE_COLORS: Record<string, string> = {
   for_decision: "text-canopy",
   for_discussion: "text-amber",
   for_information: "text-sky",
+  minutes_approval: "text-canopy",
 };
 
 export function AgendaNavigator({

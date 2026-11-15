@@ -14,6 +14,8 @@ import {
   getSpaceMemberRefs,
   getDecisionParticipants,
   replaceDecisionParticipants,
+  isMeetingMinutesLocked,
+  MINUTES_LOCKED_ERROR,
 } from "@/lib/queries";
 import { parseParticipantsField, participantSummaries, resolveParticipants } from "@/lib/participants";
 import { canAddDecision } from "@/lib/billing";
@@ -460,6 +462,7 @@ export async function linkDecisionToMeeting(
     .where(and(eq(meetings.id, meetingId), eq(meetings.spaceId, space.id)))
     .limit(1);
   if (!meeting) return { error: "Meeting not found" };
+  if (await isMeetingMinutesLocked(meetingId, space.id)) return { error: MINUTES_LOCKED_ERROR };
 
   // Check if already linked
   const [existing] = await db
@@ -492,6 +495,7 @@ export async function unlinkDecisionFromMeeting(
     .where(and(eq(decisions.id, decisionId), eq(decisions.spaceId, space.id), decisionNotDeleted))
     .limit(1);
   if (!decision) return { error: "Decision not found" };
+  if (await isMeetingMinutesLocked(meetingId, space.id)) return { error: MINUTES_LOCKED_ERROR };
 
   await db
     .delete(meetingDecisions)

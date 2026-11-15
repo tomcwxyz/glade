@@ -29,10 +29,13 @@ import {
   syncEntityTags,
   replaceDecisionParticipants,
   getMeetingAttendeeParticipants,
+  isMeetingMinutesLocked,
+  MINUTES_LOCKED_ERROR,
 } from "@/lib/queries";
 import { notifyMeetingStarted } from "@/lib/notification-actions";
 
 type MeetingStatus = "draft" | "scheduled" | "in_progress" | "completed";
+type AgendaItemType = (typeof meetingAgendaItems.type.enumValues)[number];
 
 type DecisionMethod =
   | "consent"
@@ -159,6 +162,7 @@ export async function createDecisionForMeeting(
     .where(and(eq(meetings.id, meetingId), eq(meetings.spaceId, space.id)))
     .limit(1);
   if (!meeting) return { error: "Meeting not found" };
+  if (await isMeetingMinutesLocked(meetingId, space.id)) return { error: MINUTES_LOCKED_ERROR };
 
   const decision = await db.transaction(async (tx) => {
     const created = await insertDecisionWithUniqueNumber(
@@ -218,7 +222,7 @@ export async function createMeeting(formData: FormData) {
     .map((title, i) => ({
       title: title.trim(),
       description: agendaDescriptions[i]?.trim() || null,
-      type: (agendaTypes[i] || "for_discussion") as "for_decision" | "for_discussion" | "for_information",
+      type: (agendaTypes[i] || "for_discussion") as AgendaItemType,
       sortOrder: i,
       durationMinutes: agendaDurations[i] ? parseInt(agendaDurations[i], 10) || null : null,
       proposalId: agendaProposalIds[i] || null,
@@ -276,6 +280,7 @@ export async function updateMeeting(meetingId: string, formData: FormData) {
     .limit(1);
 
   if (!existing) return { error: "Meeting not found" };
+  if (await isMeetingMinutesLocked(meetingId, space.id)) return { error: MINUTES_LOCKED_ERROR };
 
   const title = (formData.get("title") as string)?.trim();
   if (!title) return { error: "Meeting title is required" };
@@ -306,7 +311,7 @@ export async function updateMeeting(meetingId: string, formData: FormData) {
     .map((title, i) => ({
       title: title.trim(),
       description: agendaDescriptions[i]?.trim() || null,
-      type: (agendaTypes[i] || "for_discussion") as "for_decision" | "for_discussion" | "for_information",
+      type: (agendaTypes[i] || "for_discussion") as AgendaItemType,
       sortOrder: i,
       durationMinutes: agendaDurations[i] ? parseInt(agendaDurations[i], 10) || null : null,
       proposalId: agendaProposalIds[i] || null,
@@ -414,6 +419,7 @@ export async function deleteMeeting(meetingId: string) {
     .limit(1);
 
   if (!meeting) return { error: "Meeting not found" };
+  if (await isMeetingMinutesLocked(meetingId, space.id)) return { error: MINUTES_LOCKED_ERROR };
 
   // Audit log
   await logDeletion(
@@ -574,6 +580,7 @@ export async function importTranscript(data: {
   } else {
     if (!data.meetingId) return { error: "No meeting ID" };
     meetingId = data.meetingId;
+    if (await isMeetingMinutesLocked(meetingId, space.id)) return { error: MINUTES_LOCKED_ERROR };
     await db
       .update(meetings)
       .set({

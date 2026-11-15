@@ -13,6 +13,7 @@ import { DecisionControls } from "./decision-controls";
 import { DecisionFlowContainer } from "./decision-flow-container";
 import { SpeakerStack } from "./speaker-stack";
 import { DeclarationsPanel } from "./declarations-panel";
+import { MinutesApprovalControl } from "./minutes-approval-control";
 import {
   advanceAgendaItem,
   skipAgendaItem,
@@ -40,6 +41,7 @@ const AGENDA_TYPE_LABELS: Record<string, { label: string; color: string }> = {
   for_decision: { label: "For decision", color: "text-canopy bg-canopy-pale" },
   for_discussion: { label: "For discussion", color: "text-amber bg-amber/10" },
   for_information: { label: "For information", color: "text-sky bg-sky/10" },
+  minutes_approval: { label: "Approve minutes", color: "text-canopy bg-canopy-pale" },
 };
 
 interface AgendaItem {
@@ -64,6 +66,7 @@ export function FacilitatorView({
   quorumRule = null,
   quorumEligible = 0,
   currentUserId,
+  minutesToApprove = [],
 }: {
   meetingId: string;
   meetingTitle: string;
@@ -72,6 +75,7 @@ export function FacilitatorView({
   quorumRule?: QuorumRule | null;
   quorumEligible?: number;
   currentUserId?: string;
+  minutesToApprove?: { id: string; title: string; date: string }[];
 }) {
   const router = useRouter();
   const { announce } = useLiveRegion();
@@ -391,6 +395,10 @@ export function FacilitatorView({
               />
             ) : (
               <div className="space-y-4">
+                {currentItem.type === "minutes_approval" && (
+                  <MinutesApprovalControl meetingId={meetingId} candidates={minutesToApprove} mutate={mutate} />
+                )}
+
                 {currentItem.type === "for_decision" && (
                   <DecisionControls
                     onRecord={handleRecordDecision}

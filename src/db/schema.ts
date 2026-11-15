@@ -11,6 +11,7 @@ import {
   index,
   unique,
   pgEnum,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import type { AdapterAccountType } from "next-auth/adapters";
@@ -67,6 +68,7 @@ export const agendaItemTypeEnum = pgEnum("agenda_item_type", [
   "for_decision",
   "for_discussion",
   "for_information",
+  "minutes_approval",
 ]);
 
 export const documentTypeEnum = pgEnum("document_type", [
@@ -559,6 +561,18 @@ export const meetings = pgTable(
       .$type<Record<string, unknown>>()
       .default({})
       .notNull(),
+    // Minutes approval (chair sign-off). Once set, the minutes are locked;
+    // an admin can reopen them with a reason (history in metadata.minutesHistory).
+    minutesApprovedAt: timestamp("minutes_approved_at", { mode: "date" }),
+    minutesApprovedBy: uuid("minutes_approved_by").references(() => users.id, { onDelete: "set null" }),
+    minutesApprovedByName: varchar("minutes_approved_by_name", { length: 255 }),
+    // The meeting at which these minutes were approved (usually the next one).
+    minutesApprovedInMeetingId: uuid("minutes_approved_in_meeting_id").references(
+      (): AnyPgColumn => meetings.id,
+      { onDelete: "set null" }
+    ),
+    // The notes exactly as approved.
+    minutesApprovedText: text("minutes_approved_text"),
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
   },

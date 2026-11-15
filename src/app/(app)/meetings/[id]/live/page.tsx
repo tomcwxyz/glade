@@ -1,5 +1,5 @@
 import { getCurrentSpace, requireUser } from "@/lib/space";
-import { getMeetingById, getSpaceMembers } from "@/lib/queries";
+import { getMeetingById, getSpaceMembers, getMinutesAwaitingApproval } from "@/lib/queries";
 import { isQuorumEligibleRole, parseQuorumRule } from "@/lib/quorum";
 import { notFound, redirect } from "next/navigation";
 import { FacilitatorView } from "./facilitator-view";
@@ -30,6 +30,10 @@ export default async function LiveMeetingPage({
 
   const isFacilitator = (meeting.facilitatorId || meeting.createdBy) === user.id;
   const members = isFacilitator ? await getSpaceMembers(space.id) : [];
+  const minutesToApprove =
+    isFacilitator && meeting.agendaItems.some((a) => a.type === "minutes_approval")
+      ? await getMinutesAwaitingApproval(space.id, { id: meeting.id, date: meeting.date })
+      : [];
   const settings = (space.settings as Record<string, unknown>) || {};
   const voteThreshold = typeof settings.votePassThreshold === "number" ? settings.votePassThreshold : 0.5;
 
@@ -76,6 +80,7 @@ export default async function LiveMeetingPage({
         quorumRule={parseQuorumRule(space.settings)}
         quorumEligible={members.filter((m) => isQuorumEligibleRole(m.role)).length}
         currentUserId={user.id}
+        minutesToApprove={minutesToApprove.map((m) => ({ id: m.id, title: m.title, date: m.date.toISOString() }))}
       />
     );
   }

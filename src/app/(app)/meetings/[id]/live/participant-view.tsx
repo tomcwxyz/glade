@@ -22,6 +22,7 @@ const AGENDA_TYPE_LABELS: Record<string, { label: string; color: string }> = {
   for_decision: { label: "For decision", color: "text-canopy bg-canopy-pale" },
   for_discussion: { label: "For discussion", color: "text-amber bg-amber/10" },
   for_information: { label: "For information", color: "text-sky bg-sky/10" },
+  minutes_approval: { label: "Approve minutes", color: "text-canopy bg-canopy-pale" },
 };
 
 interface AgendaItem {

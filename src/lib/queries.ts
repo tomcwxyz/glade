@@ -51,6 +51,7 @@ import {
   type ParticipantInput,
   type ResolvedParticipant,
 } from "@/lib/participants";
+import { minutesAwaitingApproval } from "@/lib/minutes";
 import { countPresentForQuorum, evaluateQuorum, isQuorumEligibleRole, parseQuorumRule } from "@/lib/quorum";
 
 /**
@@ -647,6 +648,44 @@ export async function getMeetingSessionStateForUser(
     .limit(1);
 
   return m || null;
+}
+
+/** Earlier meetings in the space whose minutes are still to be approved, most recent first. */
+export async function getMinutesAwaitingApproval(spaceId: string, current: { id: string; date: Date }) {
+  const rows = await db
+    .select({
+      id: meetings.id,
+      title: meetings.title,
+      date: meetings.date,
+      status: meetings.status,
+      minutesApprovedAt: meetings.minutesApprovedAt,
+    })
+    .from(meetings)
+    .where(and(eq(meetings.spaceId, spaceId), isNull(meetings.minutesApprovedAt), lt(meetings.date, current.date)));
+  return minutesAwaitingApproval(rows, current) as typeof rows;
+}
+
+/** Titles and dates for a set of meetings in a space (for minutes history links). */
+export async function getMeetingRefs(spaceId: string, ids: string[]) {
+  if (ids.length === 0) return [];
+  return db
+    .select({ id: meetings.id, title: meetings.title, date: meetings.date })
+    .from(meetings)
+    .where(and(eq(meetings.spaceId, spaceId), inArray(meetings.id, ids)));
+}
+
+/** Shown when something tries to change a meeting whose minutes are approved. */
+export const MINUTES_LOCKED_ERROR =
+  "These minutes have been approved and are locked. An admin can reopen them, giving a reason.";
+
+/** True if the meeting's minutes are approved (and so locked). */
+export async function isMeetingMinutesLocked(meetingId: string, spaceId: string, executor: DbOrTx = db) {
+  const [m] = await executor
+    .select({ approvedAt: meetings.minutesApprovedAt })
+    .from(meetings)
+    .where(and(eq(meetings.id, meetingId), eq(meetings.spaceId, spaceId)))
+    .limit(1);
+  return !!m?.approvedAt;
 }
 
 /** How long after their last poll someone still counts as in the meeting. */
