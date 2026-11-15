@@ -15,7 +15,8 @@ A decision-centric governance platform for social purpose organisations. Treats 
   - `src/app/(app)/meetings/[id]/summary/` — post-meeting summary
   - `src/app/(app)/glade/` — visual decision canvas ("The Glade")
   - `src/app/shared/meeting/[token]/` — public meeting agenda + live observer (no auth required)
-  - `src/app/api/meetings/[id]/state/` — GET/PUT polling endpoint for live meeting state
+  - `src/app/api/meetings/[id]/state/` — GET polling endpoint for live meeting state (also records presence); changes go through server actions only
+  - `src/app/guest/[token]/` + `src/app/api/guest/[token]/state/` — invited guests taking part in a live meeting (token-authorised)
 - `src/components/` — shared React components (app-shell.tsx, sidebar.tsx, tiptap-editor.tsx)
 - `src/lib/` — utilities, queries, server actions, AI integration
   - `src/lib/queries.ts` — all Drizzle DB queries
