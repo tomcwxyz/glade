@@ -4,6 +4,7 @@ import { eq, and, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { actions, actionOwners, actionTags, spaceMembers, decisions, topics, proposals } from "@/db/schema";
+import { decisionNotDeleted, actionDecisionNotDeleted } from "@/lib/soft-delete";
 import { requireSpaceRole } from "@/lib/space";
 import { syncEntityTags } from "@/lib/queries";
 import { logDeletion } from "@/lib/audit";
@@ -36,7 +37,7 @@ export async function createAction(
   // Validate parent exists in current space
   if (parentType === "decision") {
     const [d] = await db.select({ id: decisions.id }).from(decisions)
-      .where(and(eq(decisions.id, parentId), eq(decisions.spaceId, space.id))).limit(1);
+      .where(and(eq(decisions.id, parentId), eq(decisions.spaceId, space.id), decisionNotDeleted)).limit(1);
     if (!d) return { error: "Decision not found" };
   } else if (parentType === "topic") {
     const [t] = await db.select({ id: topics.id }).from(topics)
@@ -96,7 +97,7 @@ export async function getActionForEdit(actionId: string) {
       dueDate: actions.dueDate,
     })
     .from(actions)
-    .where(and(eq(actions.id, actionId), eq(actions.spaceId, space.id)))
+    .where(and(eq(actions.id, actionId), eq(actions.spaceId, space.id), actionDecisionNotDeleted))
     .limit(1);
 
   if (!row) return { error: "Action not found" };
@@ -138,7 +139,7 @@ export async function updateAction(
   const [existing] = await db
     .select({ id: actions.id })
     .from(actions)
-    .where(and(eq(actions.id, actionId), eq(actions.spaceId, space.id)))
+    .where(and(eq(actions.id, actionId), eq(actions.spaceId, space.id), actionDecisionNotDeleted))
     .limit(1);
 
   if (!existing) return { error: "Action not found" };
@@ -183,7 +184,7 @@ export async function updateActionStatus(
   const [existing] = await db
     .select({ id: actions.id })
     .from(actions)
-    .where(and(eq(actions.id, actionId), eq(actions.spaceId, space.id)))
+    .where(and(eq(actions.id, actionId), eq(actions.spaceId, space.id), actionDecisionNotDeleted))
     .limit(1);
 
   if (!existing) return { error: "Action not found" };
@@ -210,7 +211,7 @@ export async function setActionPublic(actionId: string, isPublic: boolean) {
   await db
     .update(actions)
     .set({ isPublic, updatedAt: new Date() })
-    .where(and(eq(actions.id, actionId), eq(actions.spaceId, space.id)));
+    .where(and(eq(actions.id, actionId), eq(actions.spaceId, space.id), actionDecisionNotDeleted));
 
   revalidatePath("/actions");
   return { success: true };
@@ -239,7 +240,7 @@ export async function deleteAction(actionId: string) {
     .leftJoin(decisions, eq(actions.decisionId, decisions.id))
     .leftJoin(topics, eq(actions.topicId, topics.id))
     .leftJoin(proposals, eq(actions.proposalId, proposals.id))
-    .where(and(eq(actions.id, actionId), eq(actions.spaceId, space.id)))
+    .where(and(eq(actions.id, actionId), eq(actions.spaceId, space.id), actionDecisionNotDeleted))
     .limit(1);
 
   if (!action) return { error: "Action not found" };
@@ -272,7 +273,7 @@ export async function deleteAction(actionId: string) {
 
   await db
     .delete(actions)
-    .where(and(eq(actions.id, actionId), eq(actions.spaceId, space.id)));
+    .where(and(eq(actions.id, actionId), eq(actions.spaceId, space.id), actionDecisionNotDeleted));
 
   revalidatePath("/actions");
   revalidatePath("/decisions");

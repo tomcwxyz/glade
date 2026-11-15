@@ -41,6 +41,7 @@ import {
 import { eq, and, or, desc, asc, count, sql, inArray, lt, isNull, notInArray, ilike } from "drizzle-orm";
 import type { PgColumn, PgTable } from "drizzle-orm/pg-core";
 import { deriveActionStatus } from "@/lib/utils";
+import { decisionNotDeleted, actionDecisionNotDeleted } from "@/lib/soft-delete";
 
 /**
  * Fold member owners (action_owners → users) into each action row's display
@@ -107,7 +108,7 @@ export async function getDecisions(
   let dq = db
     .select()
     .from(decisions)
-    .where(eq(decisions.spaceId, spaceId))
+    .where(and(eq(decisions.spaceId, spaceId), decisionNotDeleted))
     .orderBy(desc(decisions.date), desc(decisions.number))
     .$dynamic();
   if (opts.limit != null) dq = dq.limit(opts.limit);
@@ -136,7 +137,7 @@ export async function getDecisions(
         relation: decisionLinks.linkType,
       })
       .from(decisionLinks)
-      .innerJoin(decisions, eq(decisions.id, decisionLinks.toDecisionId))
+      .innerJoin(decisions, and(eq(decisions.id, decisionLinks.toDecisionId), decisionNotDeleted))
       .where(inArray(decisionLinks.fromDecisionId, ids)),
     db
       .select({
@@ -147,7 +148,7 @@ export async function getDecisions(
         relation: decisionLinks.linkType,
       })
       .from(decisionLinks)
-      .innerJoin(decisions, eq(decisions.id, decisionLinks.fromDecisionId))
+      .innerJoin(decisions, and(eq(decisions.id, decisionLinks.fromDecisionId), decisionNotDeleted))
       .where(inArray(decisionLinks.toDecisionId, ids)),
   ]);
 
@@ -189,11 +190,25 @@ export async function getDecisions(
   }));
 }
 
-export async function getDecisionByNumber(spaceId: string, number: number) {
+/**
+ * Fetch one decision by its space-scoped number. Soft-deleted decisions are
+ * excluded unless `includeDeleted` is set (admins viewing one to restore it).
+ */
+export async function getDecisionByNumber(
+  spaceId: string,
+  number: number,
+  opts: { includeDeleted?: boolean } = {}
+) {
   const [d] = await db
     .select()
     .from(decisions)
-    .where(and(eq(decisions.spaceId, spaceId), eq(decisions.number, number)))
+    .where(
+      and(
+        eq(decisions.spaceId, spaceId),
+        eq(decisions.number, number),
+        opts.includeDeleted ? undefined : decisionNotDeleted
+      )
+    )
     .limit(1);
 
   if (!d) return null;
@@ -219,7 +234,7 @@ export async function getDecisionByNumber(spaceId: string, number: number) {
       relation: decisionLinks.linkType,
     })
     .from(decisionLinks)
-    .innerJoin(decisions, eq(decisions.id, decisionLinks.toDecisionId))
+    .innerJoin(decisions, and(eq(decisions.id, decisionLinks.toDecisionId), decisionNotDeleted))
     .where(eq(decisionLinks.fromDecisionId, d.id));
 
   const reverseLinkedRows = await db
@@ -230,7 +245,7 @@ export async function getDecisionByNumber(spaceId: string, number: number) {
       relation: decisionLinks.linkType,
     })
     .from(decisionLinks)
-    .innerJoin(decisions, eq(decisions.id, decisionLinks.fromDecisionId))
+    .innerJoin(decisions, and(eq(decisions.id, decisionLinks.fromDecisionId), decisionNotDeleted))
     .where(eq(decisionLinks.toDecisionId, d.id));
 
   // Meeting
@@ -289,7 +304,7 @@ export async function getActions(
     .leftJoin(decisions, eq(decisions.id, actions.decisionId))
     .leftJoin(topics, eq(topics.id, actions.topicId))
     .leftJoin(proposals, eq(proposals.id, actions.proposalId))
-    .where(and(eq(actions.spaceId, spaceId), tagFilter))
+    .where(and(eq(actions.spaceId, spaceId), tagFilter, actionDecisionNotDeleted))
     .orderBy(desc(actions.createdAt))
     .$dynamic();
   if (opts.limit != null) q = q.limit(opts.limit);
@@ -364,7 +379,7 @@ export async function getActionsByTopic(topicId: string) {
   const rows = await db
     .select()
     .from(actions)
-    .where(eq(actions.topicId, topicId))
+    .where(and(eq(actions.topicId, topicId), actionDecisionNotDeleted))
     .orderBy(desc(actions.createdAt));
   return withActionOwners(rows.map((r) => ({ ...r, status: deriveActionStatus(r.status, r.dueDate) })));
 }
@@ -373,7 +388,7 @@ export async function getActionsByProposal(proposalId: string) {
   const rows = await db
     .select()
     .from(actions)
-    .where(eq(actions.proposalId, proposalId))
+    .where(and(eq(actions.proposalId, proposalId), actionDecisionNotDeleted))
     .orderBy(desc(actions.createdAt));
   return withActionOwners(rows.map((r) => ({ ...r, status: deriveActionStatus(r.status, r.dueDate) })));
 }
@@ -418,6 +433,7 @@ export async function getMeetings(
     db
       .select({ meetingId: meetingDecisions.meetingId, count: count() })
       .from(meetingDecisions)
+      .innerJoin(decisions, and(eq(decisions.id, meetingDecisions.decisionId), decisionNotDeleted))
       .where(inArray(meetingDecisions.meetingId, ids))
       .groupBy(meetingDecisions.meetingId),
     db
@@ -494,7 +510,7 @@ export async function getMeetingById(spaceId: string, meetingId: string) {
         outcome: decisions.outcome,
       })
       .from(meetingDecisions)
-      .innerJoin(decisions, eq(decisions.id, meetingDecisions.decisionId))
+      .innerJoin(decisions, and(eq(decisions.id, meetingDecisions.decisionId), decisionNotDeleted))
       .where(eq(meetingDecisions.meetingId, m.id)),
     db
       .select({
@@ -506,7 +522,7 @@ export async function getMeetingById(spaceId: string, meetingId: string) {
       })
       .from(meetingActions)
       .innerJoin(actions, eq(actions.id, meetingActions.actionId))
-      .where(eq(meetingActions.meetingId, m.id)),
+      .where(and(eq(meetingActions.meetingId, m.id), actionDecisionNotDeleted)),
     db
       .select({
         id: documents.id,
@@ -655,14 +671,14 @@ export async function getSpaceStats(spaceId: string) {
         thisMonth: sql<number>`count(*) filter (where ${decisions.date} >= ${monthStart})::int`,
       })
       .from(decisions)
-      .where(eq(decisions.spaceId, spaceId)),
+      .where(and(eq(decisions.spaceId, spaceId), decisionNotDeleted)),
     db
       .select({
         total: sql<number>`count(*)::int`,
         completed: sql<number>`count(*) filter (where ${actions.status} = 'complete')::int`,
       })
       .from(actions)
-      .where(eq(actions.spaceId, spaceId)),
+      .where(and(eq(actions.spaceId, spaceId), actionDecisionNotDeleted)),
   ]);
 
   const totalDecisions = Number(dStats?.total ?? 0);
@@ -693,7 +709,7 @@ export async function getDecisionsList(spaceId: string) {
       status: decisions.status,
     })
     .from(decisions)
-    .where(eq(decisions.spaceId, spaceId))
+    .where(and(eq(decisions.spaceId, spaceId), decisionNotDeleted))
     .orderBy(desc(decisions.number));
 }
 
@@ -714,7 +730,7 @@ export async function getActionsList(spaceId: string) {
   return db
     .select({ id: actions.id, description: actions.description })
     .from(actions)
-    .where(eq(actions.spaceId, spaceId))
+    .where(and(eq(actions.spaceId, spaceId), actionDecisionNotDeleted))
     .orderBy(desc(actions.createdAt));
 }
 
@@ -749,7 +765,7 @@ export async function getDecisionLinksWithIds(decisionId: string) {
       direction: sql<string>`'forward'`,
     })
     .from(decisionLinks)
-    .innerJoin(decisions, eq(decisions.id, decisionLinks.toDecisionId))
+    .innerJoin(decisions, and(eq(decisions.id, decisionLinks.toDecisionId), decisionNotDeleted))
     .where(eq(decisionLinks.fromDecisionId, decisionId));
 
   const reverseLinks = await db
@@ -762,7 +778,7 @@ export async function getDecisionLinksWithIds(decisionId: string) {
       direction: sql<string>`'reverse'`,
     })
     .from(decisionLinks)
-    .innerJoin(decisions, eq(decisions.id, decisionLinks.fromDecisionId))
+    .innerJoin(decisions, and(eq(decisions.id, decisionLinks.fromDecisionId), decisionNotDeleted))
     .where(eq(decisionLinks.toDecisionId, decisionId));
 
   return [...forwardLinks, ...reverseLinks];
@@ -836,7 +852,7 @@ export async function getNextDecisionNumber(spaceId: string) {
   const [result] = await db
     .select({ maxNumber: sql<number>`coalesce(max(${decisions.number}), 0)` })
     .from(decisions)
-    .where(eq(decisions.spaceId, spaceId));
+    .where(and(eq(decisions.spaceId, spaceId), decisionNotDeleted));
   return (result?.maxNumber ?? 0) + 1;
 }
 
@@ -1029,7 +1045,7 @@ export async function getDocumentById(spaceId: string, documentId: string) {
       decisionTitle: decisions.title,
     })
     .from(documentSectionLinks)
-    .innerJoin(decisions, eq(decisions.id, documentSectionLinks.decisionId))
+    .innerJoin(decisions, and(eq(decisions.id, documentSectionLinks.decisionId), decisionNotDeleted))
     .where(eq(documentSectionLinks.documentId, doc.id));
 
   const createdByUser = doc.createdBy
@@ -1063,7 +1079,7 @@ export async function getDocumentVersions(documentId: string) {
     })
     .from(documentVersions)
     .leftJoin(users, eq(users.id, documentVersions.createdBy))
-    .leftJoin(decisions, eq(decisions.id, documentVersions.decisionId))
+    .leftJoin(decisions, and(eq(decisions.id, documentVersions.decisionId), decisionNotDeleted))
     .where(eq(documentVersions.documentId, documentId))
     .orderBy(desc(documentVersions.versionNumber));
 }
@@ -1208,7 +1224,7 @@ export async function getProposalById(spaceId: string, proposalId: string) {
     const [dec] = await db
       .select({ number: decisions.number })
       .from(decisions)
-      .where(eq(decisions.id, p.decidedAsDecisionId))
+      .where(and(eq(decisions.id, p.decidedAsDecisionId), decisionNotDeleted))
       .limit(1);
     linkedDecisionNumber = dec?.number ?? null;
   }
@@ -1412,7 +1428,7 @@ export async function getDecisionCount(spaceId: string) {
   const [result] = await db
     .select({ count: count() })
     .from(decisions)
-    .where(eq(decisions.spaceId, spaceId));
+    .where(and(eq(decisions.spaceId, spaceId), decisionNotDeleted));
   return result?.count ?? 0;
 }
 
@@ -1457,7 +1473,7 @@ export async function getPublicDecisions(spaceId: string) {
       description: decisions.description,
     })
     .from(decisions)
-    .where(and(eq(decisions.spaceId, spaceId), eq(decisions.isPublic, true)))
+    .where(and(eq(decisions.spaceId, spaceId), decisionNotDeleted, eq(decisions.isPublic, true)))
     .orderBy(desc(decisions.date), desc(decisions.number));
 
   const ids = rows.map((d) => d.id);
@@ -1509,7 +1525,7 @@ export async function getPublicActions(spaceId: string) {
     .leftJoin(decisions, eq(decisions.id, actions.decisionId))
     .leftJoin(topics, eq(topics.id, actions.topicId))
     .leftJoin(proposals, eq(proposals.id, actions.proposalId))
-    .where(and(eq(actions.spaceId, spaceId), eq(actions.isPublic, true)))
+    .where(and(eq(actions.spaceId, spaceId), eq(actions.isPublic, true), actionDecisionNotDeleted))
     .orderBy(desc(actions.createdAt));
 
   const parentless = rows
@@ -1569,6 +1585,7 @@ export async function getPublicMeetings(spaceId: string) {
   const decisionCounts = await db
     .select({ meetingId: meetingDecisions.meetingId, count: count() })
     .from(meetingDecisions)
+    .innerJoin(decisions, and(eq(decisions.id, meetingDecisions.decisionId), decisionNotDeleted))
     .where(inArray(meetingDecisions.meetingId, ids))
     .groupBy(meetingDecisions.meetingId);
 
@@ -1650,7 +1667,7 @@ export async function getPublicGladeDecisions(spaceId: string) {
       reviewDate: decisions.reviewDate,
     })
     .from(decisions)
-    .where(and(eq(decisions.spaceId, spaceId), eq(decisions.isPublic, true)))
+    .where(and(eq(decisions.spaceId, spaceId), decisionNotDeleted, eq(decisions.isPublic, true)))
     .orderBy(desc(decisions.date), desc(decisions.number));
 
   const ids = rows.map((d) => d.id);
@@ -1749,18 +1766,18 @@ export async function getGovernanceHealthStats(spaceId: string) {
       db
         .select({ participants: decisions.participants })
         .from(decisions)
-        .where(eq(decisions.spaceId, spaceId)),
+        .where(and(eq(decisions.spaceId, spaceId), decisionNotDeleted)),
       // Methods: distinct methods used
       db
         .select({ method: decisions.method })
         .from(decisions)
-        .where(eq(decisions.spaceId, spaceId))
+        .where(and(eq(decisions.spaceId, spaceId), decisionNotDeleted))
         .groupBy(decisions.method),
       // Revisions: decisions targeted by amends/supersedes links
       db
         .select({ id: sql<string>`distinct ${decisionLinks.toDecisionId}` })
         .from(decisionLinks)
-        .innerJoin(decisions, eq(decisions.id, decisionLinks.toDecisionId))
+        .innerJoin(decisions, and(eq(decisions.id, decisionLinks.toDecisionId), decisionNotDeleted))
         .where(
           and(
             eq(decisions.spaceId, spaceId),
@@ -1782,7 +1799,7 @@ export async function getGovernanceHealthStats(spaceId: string) {
           decisionDate: decisions.date,
         })
         .from(proposals)
-        .innerJoin(decisions, eq(decisions.id, proposals.decidedAsDecisionId))
+        .innerJoin(decisions, and(eq(decisions.id, proposals.decidedAsDecisionId), decisionNotDeleted))
         .where(eq(proposals.spaceId, spaceId)),
       // Member count
       getMemberCount(spaceId),
@@ -2191,6 +2208,7 @@ export async function getReviewsDue(spaceId: string) {
     .where(
       and(
         eq(decisions.spaceId, spaceId),
+        decisionNotDeleted,
         lt(decisions.reviewDate, now),
         isNull(decisions.retiredAt),
         notInArray(decisions.status, ["reviewed", "learned"])
@@ -2255,7 +2273,7 @@ export async function searchSpace(spaceId: string, query: string): Promise<Searc
       db
         .select({ id: decisions.id, number: decisions.number, title: decisions.title })
         .from(decisions)
-        .where(and(eq(decisions.spaceId, spaceId), or(ilike(decisions.title, term), ilike(decisions.outcome, term))))
+        .where(and(eq(decisions.spaceId, spaceId), decisionNotDeleted, or(ilike(decisions.title, term), ilike(decisions.outcome, term))))
         .orderBy(desc(decisions.date))
         .limit(LIMIT),
       db
@@ -2290,7 +2308,7 @@ export async function searchSpace(spaceId: string, query: string): Promise<Searc
         })
         .from(actions)
         .leftJoin(decisions, eq(decisions.id, actions.decisionId))
-        .where(and(eq(actions.spaceId, spaceId), ilike(actions.description, term)))
+        .where(and(eq(actions.spaceId, spaceId), ilike(actions.description, term), actionDecisionNotDeleted))
         .orderBy(desc(actions.createdAt))
         .limit(LIMIT),
     ]);
@@ -2358,7 +2376,8 @@ export async function getPublicDecisionByNumber(spaceId: string, number: number)
       and(
         eq(decisions.spaceId, spaceId),
         eq(decisions.number, number),
-        eq(decisions.isPublic, true)
+        eq(decisions.isPublic, true),
+        decisionNotDeleted
       )
     )
     .limit(1);
@@ -2373,12 +2392,12 @@ export async function getPublicDecisionByNumber(spaceId: string, number: number)
     db
       .select({ id: decisions.id, number: decisions.number, title: decisions.title, isPublic: decisions.isPublic, relation: decisionLinks.linkType })
       .from(decisionLinks)
-      .innerJoin(decisions, eq(decisions.id, decisionLinks.toDecisionId))
+      .innerJoin(decisions, and(eq(decisions.id, decisionLinks.toDecisionId), decisionNotDeleted))
       .where(eq(decisionLinks.fromDecisionId, d.id)),
     db
       .select({ id: decisions.id, number: decisions.number, title: decisions.title, isPublic: decisions.isPublic, relation: decisionLinks.linkType })
       .from(decisionLinks)
-      .innerJoin(decisions, eq(decisions.id, decisionLinks.fromDecisionId))
+      .innerJoin(decisions, and(eq(decisions.id, decisionLinks.fromDecisionId), decisionNotDeleted))
       .where(eq(decisionLinks.toDecisionId, d.id)),
     db
       .select({ title: meetings.title, isPublic: meetings.isPublic })
@@ -2447,6 +2466,7 @@ export async function getPublicDecisionsForSitemap(limit = 1000) {
     .where(
       and(
         eq(decisions.isPublic, true),
+        decisionNotDeleted,
         sql`(${spaces.settings}->>'publicDecisionLog') = 'true'`
       )
     )

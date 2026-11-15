@@ -1,4 +1,4 @@
-import { getCurrentSpace } from "@/lib/space";
+import { getCurrentSpace, getCurrentMembership } from "@/lib/space";
 import {
   getDecisionByNumber,
   getDecisionLinksWithIds,
@@ -40,7 +40,7 @@ import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { StatusAdvance } from "./status-advance";
 import { RecordReview } from "./record-review";
-import { DeleteDecision } from "./delete-decision";
+import { DeleteDecision, RestoreDecision } from "./delete-decision";
 import { DeleteAction } from "./delete-action";
 import { DecisionLinksEditor } from "./decision-links-editor";
 import { ReviewQuestions } from "./review-questions";
@@ -198,8 +198,14 @@ export default async function DecisionDetailPage({
   const { number } = await params;
   const space = await getCurrentSpace();
   if (!space) return null;
-  const decision = await getDecisionByNumber(space.id, parseInt(number, 10));
+  // Admins can open a soft-deleted decision to see why it went and restore it.
+  const membership = await getCurrentMembership();
+  const isAdmin = membership?.role === "admin";
+  const decision = await getDecisionByNumber(space.id, parseInt(number, 10), {
+    includeDeleted: isAdmin,
+  });
   if (!decision) return notFound();
+  const isDeleted = !!decision.deletedAt;
 
   const aiOn = isAiEnabled(space.settings);
 
@@ -252,6 +258,20 @@ export default async function DecisionDetailPage({
         { label: `#${decision.number} ${decision.title}` },
       ]} />
 
+      {isDeleted && (
+        <div className="mb-6 rounded-lg border border-earth/30 bg-earth/5 px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="flex-1 text-sm text-bark">
+            <p className="font-medium text-earth">This decision was deleted</p>
+            <p className="text-bark-muted mt-0.5">
+              {decision.deletedByName ?? "An admin"} · {formatDate(decision.deletedAt!.toISOString())}
+              {decision.deletionReason ? ` · “${decision.deletionReason}”` : ""}
+            </p>
+            <p className="text-xs text-bark-muted mt-1">Only admins can see it. Restore it to put it back in the record.</p>
+          </div>
+          <RestoreDecision decisionId={decision.id} />
+        </div>
+      )}
+
       {/* Header section */}
       <header className="mb-10">
         <div className="flex items-center justify-between mb-4">
@@ -284,6 +304,7 @@ export default async function DecisionDetailPage({
               </span>
             )}
           </div>
+          {!isDeleted && (
           <div className="flex items-center gap-2">
             <StatusAdvance
               decisionId={decision.id}
@@ -297,8 +318,9 @@ export default async function DecisionDetailPage({
               <Pencil size={14} />
               Correct
             </Link>
-            <DeleteDecision decisionId={decision.id} decisionNumber={decision.number} />
+            {isAdmin && <DeleteDecision decisionId={decision.id} decisionNumber={decision.number} />}
           </div>
+          )}
         </div>
 
         <h1
@@ -641,10 +663,10 @@ export default async function DecisionDetailPage({
             <h2 className="text-xs uppercase tracking-wider text-bark-muted font-medium mb-3">
               Review
             </h2>
-            <RecordReview
+            {!isDeleted && <RecordReview
               decisionId={decision.id}
               decisions={allDecisions.map((d) => ({ id: d.id, number: d.number, title: d.title }))}
-            />
+            />}
             {reviewHistory.length > 0 && (
               <ul className="mt-3 space-y-2">
                 {reviewHistory.map((r) => (

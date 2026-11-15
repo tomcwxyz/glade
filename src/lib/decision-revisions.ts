@@ -35,6 +35,7 @@ export const REVISION_FIELD_LABELS: Record<string, string> = {
   isPublic: "Visibility",
   tags: "Tags",
   status: "Status",
+  deleted: "Deleted",
 };
 
 /** Normalise a value for comparison and storage: dates → YYYY-MM-DD, lists sorted, "" → null. */
@@ -62,6 +63,7 @@ export function diffDecision(before: DecisionSnapshot, after: DecisionSnapshot):
 export function formatRevisionValue(field: string, value: unknown): string {
   if (value === null || value === undefined) return "—";
   if (field === "isPublic") return value ? "Public" : "Hidden";
+  if (typeof value === "boolean") return value ? "Yes" : "No";
   if (Array.isArray(value)) return value.length ? value.join(", ") : "—";
   return String(value);
 }

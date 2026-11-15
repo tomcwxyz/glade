@@ -306,6 +306,12 @@ export const decisions = pgTable(
     createdBy: uuid("created_by").references(() => users.id),
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
+    // Soft delete (admin-only). Deleted decisions are hidden from every read
+    // except an admin opening the decision itself; see `decisionNotDeleted`.
+    deletedAt: timestamp("deleted_at", { mode: "date" }),
+    deletedBy: uuid("deleted_by").references(() => users.id, { onDelete: "set null" }),
+    deletedByName: varchar("deleted_by_name", { length: 255 }),
+    deletionReason: text("deletion_reason"),
   },
   (d) => [
     index("decisions_space_idx").on(d.spaceId),

@@ -3,6 +3,7 @@ import { eq, and, desc } from "drizzle-orm";
 import { db } from "@/db";
 import { actions, decisions, topics, proposals } from "@/db/schema";
 import { authenticateApiKey } from "@/lib/api-auth";
+import { actionDecisionNotDeleted } from "@/lib/soft-delete";
 import { limitApi, rateLimitedResponse } from "@/lib/rate-limit";
 import { parseActionMetadata, parseOptionalDate, parseOptionalText } from "@/lib/action-api";
 
@@ -33,7 +34,7 @@ export async function GET(request: NextRequest) {
   const offset = parseInt(searchParams.get("offset") || "0", 10);
 
   // Build where conditions
-  const conditions = [eq(actions.spaceId, auth.spaceId)];
+  const conditions = [eq(actions.spaceId, auth.spaceId), actionDecisionNotDeleted];
   if (statusFilter) {
     conditions.push(
       eq(actions.status, statusFilter)

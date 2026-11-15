@@ -19,6 +19,7 @@ import {
   topics,
   proposals,
 } from "@/db/schema";
+import { decisionNotDeleted } from "@/lib/soft-delete";
 import { requireSpaceRole } from "@/lib/space";
 import { createInitialState } from "@/lib/meeting-state";
 import { canUseLiveMeetings } from "@/lib/billing";
@@ -78,7 +79,7 @@ async function persistMeetingCapture(
     const [owned] = await tx
       .select({ id: decisions.id })
       .from(decisions)
-      .where(and(eq(decisions.id, decisionId), eq(decisions.spaceId, spaceId)))
+      .where(and(eq(decisions.id, decisionId), eq(decisions.spaceId, spaceId), decisionNotDeleted))
       .limit(1);
     if (!owned) continue;
     const [linked] = await tx
