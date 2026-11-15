@@ -15,7 +15,8 @@ A decision-centric governance platform for social purpose organisations. Treats 
   - `src/app/(app)/meetings/[id]/summary/` — post-meeting summary
   - `src/app/(app)/glade/` — visual decision canvas ("The Glade")
   - `src/app/shared/meeting/[token]/` — public meeting agenda + live observer (no auth required)
-  - `src/app/api/meetings/[id]/state/` — GET/PUT polling endpoint for live meeting state
+  - `src/app/api/meetings/[id]/state/` — GET polling endpoint for live meeting state (also records presence); changes go through server actions only
+  - `src/app/guest/[token]/` + `src/app/api/guest/[token]/state/` — invited guests taking part in a live meeting (token-authorised)
 - `src/components/` — shared React components (app-shell.tsx, sidebar.tsx, tiptap-editor.tsx)
 - `src/lib/` — utilities, queries, server actions, AI integration
   - `src/lib/queries.ts` — all Drizzle DB queries
@@ -100,7 +101,7 @@ See PLAN.md for task tracking, STATE.md for system state.
 - `meetings` table has `status` (meeting_status enum), `shareToken` (varchar 64, unique), `sessionState` (jsonb)
 - `meeting_agenda_items` table has `status` (agenda_item_status enum), `durationMinutes`, `proposalId`, `topicId`
 - Live meeting uses HTTP polling (2s interval) via `/api/meetings/[id]/state` — no WebSocket infrastructure needed
-- Drizzle migrations may be behind schema.ts — columns were applied via direct SQL. Run `db:generate` to reconcile.
+- Migrations are back in sync with schema.ts as of `0009_reconcile_schema` (an idempotent catch-up for objects that had been applied by hand). For schema changes: edit schema.ts, run `npm run db:generate` (no DB needed), review the SQL, and keep it additive. Destructive changes go expand → migrate → contract (see MISTAKES.md, 2026-06-16).
 
 ## Lessons Learned
 

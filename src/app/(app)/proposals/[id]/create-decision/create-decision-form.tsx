@@ -5,6 +5,7 @@ import { createDecisionFromProposal } from "@/lib/proposal-actions";
 import { inputClass } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
 import { FormError } from "@/components/form-error";
+import { ParticipantPicker } from "@/components/participant-picker";
 
 const METHODS = [
   { value: "consent", label: "Consent" },
@@ -19,9 +20,11 @@ const METHODS = [
 export function CreateDecisionFromProposal({
   proposalId,
   suggestedMethod,
+  members,
 }: {
   proposalId: string;
   suggestedMethod: string | null;
+  members: { id: string; name: string }[];
 }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -96,16 +99,8 @@ export function CreateDecisionFromProposal({
         </div>
 
         <div>
-          <label htmlFor="participants" className="block text-sm font-medium text-bark mb-1.5">
-            Participants <span className="font-normal text-bark-muted">(comma-separated names)</span>
-          </label>
-          <input
-            id="participants"
-            name="participants"
-            type="text"
-            placeholder="e.g. Alice, Bob, Carol"
-            className={inputClass}
-          />
+          <span className="block text-sm font-medium text-bark mb-1.5">Participants</span>
+          <ParticipantPicker members={members} />
         </div>
 
         <div className="pt-4 border-t border-border">

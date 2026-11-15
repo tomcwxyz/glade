@@ -1,13 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useLiveRegion } from "@/components/live-region";
 import { useMeetingPoll } from "./use-meeting-poll";
+import { withPresence } from "@/lib/meeting-state";
 import { AgendaNavigator } from "./agenda-navigator";
 import { MeetingTimer } from "./meeting-timer";
 import { DecisionFlowContainer } from "./decision-flow-container";
 import { ParticipantInteractions } from "./participant-interactions";
 import { SpeakerStack } from "./speaker-stack";
+import { DeclarationsPanel } from "./declarations-panel";
 import {
   Loader2,
   CheckCircle2,
@@ -20,6 +22,7 @@ const AGENDA_TYPE_LABELS: Record<string, { label: string; color: string }> = {
   for_decision: { label: "For decision", color: "text-canopy bg-canopy-pale" },
   for_discussion: { label: "For discussion", color: "text-amber bg-amber/10" },
   for_information: { label: "For information", color: "text-sky bg-sky/10" },
+  minutes_approval: { label: "Approve minutes", color: "text-canopy bg-canopy-pale" },
 };
 
 interface AgendaItem {
@@ -42,15 +45,25 @@ export function ParticipantView({
   agendaItems,
   voteThreshold,
   currentUserId,
+  pollUrl,
+  isGuest = false,
 }: {
   meetingId: string;
   meetingTitle: string;
   agendaItems: AgendaItem[];
   voteThreshold?: number;
   currentUserId?: string;
+  /** Guests poll their token endpoint instead of the member one. */
+  pollUrl?: string;
+  isGuest?: boolean;
 }) {
   const { announce } = useLiveRegion();
-  const { state, loading, mutate } = useMeetingPoll(meetingId);
+  const { state: polledState, presence, loading, mutate } = useMeetingPoll(meetingId, 2000, pollUrl);
+  // Everyone actually in the room, not just the facilitator.
+  const state = useMemo(
+    () => (polledState ? withPresence(polledState, presence) : null),
+    [polledState, presence]
+  );
   const [mobileAgendaOpen, setMobileAgendaOpen] = useState(false);
 
   // Announce agenda item changes to screen readers
@@ -63,10 +76,18 @@ export function ParticipantView({
     }
   }, [currentAgendaItemId, currentAgendaItemTitle, announce]);
 
-  if (loading || !state) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <Loader2 size={24} className="animate-spin text-bark-muted" />
+      </div>
+    );
+  }
+
+  if (!state) {
+    return (
+      <div className="max-w-2xl mx-auto px-4 py-16 text-center text-bark-muted">
+        Waiting for the meeting to start. This page will update when it does.
       </div>
     );
   }
@@ -208,6 +229,11 @@ export function ParticipantView({
                 readOnly
               />
             </div>
+
+            {/* Declarations of interest on this item */}
+            {currentUserId && !isGuest && (
+              <DeclarationsPanel meetingId={meetingId} state={state} currentUserId={currentUserId} mutate={mutate} />
+            )}
 
             {/* Speaker stack + request to speak */}
             <SpeakerStack

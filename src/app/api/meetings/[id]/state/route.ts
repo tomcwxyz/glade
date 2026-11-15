@@ -1,12 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import {
-  getMeetingSessionStateForUser,
-  isMeetingSpaceMember,
-  updateMeetingSessionState,
-} from "@/lib/queries";
+import { getMeetingSessionStateForUser, touchMeetingPresence, getMeetingPresence } from "@/lib/queries";
 import { limitPoll, rateLimitedResponse } from "@/lib/rate-limit";
-import type { MeetingSessionState } from "@/lib/meeting-state";
 
 export async function GET(
   _request: NextRequest,
@@ -30,8 +25,19 @@ export async function GET(
     return NextResponse.json({ error: "Meeting not found" }, { status: 404 });
   }
 
+  // Polling a live meeting = being in it. Members only (checked above).
+  let presence: { userId: string; name: string; role: string }[] = [];
+  if (result.status === "in_progress") {
+    await touchMeetingPresence(id, session.user.id);
+    presence = (await getMeetingPresence(id)).map((p) => ({
+      userId: p.userId,
+      name: p.name || p.email,
+      role: p.role,
+    }));
+  }
+
   return NextResponse.json(
-    { state: result.sessionState, status: result.status },
+    { state: result.sessionState, status: result.status, presence },
     {
       headers: {
         "Cache-Control": "no-store, no-cache, must-revalidate",
@@ -40,39 +46,5 @@ export async function GET(
   );
 }
 
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const { id } = await params;
-  const body = await request.json();
-  const { state, expectedVersion } = body as {
-    state: MeetingSessionState;
-    expectedVersion: number;
-  };
-
-  if (!state || typeof expectedVersion !== "number") {
-    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
-  }
-
-  // Must be a member of the meeting's space to write its state.
-  if (!(await isMeetingSpaceMember(id, session.user.id))) {
-    return NextResponse.json({ error: "Meeting not found" }, { status: 404 });
-  }
-
-  const success = await updateMeetingSessionState(id, state, expectedVersion);
-
-  if (!success) {
-    return NextResponse.json(
-      { error: "Version conflict — state was updated by another client" },
-      { status: 409 }
-    );
-  }
-
-  return NextResponse.json({ success: true });
-}
+// No PUT: live state is changed only through the server actions in
+// meeting-live-actions.ts, which check the caller's role for each change.

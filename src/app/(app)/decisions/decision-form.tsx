@@ -14,6 +14,8 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
+import { ParticipantPicker } from "@/components/participant-picker";
+import type { ParticipantInput } from "@/lib/participants";
 import { FormError } from "@/components/form-error";
 
 interface Tag {
@@ -35,7 +37,7 @@ interface DecisionData {
   method: string;
   outcome: string | null;
   status: string;
-  participants: string[];
+  participants: ParticipantInput[];
   date: string; // ISO string
   conditions: string | null;
   reviewDate: string | null; // ISO string
@@ -52,12 +54,18 @@ const METHODS = [
   { value: "lazy_consensus", label: "Lazy Consensus", desc: "Adopted after objection window closes" },
 ] as const;
 
+// Only the starting stages: later stages come from the review flow.
 const STATUSES = [
   { value: "decided", label: "Decided" },
-  { value: "implemented", label: "Implemented" },
-  { value: "reviewed", label: "Reviewed" },
-  { value: "learned", label: "Learned" },
+  { value: "implemented", label: "Already implemented" },
 ] as const;
+
+const STATUS_LABELS: Record<string, string> = {
+  decided: "Decided",
+  implemented: "Implemented",
+  reviewed: "Reviewed",
+  learned: "Learned",
+};
 
 function InputLabel({ htmlFor, children, optional }: { htmlFor: string; children: React.ReactNode; optional?: boolean }) {
   return (
@@ -87,12 +95,6 @@ export function DecisionForm({
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // Participants as string names
-  const [participants, setParticipants] = useState<string[]>(
-    decision?.participants || []
-  );
-  const [participantInput, setParticipantInput] = useState("");
 
   // Selected tag IDs
   const [selectedTags, setSelectedTags] = useState<string[]>(
@@ -129,18 +131,6 @@ export function DecisionForm({
     { description: string; owner: string; dueDate: string }[]
   >([]);
 
-  function addParticipant(name: string) {
-    const trimmed = name.trim();
-    if (trimmed && !participants.includes(trimmed)) {
-      setParticipants([...participants, trimmed]);
-    }
-    setParticipantInput("");
-  }
-
-  function removeParticipant(name: string) {
-    setParticipants(participants.filter((p) => p !== name));
-  }
-
   function toggleTag(tagId: string) {
     setSelectedTags((prev) =>
       prev.includes(tagId)
@@ -173,8 +163,7 @@ export function DecisionForm({
     const form = e.currentTarget;
     const formData = new FormData(form);
 
-    // Add participants and tags as comma-separated values
-    formData.set("participants", participants.join(","));
+    // Add tags as comma-separated values (participants come from ParticipantPicker)
     formData.set("tagIds", selectedTags.join(","));
 
     // Remove the individual action fields first, then add them properly
@@ -247,21 +236,30 @@ export function DecisionForm({
             </select>
           </div>
 
-          <div>
-            <InputLabel htmlFor="status">Status</InputLabel>
-            <select
-              id="status"
-              name="status"
-              defaultValue={decision?.status || "decided"}
-              className={inputClass}
-            >
-              {STATUSES.map((s) => (
-                <option key={s.value} value={s.value}>
-                  {s.label}
-                </option>
-              ))}
-            </select>
-          </div>
+          {isEditing ? (
+            <div>
+              <span className="block text-[0.8125rem] font-medium text-bark mb-1.5">Status</span>
+              <p className="text-[0.8125rem] text-bark-muted py-2">
+                {STATUS_LABELS[decision!.status] ?? decision!.status}. Status moves forward from the decision page and the review flow.
+              </p>
+            </div>
+          ) : (
+            <div>
+              <InputLabel htmlFor="status">Status</InputLabel>
+              <select
+                id="status"
+                name="status"
+                defaultValue="decided"
+                className={inputClass}
+              >
+                {STATUSES.map((s) => (
+                  <option key={s.value} value={s.value}>
+                    {s.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
         {/* Date & Review date */}
@@ -356,56 +354,10 @@ export function DecisionForm({
           />
         </div>
 
-        {/* Participants */}
+        {/* Participants: linked members or guests, with abstentions and interests */}
         <div>
-          <InputLabel htmlFor="participant-input">Participants</InputLabel>
-          <div className="flex flex-wrap gap-2 mb-2">
-            {participants.map((name) => (
-              <span
-                key={name}
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-canopy-pale text-canopy text-xs font-medium"
-              >
-                {name}
-                <button
-                  type="button"
-                  onClick={() => removeParticipant(name)}
-                  className="hover:text-earth transition-colors"
-                  aria-label={`Remove ${name}`}
-                >
-                  <X size={12} />
-                </button>
-              </span>
-            ))}
-          </div>
-          <div className="flex gap-2">
-            <input
-              id="participant-input"
-              type="text"
-              value={participantInput}
-              onChange={(e) => setParticipantInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  addParticipant(participantInput);
-                }
-              }}
-              placeholder="Type a name and press Enter"
-              className={inputClass}
-              list="member-suggestions"
-            />
-            <datalist id="member-suggestions">
-              {members.map((m) => (
-                <option key={m.id} value={m.name} />
-              ))}
-            </datalist>
-            <button
-              type="button"
-              onClick={() => addParticipant(participantInput)}
-              className="px-3 py-2 text-sm bg-paper-deep border border-border rounded-lg text-bark-muted hover:text-bark hover:bg-paper-warm transition-colors shrink-0"
-            >
-              Add
-            </button>
-          </div>
+          <span className="block text-[0.8125rem] font-medium text-bark mb-1.5">Participants</span>
+          <ParticipantPicker members={members} initial={decision?.participants ?? []} />
         </div>
 
         {/* Tags */}
@@ -525,6 +477,25 @@ export function DecisionForm({
           </div>
         )}
 
+        {/* Correction reason: every change to a recorded decision is logged */}
+        {isEditing && (
+          <div className="rounded-lg border border-amber/30 bg-amber/5 p-4">
+            <InputLabel htmlFor="revisionReason">Why are you correcting this record?</InputLabel>
+            <textarea
+              id="revisionReason"
+              name="revisionReason"
+              rows={2}
+              placeholder="e.g. Typo in the outcome; date was entered wrongly"
+              className={inputClass}
+            />
+            <p className="mt-2 text-xs text-bark-muted">
+              Corrections are kept in the record history with your name and this reason. If the
+              board has changed what it decided, record a new decision that amends or supersedes
+              this one instead.
+            </p>
+          </div>
+        )}
+
         {/* Submit */}
         <div className="flex items-center gap-4 pt-4 border-t border-border">
           <button
@@ -535,7 +506,7 @@ export function DecisionForm({
             {loading ? (
               <Loader2 size={16} className="animate-spin" />
             ) : isEditing ? (
-              "Save changes"
+              "Save correction"
             ) : (
               "Log decision"
             )}

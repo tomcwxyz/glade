@@ -84,3 +84,15 @@ export const PLAN_DISPLAY: Record<PlanTier, PlanDisplay> = {
     ],
   },
 };
+
+/** True if one more item fits under a plan limit (Infinity = unlimited). */
+export function isUnderLimit(current: number, max: number): boolean {
+  return max === Infinity || current < max;
+}
+
+/** The plan in force: paid tiers only while the subscription is active or trialing. */
+export function effectivePlan(sub: { status: string; planTier: string } | null | undefined): PlanTier {
+  if (!sub) return "free";
+  if (sub.status !== "active" && sub.status !== "trialing") return "free";
+  return sub.planTier in PLAN_LIMITS ? (sub.planTier as PlanTier) : "free";
+}

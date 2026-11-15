@@ -1,4 +1,4 @@
-import { getCurrentSpace } from "@/lib/space";
+import { getCurrentSpace, getCurrentMembership } from "@/lib/space";
 import {
   getDecisionByNumber,
   getDecisionLinksWithIds,
@@ -12,9 +12,14 @@ import {
   getInsightsByDecision,
   getDecisionResponses,
   getDecisionReviews,
+  getDecisionRevisions,
+  getDecisionParticipants,
 } from "@/lib/queries";
 import { isAiEnabled } from "@/lib/ai";
 import { formatDate } from "@/lib/utils";
+import { REVISION_FIELD_LABELS, formatRevisionValue } from "@/lib/decision-revisions";
+import { PARTICIPATION_LABELS, type ResolvedParticipant } from "@/lib/participants";
+import { describeQuorumRule } from "@/lib/quorum";
 import {
   CalendarClock,
   CheckCircle2,
@@ -31,13 +36,14 @@ import {
   FileText,
   MessageSquare,
   CalendarDays,
+  History,
 } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { StatusAdvance } from "./status-advance";
 import { RecordReview } from "./record-review";
-import { DeleteDecision } from "./delete-decision";
+import { DeleteDecision, RestoreDecision } from "./delete-decision";
 import { DeleteAction } from "./delete-action";
 import { DecisionLinksEditor } from "./decision-links-editor";
 import { ReviewQuestions } from "./review-questions";
@@ -182,6 +188,11 @@ function LifecycleTrack({ status }: { status: DecisionStatus }) {
   );
 }
 
+/** Keep long text values in the record history readable. */
+function truncate(text: string, max = 140) {
+  return text.length > max ? `${text.slice(0, max)}…` : text;
+}
+
 export default async function DecisionDetailPage({
   params,
 }: {
@@ -190,8 +201,14 @@ export default async function DecisionDetailPage({
   const { number } = await params;
   const space = await getCurrentSpace();
   if (!space) return null;
-  const decision = await getDecisionByNumber(space.id, parseInt(number, 10));
+  // Admins can open a soft-deleted decision to see why it went and restore it.
+  const membership = await getCurrentMembership();
+  const isAdmin = membership?.role === "admin";
+  const decision = await getDecisionByNumber(space.id, parseInt(number, 10), {
+    includeDeleted: isAdmin,
+  });
   if (!decision) return notFound();
+  const isDeleted = !!decision.deletedAt;
 
   const aiOn = isAiEnabled(space.settings);
 
@@ -206,6 +223,8 @@ export default async function DecisionDetailPage({
     relatedInsights,
     decisionResponses,
     reviewHistory,
+    revisions,
+    structuredParticipants,
   ] = await Promise.all([
     getDecisionLinksWithIds(decision.id),
     getDecisionMeetings(decision.id),
@@ -217,6 +236,8 @@ export default async function DecisionDetailPage({
     getInsightsByDecision(decision.id),
     getDecisionResponses(decision.id),
     getDecisionReviews(decision.id),
+    getDecisionRevisions(decision.id),
+    getDecisionParticipants(decision.id),
   ]);
 
   // Topic→proposal→decision lineage: topic depends on the proposal id.
@@ -233,7 +254,17 @@ export default async function DecisionDetailPage({
   const hasProvenance =
     !!originProposal || !!originTopic || !!decidedAtMeeting || changedDocuments.length > 0 || relatedInsights.length > 0;
 
-  const participants = decision.participants as string[];
+  // Structured participants; legacy name-only decisions fall back to their names.
+  const participants: ResolvedParticipant[] =
+    structuredParticipants.length > 0
+      ? structuredParticipants
+      : ((decision.participants as string[]) || []).map((name) => ({
+          userId: null,
+          name,
+          participation: "participated" as const,
+          interest: null,
+        }));
+  const interests = participants.filter((p) => p.interest || p.participation !== "participated");
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-8 py-6 sm:py-10">
@@ -241,6 +272,20 @@ export default async function DecisionDetailPage({
         { label: "Decision Log", href: "/decisions" },
         { label: `#${decision.number} ${decision.title}` },
       ]} />
+
+      {isDeleted && (
+        <div className="mb-6 rounded-lg border border-earth/30 bg-earth/5 px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="flex-1 text-sm text-bark">
+            <p className="font-medium text-earth">This decision was deleted</p>
+            <p className="text-bark-muted mt-0.5">
+              {decision.deletedByName ?? "An admin"} · {formatDate(decision.deletedAt!.toISOString())}
+              {decision.deletionReason ? ` · “${decision.deletionReason}”` : ""}
+            </p>
+            <p className="text-xs text-bark-muted mt-1">Only admins can see it. Restore it to put it back in the record.</p>
+          </div>
+          <RestoreDecision decisionId={decision.id} />
+        </div>
+      )}
 
       {/* Header section */}
       <header className="mb-10">
@@ -274,17 +319,23 @@ export default async function DecisionDetailPage({
               </span>
             )}
           </div>
+          {!isDeleted && (
           <div className="flex items-center gap-2">
-            <StatusAdvance decisionId={decision.id} currentStatus={decision.status} />
+            <StatusAdvance
+              decisionId={decision.id}
+              currentStatus={decision.status}
+              hasLearnings={!!decision.learnings?.trim()}
+            />
             <Link
               href={`/decisions/${decision.number}/edit`}
               className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-bark-muted hover:text-canopy border border-border rounded-lg hover:border-canopy/30 transition-colors"
             >
               <Pencil size={14} />
-              Edit
+              Correct
             </Link>
-            <DeleteDecision decisionId={decision.id} decisionNumber={decision.number} />
+            {isAdmin && <DeleteDecision decisionId={decision.id} decisionNumber={decision.number} />}
           </div>
+          )}
         </div>
 
         <h1
@@ -627,10 +678,10 @@ export default async function DecisionDetailPage({
             <h2 className="text-xs uppercase tracking-wider text-bark-muted font-medium mb-3">
               Review
             </h2>
-            <RecordReview
+            {!isDeleted && <RecordReview
               decisionId={decision.id}
               decisions={allDecisions.map((d) => ({ id: d.id, number: d.number, title: d.title }))}
-            />
+            />}
             {reviewHistory.length > 0 && (
               <ul className="mt-3 space-y-2">
                 {reviewHistory.map((r) => (
@@ -649,6 +700,39 @@ export default async function DecisionDetailPage({
             )}
           </section>
 
+          {/* Record history: every correction, with who, when and why */}
+          <section>
+            <h2 className="text-xs uppercase tracking-wider text-bark-muted font-medium flex items-center gap-2 mb-3">
+              <History size={13} />
+              Record history
+            </h2>
+            <ul className="space-y-3">
+              {revisions.map((r) => (
+                <li key={r.id} className="text-xs">
+                  <div className="text-bark-muted">
+                    {formatDate(r.revisedAt.toISOString())}
+                    {r.revisedByName ? ` · ${r.revisedByName}` : ""}
+                  </div>
+                  <p className="text-bark mt-0.5">{r.reason}</p>
+                  <ul className="mt-1 space-y-0.5">
+                    {Object.entries(r.changes).map(([field, { from, to }]) => (
+                      <li key={field} className="text-bark-muted">
+                        <span className="font-medium text-bark">{REVISION_FIELD_LABELS[field] ?? field}:</span>{" "}
+                        <span className="line-through decoration-earth/60 break-words">
+                          {truncate(formatRevisionValue(field, from))}
+                        </span>{" "}
+                        → <span className="break-words">{truncate(formatRevisionValue(field, to))}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </li>
+              ))}
+              <li className="text-xs text-bark-muted">
+                {formatDate(decision.createdAt.toISOString())} · Recorded
+              </li>
+            </ul>
+          </section>
+
           {/* Participants */}
           <section>
             <h2 className="text-xs uppercase tracking-wider text-bark-muted font-medium flex items-center gap-2 mb-3">
@@ -656,15 +740,50 @@ export default async function DecisionDetailPage({
               Participants ({participants.length})
             </h2>
             <div className="space-y-2">
-              {participants.map((name) => (
-                <div key={name} className="flex items-center gap-2.5">
+              {participants.map((p) => (
+                <div key={`${p.userId ?? "g"}-${p.name}`} className="flex items-start gap-2.5">
                   <div className="w-7 h-7 rounded-full bg-paper-deep border border-border flex items-center justify-center text-[0.6875rem] font-medium text-bark-muted shrink-0">
-                    {name.split(" ").map((n) => n[0]).join("")}
+                    {p.name.split(" ").map((n) => n[0]).join("").slice(0, 3)}
                   </div>
-                  <span className="text-sm text-bark">{name}</span>
+                  <div className="min-w-0">
+                    <span className="text-sm text-bark">{p.name}</span>
+                    {!p.userId && structuredParticipants.length > 0 && (
+                      <span className="ml-1.5 text-[0.6875rem] text-bark-muted">guest</span>
+                    )}
+                    {p.participation !== "participated" && (
+                      <span className="block text-xs text-amber">{PARTICIPATION_LABELS[p.participation]}</span>
+                    )}
+                    {p.interest && (
+                      <span className="block text-xs text-bark-muted">Interest: {p.interest}</span>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
+            {decision.quorum && (
+              participants.length === 0 ? (
+                <p className="mt-3 text-xs text-bark-muted">
+                  Attendance wasn&apos;t recorded, so quorum can&apos;t be confirmed.
+                </p>
+              ) : (
+                <p
+                  className={`mt-3 text-xs rounded-md px-2 py-1.5 border ${
+                    decision.quorum.met
+                      ? "text-canopy bg-canopy-pale border-canopy/20"
+                      : "text-earth bg-earth/5 border-earth/20"
+                  }`}
+                  title={`Quorum rule: ${describeQuorumRule(decision.quorum.rule)}`}
+                >
+                  {decision.quorum.met ? "Quorate" : "Not quorate"}: {decision.quorum.present} of{" "}
+                  {decision.quorum.eligible} eligible members present, {decision.quorum.required} needed.
+                </p>
+              )
+            )}
+            {interests.length > 0 && (
+              <p className="mt-3 text-xs text-bark-muted">
+                {interests.length} {interests.length === 1 ? "person" : "people"} declared an interest, abstained or left the room.
+              </p>
+            )}
           </section>
 
           {/* AI: Review questions */}

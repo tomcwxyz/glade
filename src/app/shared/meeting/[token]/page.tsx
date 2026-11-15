@@ -17,6 +17,7 @@ const AGENDA_TYPE_LABELS: Record<string, { label: string; color: string }> = {
   for_decision: { label: "For decision", color: "text-green-700 bg-green-50" },
   for_discussion: { label: "For discussion", color: "text-amber-700 bg-amber-50" },
   for_information: { label: "For information", color: "text-sky-700 bg-sky-50" },
+  minutes_approval: { label: "Approve minutes", color: "text-green-700 bg-green-50" },
 };
 
 export default async function SharedMeetingPage({

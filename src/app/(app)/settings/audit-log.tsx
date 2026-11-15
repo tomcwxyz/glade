@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { formatDateRelative } from "@/lib/utils";
 
 const TYPE_BADGE: Record<string, { label: string; color: string }> = {
@@ -19,6 +20,13 @@ type AuditEntry = {
   deletedByName: string | null;
   deletedAt: Date;
 };
+
+/** Soft-deleted decisions stay viewable (and restorable) by admins at their page. */
+function restorableHref(entry: AuditEntry): string | null {
+  if (entry.entityType !== "decision" || entry.entityMeta?.soft !== true) return null;
+  const n = entry.entityMeta.number;
+  return typeof n === "number" ? `/decisions/${n}` : null;
+}
 
 export function AuditLog({ entries }: { entries: AuditEntry[] }) {
   if (entries.length === 0) {
@@ -62,8 +70,17 @@ export function AuditLog({ entries }: { entries: AuditEntry[] }) {
               >
                 {badge.label}
               </span>
-              <span className="flex-1 text-sm text-bark truncate">
-                {entry.entityTitle}
+              <span className="flex-1 min-w-0 text-sm text-bark">
+                {restorableHref(entry) ? (
+                  <Link href={restorableHref(entry)!} className="block truncate hover:text-canopy underline-offset-2 hover:underline">
+                    {entry.entityTitle}
+                  </Link>
+                ) : (
+                  <span className="block truncate">{entry.entityTitle}</span>
+                )}
+                {typeof entry.entityMeta?.reason === "string" && (
+                  <span className="block truncate text-xs text-bark-muted">{entry.entityMeta.reason}</span>
+                )}
               </span>
               <span className="shrink-0 text-xs text-bark-muted">
                 {entry.deletedByName || "Unknown"}

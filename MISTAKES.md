@@ -12,6 +12,11 @@ Things that went wrong and what to do instead. This file is the most important f
 
 ## Mistakes Log
 
+### 2026-11-15
+**What happened:** `updateMeetingSessionState` used `and(eq(meetings.id, id), sql\`version = ${v} OR session_state IS NULL\`)`. Drizzle doesn't add brackets inside a raw `sql` fragment, and AND binds tighter than OR, so every live-meeting write also overwrote every meeting (in every space) with a NULL session state.
+**Why it was wrong:** A raw `sql` fragment containing OR, dropped into `and(...)`, changes the meaning of the whole WHERE clause. Cross-tenant write, no error, nothing visible to the person running the meeting.
+**Rule:** Wrap any raw `sql` fragment containing OR in its own brackets, or use Drizzle's `or()`. For any WHERE on a tenant table, check the rendered SQL (`.toSQL()`) still pins the row id / space id at the top level.
+
 ### 2026-06-17
 **What happened:** Committing tranche-4f P1, ran `git add -A`, which swept in two files the user had explicitly asked to keep untracked (`.claude/skills/docs-updater/` and `docs/plans/2026-03-03-crud-audit-log-design.md`). Caught it on the post-commit stat and fixed with `git rm --cached` + `--amend` (nothing was pushed).
 **Why it was wrong:** `git add -A` / `git add .` ignores prior decisions about which untracked files to leave alone. Easy to silently include unrelated work.

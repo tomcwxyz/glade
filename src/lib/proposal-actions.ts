@@ -5,7 +5,8 @@ import { revalidatePath } from "next/cache";
 import { eq, and } from "drizzle-orm";
 import { db } from "@/db";
 import { proposals, proposalComments, proposalReferences, proposalTags } from "@/db/schema";
-import { insertDecisionWithUniqueNumber, syncEntityTags } from "@/lib/queries";
+import { insertDecisionWithUniqueNumber, syncEntityTags, replaceDecisionParticipants } from "@/lib/queries";
+import { parseParticipantsField } from "@/lib/participants";
 import { requireUser, requireSpaceRole } from "@/lib/space";
 import { logDeletion } from "@/lib/audit";
 
@@ -178,10 +179,7 @@ export async function createDecisionFromProposal(
   if (!dateStr) return { error: "Date is required" };
 
   const outcome = (formData.get("outcome") as string)?.trim() || null;
-  const participantsRaw = formData.get("participants") as string;
-  const participants = participantsRaw
-    ? participantsRaw.split(",").map((p) => p.trim()).filter(Boolean)
-    : [];
+  const participantInputs = parseParticipantsField(formData.get("participants"));
 
   // Atomic: create the decision and link the proposal together.
   const decision = await db.transaction(async (tx) => {
@@ -194,12 +192,12 @@ export async function createDecisionFromProposal(
         method: method as "consent" | "majority_vote" | "advice_process" | "delegation" | "consensus" | "lazy_consensus",
         outcome,
         status: "decided",
-        participants,
         date: new Date(dateStr),
         createdBy: user.id,
       },
       tx
     );
+    await replaceDecisionParticipants(tx, space.id, d.id, participantInputs);
     await tx
       .update(proposals)
       .set({ decidedAsDecisionId: d.id, updatedAt: new Date() })

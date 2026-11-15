@@ -43,6 +43,62 @@
       "when": 1787905000000,
       "tag": "0005_superseded_actions",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1795200000000,
+      "tag": "0006_decision_revisions",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1795200100000,
+      "tag": "0007_decision_soft_delete",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1795200200000,
+      "tag": "0008_decision_participants",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1795200300000,
+      "tag": "0009_reconcile_schema",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1794768680690,
+      "tag": "0010_decision_quorum",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1794768792245,
+      "tag": "0011_meeting_presence",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1794769228626,
+      "tag": "0012_minutes_approval",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1794769579655,
+      "tag": "0013_meeting_guests",
+      "breakpoints": true
     }
   ]
 }

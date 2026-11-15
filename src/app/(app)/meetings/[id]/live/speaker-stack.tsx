@@ -4,13 +4,14 @@ import { useState } from "react";
 import type { MeetingSessionState, SpeakerEntry } from "@/lib/meeting-state";
 import { speakerStatus } from "@/lib/meeting-state";
 import {
-  requestToSpeak,
-  withdrawSpeaker,
+  // Facilitator removing someone else always uses the member action.
+  withdrawSpeaker as facilitatorRemoveSpeaker,
   callSpeaker,
   markSpeakerDone,
   setSpeakerNote,
 } from "@/lib/meeting-live-actions";
 import { Hand, Mic, Check, X } from "lucide-react";
+import { useLiveActions } from "./live-actions";
 
 const STATUS_LABEL: Record<string, string> = {
   waiting: "Waiting",
@@ -31,6 +32,7 @@ export function SpeakerStack({
   mode: "facilitator" | "participant";
   currentUserId?: string;
 }) {
+  const { requestToSpeak, withdrawSpeaker } = useLiveActions();
   const stack = state.speakerStack;
   const isFacilitator = mode === "facilitator";
   const meInStack = stack.some((s) => s.participantId === currentUserId);
@@ -155,7 +157,7 @@ function SpeakerRow({
             )}
             <button
               type="button"
-              onClick={async () => onResult(await withdrawSpeaker(meetingId, entry.participantId))}
+              onClick={async () => onResult(await facilitatorRemoveSpeaker(meetingId, entry.participantId))}
               aria-label={`Remove ${entry.name} from the stack`}
               className="p-1 text-bark-muted hover:text-earth transition-colors"
             >

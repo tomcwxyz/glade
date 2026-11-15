@@ -8,8 +8,6 @@ import { DelegationFlow } from "./delegation-flow";
 import { TemperatureCheckFlow } from "./temperature-check-flow";
 import {
   advanceDecisionStage,
-  submitResponse,
-  withdrawResponse,
   resolveObjection,
   recordMeetingDecision,
   advanceAgendaItem,
@@ -17,6 +15,7 @@ import {
 } from "@/lib/meeting-live-actions";
 import { useCallback, useEffect } from "react";
 import { useLiveRegion } from "@/components/live-region";
+import { useLiveActions } from "./live-actions";
 
 export function DecisionFlowContainer({
   meetingId,
@@ -57,18 +56,20 @@ export function DecisionFlowContainer({
     [meetingId, mutate, agendaItems, currentAgendaItemIndex]
   );
 
+  const { submitResponse, withdrawResponse } = useLiveActions();
+
   const handleSubmitResponse = useCallback(
     async (value: string, comment?: string) => {
       const result = await submitResponse(meetingId, value, comment);
       if ("state" in result && result.state) mutate(result.state);
     },
-    [meetingId, mutate]
+    [meetingId, mutate, submitResponse]
   );
 
   const handleWithdrawResponse = useCallback(async () => {
     const result = await withdrawResponse(meetingId);
     if ("state" in result && result.state) mutate(result.state);
-  }, [meetingId, mutate]);
+  }, [meetingId, mutate, withdrawResponse]);
 
   const handleResolveObjection = useCallback(
     async (

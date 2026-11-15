@@ -11,10 +11,12 @@ import {
   index,
   unique,
   pgEnum,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import type { AdapterAccountType } from "next-auth/adapters";
 import type { Deliberation } from "@/lib/meeting-state";
+import type { QuorumStamp } from "@/lib/quorum";
 
 // ============================================================
 // Enums
@@ -50,6 +52,12 @@ export const spaceRoleEnum = pgEnum("space_role", [
   "observer",
 ]);
 
+export const participationEnum = pgEnum("participation", [
+  "participated",
+  "abstained",
+  "left_room",
+]);
+
 export const decisionLinkTypeEnum = pgEnum("decision_link_type", [
   "supersedes",
   "relates_to",
@@ -60,6 +68,7 @@ export const agendaItemTypeEnum = pgEnum("agenda_item_type", [
   "for_decision",
   "for_discussion",
   "for_information",
+  "minutes_approval",
 ]);
 
 export const documentTypeEnum = pgEnum("document_type", [
@@ -302,10 +311,19 @@ export const decisions = pgTable(
     learnings: text("learnings"),
     // Set when a review outcome retires the decision (terminal, off the lifecycle).
     retiredAt: timestamp("retired_at", { mode: "date" }),
+    // Quorum at the time of the decision: rule, eligible, present, required, met.
+    // Null when the space has no quorum rule.
+    quorum: jsonb("quorum").$type<QuorumStamp>(),
     isPublic: boolean("is_public").default(true).notNull(),
     createdBy: uuid("created_by").references(() => users.id),
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
+    // Soft delete (admin-only). Deleted decisions are hidden from every read
+    // except an admin opening the decision itself; see `decisionNotDeleted`.
+    deletedAt: timestamp("deleted_at", { mode: "date" }),
+    deletedBy: uuid("deleted_by").references(() => users.id, { onDelete: "set null" }),
+    deletedByName: varchar("deleted_by_name", { length: 255 }),
+    deletionReason: text("deletion_reason"),
   },
   (d) => [
     index("decisions_space_idx").on(d.spaceId),
@@ -373,6 +391,53 @@ export const decisionReviews = pgTable(
     reviewedAt: timestamp("reviewed_at", { mode: "date" }).defaultNow().notNull(),
   },
   (dr) => [index("decision_reviews_decision_idx").on(dr.decisionId)]
+);
+
+// --- Decision participants (members or guests; source of truth) ---
+// decisions.participants (names) is kept in sync as a display mirror.
+
+export const decisionParticipants = pgTable(
+  "decision_participants",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    decisionId: uuid("decision_id")
+      .notNull()
+      .references(() => decisions.id, { onDelete: "cascade" }),
+    // Null for a guest (someone outside the space).
+    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+    // Display name at the time of the decision (kept if the account goes).
+    name: varchar("name", { length: 255 }).notNull(),
+    participation: participationEnum("participation").default("participated").notNull(),
+    // Declared interest / conflict, if any.
+    interest: text("interest"),
+    // Order as entered.
+    position: integer("position").default(0).notNull(),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (dp) => [
+    index("decision_participants_decision_idx").on(dp.decisionId),
+    index("decision_participants_user_idx").on(dp.userId),
+  ]
+);
+
+// --- Decision revisions (append-only correction history) ---
+
+export const decisionRevisions = pgTable(
+  "decision_revisions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    decisionId: uuid("decision_id")
+      .notNull()
+      .references(() => decisions.id, { onDelete: "cascade" }),
+    // field → { from, to }, as display values (see decision-revisions.ts).
+    changes: jsonb("changes").notNull().$type<Record<string, { from: unknown; to: unknown }>>(),
+    reason: text("reason").notNull(),
+    revisedBy: uuid("revised_by").references(() => users.id, { onDelete: "set null" }),
+    // Kept so the history still names the person if their account is removed.
+    revisedByName: varchar("revised_by_name", { length: 255 }),
+    revisedAt: timestamp("revised_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (dr) => [index("decision_revisions_decision_idx").on(dr.decisionId)]
 );
 
 // --- Tags ---
@@ -496,6 +561,18 @@ export const meetings = pgTable(
       .$type<Record<string, unknown>>()
       .default({})
       .notNull(),
+    // Minutes approval (chair sign-off). Once set, the minutes are locked;
+    // an admin can reopen them with a reason (history in metadata.minutesHistory).
+    minutesApprovedAt: timestamp("minutes_approved_at", { mode: "date" }),
+    minutesApprovedBy: uuid("minutes_approved_by").references(() => users.id, { onDelete: "set null" }),
+    minutesApprovedByName: varchar("minutes_approved_by_name", { length: 255 }),
+    // The meeting at which these minutes were approved (usually the next one).
+    minutesApprovedInMeetingId: uuid("minutes_approved_in_meeting_id").references(
+      (): AnyPgColumn => meetings.id,
+      { onDelete: "set null" }
+    ),
+    // The notes exactly as approved.
+    minutesApprovedText: text("minutes_approved_text"),
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
   },
@@ -513,6 +590,46 @@ export const meetingAttendees = pgTable(
       .references(() => users.id, { onDelete: "cascade" }),
   },
   (ma) => [primaryKey({ columns: [ma.meetingId, ma.userId] })]
+);
+
+// Who is in a live meeting right now. Kept out of session_state so presence
+// pings (from every polling client) don't contend with its optimistic lock.
+export const meetingPresence = pgTable(
+  "meeting_presence",
+  {
+    meetingId: uuid("meeting_id")
+      .notNull()
+      .references(() => meetings.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    firstSeenAt: timestamp("first_seen_at", { mode: "date" }).defaultNow().notNull(),
+    lastSeenAt: timestamp("last_seen_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (mp) => [primaryKey({ columns: [mp.meetingId, mp.userId] })]
+);
+
+// Named guests invited to take part in a live meeting without an account
+// (co-opted members, staff, advisers). Each has their own secret link; only a
+// SHA-256 hash of its token is stored. canVote = may object / vote, not just
+// ask, react, advise and speak.
+export const meetingGuests = pgTable(
+  "meeting_guests",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    meetingId: uuid("meeting_id")
+      .notNull()
+      .references(() => meetings.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 255 }).notNull(),
+    // e.g. "Adviser", "Co-opted member", "Finance officer".
+    label: varchar("label", { length: 100 }),
+    canVote: boolean("can_vote").default(false).notNull(),
+    tokenHash: varchar("token_hash", { length: 64 }).notNull().unique(),
+    createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+    revokedAt: timestamp("revoked_at", { mode: "date" }),
+  },
+  (g) => [index("meeting_guests_meeting_idx").on(g.meetingId)]
 );
 
 export const meetingAgendaItems = pgTable(

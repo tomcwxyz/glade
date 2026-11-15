@@ -3,6 +3,7 @@ import { eq, and, desc, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { decisions, decisionTags, tags } from "@/db/schema";
 import { authenticateApiKey } from "@/lib/api-auth";
+import { decisionNotDeleted } from "@/lib/soft-delete";
 import { limitApi, rateLimitedResponse } from "@/lib/rate-limit";
 
 export async function GET(request: NextRequest) {
@@ -23,7 +24,7 @@ export async function GET(request: NextRequest) {
   const offset = parseInt(searchParams.get("offset") || "0", 10);
 
   // Build where conditions
-  const conditions = [eq(decisions.spaceId, auth.spaceId)];
+  const conditions = [eq(decisions.spaceId, auth.spaceId), decisionNotDeleted];
   if (statusFilter) {
     conditions.push(
       eq(

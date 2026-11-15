@@ -1,6 +1,8 @@
-import { getCurrentSpace } from "@/lib/space";
+import { getCurrentSpace, getCurrentMembership } from "@/lib/space";
 import {
   getMeetingById,
+  getMeetingRefs,
+  getMeetingGuests,
   getDecisionsList,
   getActionsList,
   getDocumentsList,
@@ -27,6 +29,9 @@ import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { ShareAgendaButton } from "./share-agenda-button";
 import { DeleteMeeting } from "./delete-meeting";
+import { MinutesPanel } from "./minutes-panel";
+import { GuestInvites } from "./guest-invites";
+import { minutesHistory } from "@/lib/minutes";
 import { MeetingLinksEditor } from "./meeting-links-editor";
 
 const TYPE_LABELS: Record<string, string> = {
@@ -43,6 +48,7 @@ const AGENDA_TYPE_LABELS: Record<string, { label: string; color: string }> = {
   for_decision: { label: "For decision", color: "text-canopy bg-canopy-pale" },
   for_discussion: { label: "For discussion", color: "text-amber bg-amber/10" },
   for_information: { label: "For information", color: "text-sky bg-sky/10" },
+  minutes_approval: { label: "Approve minutes", color: "text-canopy bg-canopy-pale" },
 };
 
 const MEETING_STATUS_CONFIG: Record<string, { label: string; color: string }> = {
@@ -72,6 +78,22 @@ export default async function MeetingDetailPage({
       getProposalsList(space.id),
     ]);
   const aiAvailable = aiCanUse && isAiEnabled(space.settings);
+
+  // Minutes approval: status, sign-off and history (with meeting titles).
+  const membership = await getCurrentMembership();
+  const isAdmin = membership?.role === "admin";
+  const minutesLocked = !!meeting.minutesApprovedAt;
+  // Guests: managed by the facilitator (or creator) and admins.
+  const canManageGuests =
+    isAdmin || (!!membership && (meeting.facilitatorId ?? meeting.createdBy) === membership.user.id);
+  const guests = canManageGuests ? await getMeetingGuests(meeting.id) : [];
+  const history = minutesHistory(meeting.metadata);
+  const refIds = [
+    ...new Set(
+      [meeting.minutesApprovedInMeetingId, ...history.map((h) => h.inMeetingId)].filter((x): x is string => !!x)
+    ),
+  ];
+  const refs = new Map((await getMeetingRefs(space.id, refIds)).map((r) => [r.id, r]));
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-8 py-6 sm:py-10">
@@ -156,14 +178,18 @@ export default async function MeetingDetailPage({
                 Import transcript
               </Link>
             )}
-            <Link
-              href={`/meetings/${meeting.id}/edit`}
-              className="flex items-center gap-1.5 px-3 py-2 text-sm bg-paper-deep border border-border rounded-lg text-bark-muted hover:text-bark hover:bg-paper-warm transition-colors"
-            >
-              <Pencil size={14} />
-              Edit
-            </Link>
-            <DeleteMeeting meetingId={meeting.id} />
+            {!minutesLocked && (
+              <>
+                <Link
+                  href={`/meetings/${meeting.id}/edit`}
+                  className="flex items-center gap-1.5 px-3 py-2 text-sm bg-paper-deep border border-border rounded-lg text-bark-muted hover:text-bark hover:bg-paper-warm transition-colors"
+                >
+                  <Pencil size={14} />
+                  Edit
+                </Link>
+                <DeleteMeeting meetingId={meeting.id} />
+              </>
+            )}
           </div>
         </div>
       </header>
@@ -171,6 +197,31 @@ export default async function MeetingDetailPage({
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-10 lg:gap-14">
         {/* Main content */}
         <div className="space-y-10">
+          {/* Minutes approval / chair sign-off */}
+          <MinutesPanel
+            meetingId={meeting.id}
+            isAdmin={isAdmin}
+            isPast={meeting.date.getTime() <= Date.now()}
+            approval={
+              meeting.minutesApprovedAt
+                ? {
+                    at: meeting.minutesApprovedAt.toISOString(),
+                    byName: meeting.minutesApprovedByName,
+                    inMeeting: meeting.minutesApprovedInMeetingId
+                      ? refs.get(meeting.minutesApprovedInMeetingId) ?? null
+                      : null,
+                  }
+                : null
+            }
+            history={history.map((h) => ({
+              event: h.event,
+              at: h.at,
+              byName: h.byName,
+              reason: h.reason,
+              inMeeting: h.inMeetingId ? refs.get(h.inMeetingId) ?? null : null,
+            }))}
+          />
+
           {/* Notes */}
           {meeting.notes && (
             <section>
@@ -247,6 +298,9 @@ export default async function MeetingDetailPage({
 
         {/* Right sidebar */}
         <aside className="space-y-8">
+          {canManageGuests && meeting.status !== "completed" && (
+            <GuestInvites meetingId={meeting.id} guests={guests} />
+          )}
           {/* Attendees */}
           <section>
             <h2 className="text-xs uppercase tracking-wider text-bark-muted font-medium flex items-center gap-2 mb-3">

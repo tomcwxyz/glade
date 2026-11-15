@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { eq, and } from "drizzle-orm";
 import { db } from "@/db";
 import { documents, documentVersions, documentSectionLinks, documentTags, decisions } from "@/db/schema";
+import { decisionNotDeleted } from "@/lib/soft-delete";
 import { getCurrentSpace, requireSpaceRole } from "@/lib/space";
 import { getDocumentVersionAtDate, syncEntityTags } from "@/lib/queries";
 import { logDeletion } from "@/lib/audit";
@@ -196,7 +197,7 @@ export async function addSectionLink(documentId: string, sectionId: string, deci
   const [decision] = await db
     .select({ id: decisions.id })
     .from(decisions)
-    .where(and(eq(decisions.id, decisionId), eq(decisions.spaceId, space.id)))
+    .where(and(eq(decisions.id, decisionId), eq(decisions.spaceId, space.id), decisionNotDeleted))
     .limit(1);
   if (!decision) return { error: "Decision not found" };
 

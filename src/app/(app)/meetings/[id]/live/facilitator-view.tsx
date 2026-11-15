@@ -1,14 +1,19 @@
 "use client";
 
-import { useCallback, useState, useEffect } from "react";
+import { useCallback, useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useLiveRegion } from "@/components/live-region";
 import { useMeetingPoll } from "./use-meeting-poll";
+import { QuorumIndicator } from "./quorum-indicator";
+import { withPresence } from "@/lib/meeting-state";
+import type { QuorumRule } from "@/lib/quorum";
 import { AgendaNavigator } from "./agenda-navigator";
 import { MeetingTimer } from "./meeting-timer";
 import { DecisionControls } from "./decision-controls";
 import { DecisionFlowContainer } from "./decision-flow-container";
 import { SpeakerStack } from "./speaker-stack";
+import { DeclarationsPanel } from "./declarations-panel";
+import { MinutesApprovalControl } from "./minutes-approval-control";
 import {
   advanceAgendaItem,
   skipAgendaItem,
@@ -36,6 +41,7 @@ const AGENDA_TYPE_LABELS: Record<string, { label: string; color: string }> = {
   for_decision: { label: "For decision", color: "text-canopy bg-canopy-pale" },
   for_discussion: { label: "For discussion", color: "text-amber bg-amber/10" },
   for_information: { label: "For information", color: "text-sky bg-sky/10" },
+  minutes_approval: { label: "Approve minutes", color: "text-canopy bg-canopy-pale" },
 };
 
 interface AgendaItem {
@@ -57,15 +63,28 @@ export function FacilitatorView({
   meetingTitle,
   agendaItems,
   voteThreshold,
+  quorumRule = null,
+  quorumEligible = 0,
+  currentUserId,
+  minutesToApprove = [],
 }: {
   meetingId: string;
   meetingTitle: string;
   agendaItems: AgendaItem[];
   voteThreshold?: number;
+  quorumRule?: QuorumRule | null;
+  quorumEligible?: number;
+  currentUserId?: string;
+  minutesToApprove?: { id: string; title: string; date: string }[];
 }) {
   const router = useRouter();
   const { announce } = useLiveRegion();
-  const { state, loading, mutate } = useMeetingPoll(meetingId);
+  const { state: polledState, presence, loading, mutate } = useMeetingPoll(meetingId);
+  // Everyone actually in the room, not just the facilitator.
+  const state = useMemo(
+    () => (polledState ? withPresence(polledState, presence) : null),
+    [polledState, presence]
+  );
   const [mobileAgendaOpen, setMobileAgendaOpen] = useState(false);
 
   const handleGoTo = useCallback(
@@ -214,6 +233,12 @@ export function FacilitatorView({
                 <Users size={11} />
                 {participantCount}
               </span>
+              {quorumRule && (
+                <>
+                  <span>·</span>
+                  <QuorumIndicator rule={quorumRule} eligible={quorumEligible} presence={presence} compact />
+                </>
+              )}
               <span>·</span>
               <span>
                 Item {state.currentAgendaItemIndex + 1}/{agendaItems.length}
@@ -271,6 +296,12 @@ export function FacilitatorView({
             </span>
           </div>
         </div>
+
+        {quorumRule && (
+          <div className="mb-4">
+            <QuorumIndicator rule={quorumRule} eligible={quorumEligible} presence={presence} />
+          </div>
+        )}
 
         <AgendaNavigator
           agendaItems={agendaItems}
@@ -338,6 +369,11 @@ export function FacilitatorView({
               />
             </div>
 
+            {/* Declarations of interest on this item (facilitator can declare too) */}
+            {currentUserId && (
+              <DeclarationsPanel meetingId={meetingId} state={state} currentUserId={currentUserId} mutate={mutate} />
+            )}
+
             {/* Speaker stack */}
             <SpeakerStack
               meetingId={meetingId}
@@ -359,6 +395,10 @@ export function FacilitatorView({
               />
             ) : (
               <div className="space-y-4">
+                {currentItem.type === "minutes_approval" && (
+                  <MinutesApprovalControl meetingId={meetingId} candidates={minutesToApprove} mutate={mutate} />
+                )}
+
                 {currentItem.type === "for_decision" && (
                   <DecisionControls
                     onRecord={handleRecordDecision}

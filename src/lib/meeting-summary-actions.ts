@@ -9,6 +9,7 @@ import { isAiEnabled, generateText } from "@/lib/ai";
 import { SYSTEM_PROMPT, meetingSummaryPrompt } from "@/lib/ai-prompts";
 import { getMeetingById } from "@/lib/queries";
 import type { MeetingSessionState } from "@/lib/meeting-state";
+import { declarationsFor } from "@/lib/meeting-state";
 
 export async function generateMeetingSummary(meetingId: string) {
   const auth = await requireSpaceRole("member");
@@ -34,6 +35,11 @@ export async function generateMeetingSummary(meetingId: string) {
       description: item.description,
       durationMinutes: item.durationMinutes,
       completed: sessionState?.completedItems[i] || null,
+      declarationsOfInterest: sessionState ? declarationsFor(sessionState, i).map((d) => ({
+        name: d.name,
+        interest: d.interest,
+        action: d.action === "leave" ? "left the room" : "did not take part",
+      })) : [],
     })),
     decisions: meeting.decisions.map((d) => ({
       number: d.number,

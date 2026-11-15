@@ -75,6 +75,20 @@ export interface Participant {
   role: "facilitator" | "participant" | "observer";
 }
 
+/**
+ * A declared interest (conflict) in one agenda item. "abstain": stays in the
+ * room but doesn't take part in the decision. "leave": leaves the room for the
+ * item (and isn't counted towards quorum for it).
+ */
+export interface InterestDeclaration {
+  participantId: string;
+  name: string;
+  agendaIndex: number;
+  interest: string;
+  action: "abstain" | "leave";
+  declaredAt: string;
+}
+
 export interface MeetingSessionState {
   currentAgendaItemIndex: number;
   phase: "not_started" | "agenda_item" | "decision_flow" | "completed";
@@ -83,6 +97,8 @@ export interface MeetingSessionState {
   speakerStack: SpeakerEntry[];
   completedItems: Record<number, CompletedItem>;
   participants: Record<string, Participant>;
+  /** Optional for sessions started before declarations existed. */
+  declarations?: InterestDeclaration[];
   version: number;
   updatedAt: string;
 }
@@ -240,4 +256,63 @@ export function startDecisionFlow(
     version: state.version + 1,
     updatedAt: new Date().toISOString(),
   };
+}
+
+/**
+ * Merge live presence (members currently polling the meeting) into the
+ * session's participant list, for display and counts. Observers are left out;
+ * existing entries (e.g. the facilitator) are kept as they are.
+ */
+export function withPresence(
+  state: MeetingSessionState,
+  presence: { userId: string; name: string; role: string }[]
+): MeetingSessionState {
+  const participants = { ...state.participants };
+  for (const p of presence) {
+    if (p.role === "observer" || participants[p.userId]) continue;
+    participants[p.userId] = { name: p.name, lastSeenAt: state.updatedAt, role: "participant" };
+  }
+  return { ...state, participants };
+}
+
+/** Declarations for one agenda item. */
+export function declarationsFor(state: MeetingSessionState, agendaIndex: number): InterestDeclaration[] {
+  return (state.declarations ?? []).filter((d) => d.agendaIndex === agendaIndex);
+}
+
+/** Declare (or update) an interest in an agenda item. One per person per item. */
+export function declareInterest(
+  state: MeetingSessionState,
+  decl: Omit<InterestDeclaration, "declaredAt">
+): MeetingSessionState {
+  const now = new Date().toISOString();
+  const others = (state.declarations ?? []).filter(
+    (d) => !(d.participantId === decl.participantId && d.agendaIndex === decl.agendaIndex)
+  );
+  return {
+    ...state,
+    declarations: [...others, { ...decl, declaredAt: now }],
+    version: state.version + 1,
+    updatedAt: now,
+  };
+}
+
+export function withdrawDeclaration(
+  state: MeetingSessionState,
+  participantId: string,
+  agendaIndex: number
+): MeetingSessionState {
+  return {
+    ...state,
+    declarations: (state.declarations ?? []).filter(
+      (d) => !(d.participantId === participantId && d.agendaIndex === agendaIndex)
+    ),
+    version: state.version + 1,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+/** Someone who declared an interest in the current item can't respond to its decision. */
+export function hasDeclaredOnCurrentItem(state: MeetingSessionState, participantId: string): boolean {
+  return declarationsFor(state, state.currentAgendaItemIndex).some((d) => d.participantId === participantId);
 }

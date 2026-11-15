@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { eq, and, sql, desc } from "drizzle-orm";
 import { db } from "@/db";
 import { insights, decisions, documents } from "@/db/schema";
+import { decisionNotDeleted } from "@/lib/soft-delete";
 import { requireSpaceRole } from "@/lib/space";
 import { isAiEnabled, generateText, generateStructured, capInput } from "@/lib/ai";
 import { canUseAi } from "@/lib/billing";
@@ -298,7 +299,7 @@ export async function generateReviewQuestions(decisionId: string) {
   const [decision] = await db
     .select()
     .from(decisions)
-    .where(and(eq(decisions.id, decisionId), eq(decisions.spaceId, space.id)))
+    .where(and(eq(decisions.id, decisionId), eq(decisions.spaceId, space.id), decisionNotDeleted))
     .limit(1);
 
   if (!decision) return { error: "Decision not found" };
@@ -342,7 +343,7 @@ export async function suggestDocumentUpdates(decisionId: string) {
   const [decision] = await db
     .select()
     .from(decisions)
-    .where(and(eq(decisions.id, decisionId), eq(decisions.spaceId, space.id)))
+    .where(and(eq(decisions.id, decisionId), eq(decisions.spaceId, space.id), decisionNotDeleted))
     .limit(1);
 
   if (!decision) return { error: "Decision not found" };
@@ -584,7 +585,7 @@ export async function draftDocumentUpdate(decisionId: string, documentId: string
   const [decision] = await db
     .select()
     .from(decisions)
-    .where(and(eq(decisions.id, decisionId), eq(decisions.spaceId, space.id)))
+    .where(and(eq(decisions.id, decisionId), eq(decisions.spaceId, space.id), decisionNotDeleted))
     .limit(1);
 
   if (!decision) return { error: "Decision not found" };

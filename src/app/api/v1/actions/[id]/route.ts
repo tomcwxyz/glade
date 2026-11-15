@@ -3,6 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { actions } from "@/db/schema";
 import { authenticateApiKey } from "@/lib/api-auth";
+import { actionDecisionNotDeleted } from "@/lib/soft-delete";
 import { limitApi, rateLimitedResponse } from "@/lib/rate-limit";
 import { parseOptionalDate, parseOptionalText } from "@/lib/action-api";
 
@@ -73,7 +74,7 @@ export async function GET(
       updatedAt: actions.updatedAt,
     })
     .from(actions)
-    .where(and(eq(actions.id, id), eq(actions.spaceId, auth.spaceId)))
+    .where(and(eq(actions.id, id), eq(actions.spaceId, auth.spaceId), actionDecisionNotDeleted))
     .limit(1);
 
   if (!action) {
@@ -142,7 +143,7 @@ export async function PATCH(
   const [action] = await db
     .update(actions)
     .set(update)
-    .where(and(eq(actions.id, id), eq(actions.spaceId, auth.spaceId)))
+    .where(and(eq(actions.id, id), eq(actions.spaceId, auth.spaceId), actionDecisionNotDeleted))
     .returning({
       id: actions.id,
       description: actions.description,
