@@ -5,6 +5,7 @@ import { eq, and } from "drizzle-orm";
 import { db } from "@/db";
 import { spaces, spaceMembers } from "@/db/schema";
 import { auth } from "@/lib/auth";
+import { hasSpaceRole, type SpaceRole } from "@/lib/roles";
 
 // NOTE: read helpers are wrapped in React `cache()` so they run once per request
 // even when several pages/actions call them. The two client-invoked mutations
@@ -91,8 +92,7 @@ export const getCurrentSpace = cache(async () => {
   return null;
 });
 
-export type SpaceRole = "observer" | "member" | "admin";
-const ROLE_RANK: Record<SpaceRole, number> = { observer: 0, member: 1, admin: 2 };
+export type { SpaceRole };
 
 type Membership = {
   user: { id: string; name?: string | null; email?: string | null };
@@ -143,7 +143,7 @@ export async function requireSpaceRole(
   if (!membership) {
     return { error: "No space selected, or you are not a member of it" };
   }
-  if (ROLE_RANK[membership.role] < ROLE_RANK[minRole]) {
+  if (!hasSpaceRole(membership.role, minRole)) {
     return { error: "You don't have permission to do this" };
   }
   return membership;
