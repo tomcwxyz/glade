@@ -10,6 +10,7 @@ import { insertDecisionWithUniqueNumber, getDecisions, syncEntityTags } from "@/
 import { canAddDecision } from "@/lib/billing";
 import { fireWebhooks } from "@/lib/webhooks";
 import { logDeletion } from "@/lib/audit";
+import { canTransitionManually, initialStatus, isDecisionStatus, statusAfterReview, type DecisionStatus } from "@/lib/decision-lifecycle";
 
 export async function createDecision(formData: FormData) {
   const auth = await requireSpaceRole("member");
@@ -32,7 +33,9 @@ export async function createDecision(formData: FormData) {
   const rationale = (formData.get("rationale") as string)?.trim() || null;
   const outcome = (formData.get("outcome") as string)?.trim() || null;
   const conditions = (formData.get("conditions") as string)?.trim() || null;
-  const status = (formData.get("status") as string) || "decided";
+  // A new decision starts as decided (or implemented, when recording past work);
+  // later stages come from the lifecycle, never from the form.
+  const status = initialStatus(formData.get("status"));
   const reviewDateStr = formData.get("reviewDate") as string;
   const participantsRaw = formData.get("participants") as string;
   const tagIdsRaw = formData.get("tagIds") as string;
@@ -68,7 +71,7 @@ export async function createDecision(formData: FormData) {
         rationale,
         method: method as "consent" | "majority_vote" | "advice_process" | "delegation" | "consensus" | "lazy_consensus",
         outcome,
-        status: status as "decided" | "implemented" | "reviewed" | "learned",
+        status,
         participants,
         date: new Date(dateStr),
         conditions,
@@ -115,7 +118,7 @@ export async function updateDecision(decisionId: string, formData: FormData) {
 
   // Verify the decision belongs to this space
   const [existing] = await db
-    .select({ id: decisions.id, number: decisions.number })
+    .select({ id: decisions.id, number: decisions.number, status: decisions.status })
     .from(decisions)
     .where(and(eq(decisions.id, decisionId), eq(decisions.spaceId, space.id)))
     .limit(1);
@@ -135,7 +138,8 @@ export async function updateDecision(decisionId: string, formData: FormData) {
   const rationale = (formData.get("rationale") as string)?.trim() || null;
   const outcome = (formData.get("outcome") as string)?.trim() || null;
   const conditions = (formData.get("conditions") as string)?.trim() || null;
-  const status = (formData.get("status") as string) || "decided";
+  // Status is not editable here: it only moves forward via the lifecycle.
+  const status = existing.status;
   const reviewDateStr = formData.get("reviewDate") as string;
   const participantsRaw = formData.get("participants") as string;
   const tagIdsRaw = formData.get("tagIds") as string;
@@ -158,7 +162,6 @@ export async function updateDecision(decisionId: string, formData: FormData) {
         rationale,
         method: method as "consent" | "majority_vote" | "advice_process" | "delegation" | "consensus" | "lazy_consensus",
         outcome,
-        status: status as "decided" | "implemented" | "reviewed" | "learned",
         participants,
         date: new Date(dateStr),
         conditions,
@@ -184,16 +187,31 @@ export async function updateDecision(decisionId: string, formData: FormData) {
 
 export async function updateDecisionStatus(
   decisionId: string,
-  status: "decided" | "implemented" | "reviewed" | "learned"
+  status: DecisionStatus
 ) {
   const auth = await requireSpaceRole("member");
   if ("error" in auth) return auth;
   const { space } = auth;
 
+  if (!isDecisionStatus(status)) return { error: "Unknown status" };
+
+  const [current] = await db
+    .select({ status: decisions.status, learnings: decisions.learnings })
+    .from(decisions)
+    .where(and(eq(decisions.id, decisionId), eq(decisions.spaceId, space.id)))
+    .limit(1);
+  if (!current) return { error: "Decision not found" };
+
+  // Forward-only; "reviewed" comes from recording a review, "learned" needs learnings.
+  if (!canTransitionManually(current.status, status, { hasLearnings: !!current.learnings?.trim() })) {
+    return { error: `A ${current.status} decision can't be moved to ${status} directly` };
+  }
+
+  // Conditional on the status we checked, so two concurrent clicks can't skip a stage.
   await db
     .update(decisions)
     .set({ status, updatedAt: new Date() })
-    .where(and(eq(decisions.id, decisionId), eq(decisions.spaceId, space.id)));
+    .where(and(eq(decisions.id, decisionId), eq(decisions.spaceId, space.id), eq(decisions.status, current.status)));
 
   fireWebhooks(space.id, "decision.status_changed", {
     id: decisionId,
@@ -219,11 +237,12 @@ export async function recordDecisionReview(
   const { user, space } = auth;
 
   const [decision] = await db
-    .select({ id: decisions.id })
+    .select({ id: decisions.id, status: decisions.status })
     .from(decisions)
     .where(and(eq(decisions.id, decisionId), eq(decisions.spaceId, space.id)))
     .limit(1);
   if (!decision) return { error: "Decision not found" };
+  const newStatus = statusAfterReview(decision.status);
 
   // Record the review event (history).
   await db.insert(decisionReviews).values({
@@ -235,11 +254,11 @@ export async function recordDecisionReview(
 
   // Apply the outcome to the decision.
   const update: {
-    status: "reviewed";
+    status: DecisionStatus;
     updatedAt: Date;
     learnings?: string;
     retiredAt?: Date;
-  } = { status: "reviewed", updatedAt: new Date() };
+  } = { status: newStatus, updatedAt: new Date() };
   if (learnings && learnings.trim()) update.learnings = learnings.trim();
   if (outcome === "retire") update.retiredAt = new Date();
   await db
@@ -276,7 +295,7 @@ export async function recordDecisionReview(
     }
   }
 
-  fireWebhooks(space.id, "decision.status_changed", { id: decisionId, status: "reviewed" });
+  fireWebhooks(space.id, "decision.status_changed", { id: decisionId, status: newStatus });
   revalidatePath(`/decisions`);
   return { success: true };
 }

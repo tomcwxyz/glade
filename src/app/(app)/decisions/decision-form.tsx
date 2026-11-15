@@ -52,12 +52,18 @@ const METHODS = [
   { value: "lazy_consensus", label: "Lazy Consensus", desc: "Adopted after objection window closes" },
 ] as const;
 
+// Only the starting stages: later stages come from the review flow.
 const STATUSES = [
   { value: "decided", label: "Decided" },
-  { value: "implemented", label: "Implemented" },
-  { value: "reviewed", label: "Reviewed" },
-  { value: "learned", label: "Learned" },
+  { value: "implemented", label: "Already implemented" },
 ] as const;
+
+const STATUS_LABELS: Record<string, string> = {
+  decided: "Decided",
+  implemented: "Implemented",
+  reviewed: "Reviewed",
+  learned: "Learned",
+};
 
 function InputLabel({ htmlFor, children, optional }: { htmlFor: string; children: React.ReactNode; optional?: boolean }) {
   return (
@@ -247,21 +253,30 @@ export function DecisionForm({
             </select>
           </div>
 
-          <div>
-            <InputLabel htmlFor="status">Status</InputLabel>
-            <select
-              id="status"
-              name="status"
-              defaultValue={decision?.status || "decided"}
-              className={inputClass}
-            >
-              {STATUSES.map((s) => (
-                <option key={s.value} value={s.value}>
-                  {s.label}
-                </option>
-              ))}
-            </select>
-          </div>
+          {isEditing ? (
+            <div>
+              <span className="block text-[0.8125rem] font-medium text-bark mb-1.5">Status</span>
+              <p className="text-[0.8125rem] text-bark-muted py-2">
+                {STATUS_LABELS[decision!.status] ?? decision!.status}. Status moves forward from the decision page and the review flow.
+              </p>
+            </div>
+          ) : (
+            <div>
+              <InputLabel htmlFor="status">Status</InputLabel>
+              <select
+                id="status"
+                name="status"
+                defaultValue="decided"
+                className={inputClass}
+              >
+                {STATUSES.map((s) => (
+                  <option key={s.value} value={s.value}>
+                    {s.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
         {/* Date & Review date */}

@@ -275,7 +275,11 @@ export default async function DecisionDetailPage({
             )}
           </div>
           <div className="flex items-center gap-2">
-            <StatusAdvance decisionId={decision.id} currentStatus={decision.status} />
+            <StatusAdvance
+              decisionId={decision.id}
+              currentStatus={decision.status}
+              hasLearnings={!!decision.learnings?.trim()}
+            />
             <Link
               href={`/decisions/${decision.number}/edit`}
               className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-bark-muted hover:text-canopy border border-border rounded-lg hover:border-canopy/30 transition-colors"
