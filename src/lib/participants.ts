@@ -155,3 +155,26 @@ export function participantsFromLiveSession(
   for (const r of responses) add(r.participantId, r.name);
   return out;
 }
+
+/**
+ * Apply interest declarations to a decision's participants: a declarer who
+ * left the room is recorded as left_room, otherwise abstained, with the
+ * interest noted. Declarers missing from the list are added.
+ */
+export function applyDeclarations(
+  inputs: ParticipantInput[],
+  declarations: { participantId: string; name: string; interest: string; action: "abstain" | "leave" }[]
+): ParticipantInput[] {
+  const out = inputs.map((p) => ({ ...p }));
+  for (const d of declarations) {
+    const participation: Participation = d.action === "leave" ? "left_room" : "abstained";
+    const existing = out.find((p) => p.userId === d.participantId);
+    if (existing) {
+      existing.participation = participation;
+      existing.interest = d.interest;
+    } else {
+      out.push({ userId: d.participantId, name: d.name, participation, interest: d.interest });
+    }
+  }
+  return out;
+}

@@ -12,16 +12,27 @@ import {
   proposals,
   decisionResponses,
 } from "@/db/schema";
-import { getCurrentSpace, requireUser } from "@/lib/space";
+import { getCurrentMembership, getCurrentSpace, requireUser } from "@/lib/space";
 import {
   insertDecisionWithUniqueNumber,
   updateMeetingSessionState,
   replaceDecisionParticipants,
   getMeetingPresence,
 } from "@/lib/queries";
-import { participantsFromLiveSession } from "@/lib/participants";
+import { applyDeclarations, participantsFromLiveSession } from "@/lib/participants";
+import { hasSpaceRole } from "@/lib/roles";
 import type { MeetingSessionState, Deliberation } from "@/lib/meeting-state";
-import { advanceItem, skipItem, goToItem, startDecisionFlow, withPresence } from "@/lib/meeting-state";
+import {
+  advanceItem,
+  skipItem,
+  goToItem,
+  startDecisionFlow,
+  withPresence,
+  declareInterest,
+  withdrawDeclaration,
+  declarationsFor,
+  hasDeclaredOnCurrentItem,
+} from "@/lib/meeting-state";
 
 async function getMeetingState(meetingId: string, spaceId: string) {
   const [m] = await db
@@ -141,6 +152,23 @@ async function withFacilitatorState<T>(
     const authoritative = ctx.meeting.facilitatorId ?? ctx.meeting.createdBy;
     if (authoritative && ctx.user.id !== authoritative) {
       return { error: "Only the facilitator can do this" } as { error: string };
+    }
+    return fn(ctx);
+  });
+}
+
+/**
+ * Like withMeetingState, but requires at least the member role: observers can
+ * watch a live meeting but not vote, object, queue to speak or declare.
+ */
+async function withParticipantState<T>(
+  meetingId: string,
+  fn: (ctx: { state: MeetingSessionState; meeting: MeetingRow; user: User; space: Space }) => Promise<T> | T
+): Promise<T | { error: string }> {
+  return withMeetingState(meetingId, async (ctx) => {
+    const membership = await getCurrentMembership();
+    if (!hasSpaceRole(membership?.role, "member")) {
+      return { error: "Observers can follow the meeting but not take part" } as { error: string };
     }
     return fn(ctx);
   });
@@ -266,11 +294,14 @@ export async function submitResponse(
   value: string,
   comment?: string
 ) {
-  return withMeetingState(meetingId, async ({ state, space, user }) => {
+  return withParticipantState(meetingId, async ({ state, space, user }) => {
     if (!state.decisionFlow) return { error: "No decision flow active" };
+    if (hasDeclaredOnCurrentItem(state, user.id)) {
+      return { error: "You've declared an interest in this item, so you can't take part in the decision" };
+    }
 
     const newState = await applyStateChange(meetingId, space.id, state, (s) => {
-      if (!s.decisionFlow) return s;
+      if (!s.decisionFlow || hasDeclaredOnCurrentItem(s, user.id)) return s;
       const stage = s.decisionFlow.stage;
       // Dedupe: a participant has one response per stage — replace any prior one.
       const others = s.decisionFlow.responses.filter(
@@ -371,8 +402,54 @@ export async function resolveObjection(
   });
 }
 
+/**
+ * Declare an interest in the current agenda item. The declarer can't respond to
+ * this item's decision (any response already given is removed), and is recorded
+ * on the decision as abstained or as having left the room.
+ */
+export async function declareInterestInCurrentItem(
+  meetingId: string,
+  interest: string,
+  action: "abstain" | "leave"
+) {
+  const text = interest?.trim();
+  if (!text) return { error: "Say what the interest is" };
+  if (action !== "abstain" && action !== "leave") return { error: "Choose abstain or leave" };
+
+  return withParticipantState(meetingId, async ({ state, space, user }) => {
+    const newState = await applyStateChange(meetingId, space.id, state, (s) => {
+      const declared = declareInterest(s, {
+        participantId: user.id,
+        name: user.name || user.email || "Unknown",
+        agendaIndex: s.currentAgendaItemIndex,
+        interest: text.slice(0, 500),
+        action,
+      });
+      // A declarer takes no part: drop any response and speaker slot on this item.
+      return {
+        ...declared,
+        decisionFlow: declared.decisionFlow && {
+          ...declared.decisionFlow,
+          responses: declared.decisionFlow.responses.filter((r) => r.participantId !== user.id),
+        },
+        speakerStack: declared.speakerStack.filter((e) => e.participantId !== user.id),
+      };
+    });
+    return { state: newState };
+  });
+}
+
+export async function withdrawInterestDeclaration(meetingId: string) {
+  return withParticipantState(meetingId, async ({ state, space, user }) => {
+    const newState = await applyStateChange(meetingId, space.id, state, (s) =>
+      withdrawDeclaration(s, user.id, s.currentAgendaItemIndex)
+    );
+    return { state: newState };
+  });
+}
+
 export async function requestToSpeak(meetingId: string) {
-  return withMeetingState(meetingId, async ({ state, space, user }) => {
+  return withParticipantState(meetingId, async ({ state, space, user }) => {
     if (state.speakerStack.some((s) => s.participantId === user.id)) {
       return { state };
     }
@@ -537,7 +614,10 @@ export async function recordMeetingDecision(
       await tx.insert(meetingDecisions).values({ meetingId, decisionId: d.id });
 
       // Who took part: the live session (minus observers) plus responders.
-      await replaceDecisionParticipants(tx, space.id, d.id, participantsFromLiveSession(inRoom, responses));
+      await replaceDecisionParticipants(tx, space.id, d.id, applyDeclarations(
+          participantsFromLiveSession(inRoom, responses),
+          declarationsFor(state, state.currentAgendaItemIndex)
+        ));
 
       if (responses.length > 0) {
         await tx.insert(decisionResponses).values(

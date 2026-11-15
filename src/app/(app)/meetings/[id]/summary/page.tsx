@@ -18,6 +18,7 @@ import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { MeetingSummary } from "./meeting-summary";
 import type { MeetingSessionState, CompletedItem } from "@/lib/meeting-state";
+import { declarationsFor } from "@/lib/meeting-state";
 
 const STATUS_COLORS: Record<string, string> = {
   decided: "bg-status-decided",
@@ -235,11 +236,10 @@ export default async function MeetingSummaryPage({
               <div className="space-y-2">
                 {meeting.agendaItems.map((item, i) => {
                   const completed = sessionState.completedItems[i] as CompletedItem | undefined;
+                  const declared = declarationsFor(sessionState, i);
                   return (
-                    <div
-                      key={item.id}
-                      className="flex items-center gap-3 py-2"
-                    >
+                    <div key={item.id} className="py-2">
+                    <div className="flex items-center gap-3">
                       {completed?.skipped ? (
                         <SkipForward size={14} className="text-bark-muted/40 shrink-0" />
                       ) : completed ? (
@@ -259,6 +259,17 @@ export default async function MeetingSummaryPage({
                           {completed.outcome}
                         </span>
                       )}
+                    </div>
+                    {declared.length > 0 && (
+                      <ul className="ml-[1.625rem] mt-1 space-y-0.5">
+                        {declared.map((d) => (
+                          <li key={d.participantId} className="text-xs text-bark-muted">
+                            Interest declared by {d.name}: {d.interest} (
+                            {d.action === "leave" ? "left the room" : "did not take part"})
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                     </div>
                   );
                 })}

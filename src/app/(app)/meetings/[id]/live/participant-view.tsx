@@ -9,6 +9,7 @@ import { MeetingTimer } from "./meeting-timer";
 import { DecisionFlowContainer } from "./decision-flow-container";
 import { ParticipantInteractions } from "./participant-interactions";
 import { SpeakerStack } from "./speaker-stack";
+import { DeclarationsPanel } from "./declarations-panel";
 import {
   Loader2,
   CheckCircle2,
@@ -214,6 +215,11 @@ export function ParticipantView({
                 readOnly
               />
             </div>
+
+            {/* Declarations of interest on this item */}
+            {currentUserId && (
+              <DeclarationsPanel meetingId={meetingId} state={state} currentUserId={currentUserId} mutate={mutate} />
+            )}
 
             {/* Speaker stack + request to speak */}
             <SpeakerStack

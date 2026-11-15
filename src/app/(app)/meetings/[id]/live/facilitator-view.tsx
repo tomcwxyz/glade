@@ -12,6 +12,7 @@ import { MeetingTimer } from "./meeting-timer";
 import { DecisionControls } from "./decision-controls";
 import { DecisionFlowContainer } from "./decision-flow-container";
 import { SpeakerStack } from "./speaker-stack";
+import { DeclarationsPanel } from "./declarations-panel";
 import {
   advanceAgendaItem,
   skipAgendaItem,
@@ -62,6 +63,7 @@ export function FacilitatorView({
   voteThreshold,
   quorumRule = null,
   quorumEligible = 0,
+  currentUserId,
 }: {
   meetingId: string;
   meetingTitle: string;
@@ -69,6 +71,7 @@ export function FacilitatorView({
   voteThreshold?: number;
   quorumRule?: QuorumRule | null;
   quorumEligible?: number;
+  currentUserId?: string;
 }) {
   const router = useRouter();
   const { announce } = useLiveRegion();
@@ -361,6 +364,11 @@ export function FacilitatorView({
                 onReset={handleResetTimer}
               />
             </div>
+
+            {/* Declarations of interest on this item (facilitator can declare too) */}
+            {currentUserId && (
+              <DeclarationsPanel meetingId={meetingId} state={state} currentUserId={currentUserId} mutate={mutate} />
+            )}
 
             {/* Speaker stack */}
             <SpeakerStack

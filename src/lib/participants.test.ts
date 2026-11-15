@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  applyDeclarations,
   parseParticipantsField,
   participantsFromLiveSession,
   participantSummaries,
@@ -104,5 +105,20 @@ test("live session participants: present non-observers plus responders, abstenti
     { userId: "u1", name: "Asha Patel", participation: "participated" },
     { userId: "u2", name: "Ben Ode", participation: "abstained" },
     { userId: "u5", name: "Late Joiner", participation: "participated" },
+  ]);
+});
+
+test("applyDeclarations marks declarers and adds missing ones", () => {
+  const out = applyDeclarations(
+    [{ userId: "u1", name: "Asha" }, { userId: "u2", name: "Ben" }],
+    [
+      { participantId: "u2", name: "Ben", interest: "Trustee of applicant", action: "leave" },
+      { participantId: "u3", name: "Cat", interest: "Employer", action: "abstain" },
+    ]
+  );
+  assert.deepEqual(out, [
+    { userId: "u1", name: "Asha" },
+    { userId: "u2", name: "Ben", participation: "left_room", interest: "Trustee of applicant" },
+    { userId: "u3", name: "Cat", participation: "abstained", interest: "Employer" },
   ]);
 });

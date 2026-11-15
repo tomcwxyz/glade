@@ -75,6 +75,7 @@ export default async function LiveMeetingPage({
         voteThreshold={voteThreshold}
         quorumRule={parseQuorumRule(space.settings)}
         quorumEligible={members.filter((m) => isQuorumEligibleRole(m.role)).length}
+        currentUserId={user.id}
       />
     );
   }

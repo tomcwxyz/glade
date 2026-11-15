@@ -8,6 +8,10 @@ import {
   speakerStatus,
   startDecisionFlow,
   withPresence,
+  declareInterest,
+  declarationsFor,
+  hasDeclaredOnCurrentItem,
+  withdrawDeclaration,
   type MeetingSessionState,
 } from "./meeting-state.ts";
 
@@ -122,4 +126,24 @@ test("withPresence adds present members (not observers) without touching existin
   assert.equal(merged.participants.u2.role, "participant");
   assert.equal(merged.version, s.version);
   assert.equal(Object.keys(s.participants).length, 1);
+});
+
+test("declaring an interest is per person per item, and blocks responding on that item only", () => {
+  let s = started();
+  s = declareInterest(s, { participantId: "u2", name: "Ben", agendaIndex: 0, interest: "Trustee of applicant", action: "leave" });
+  s = declareInterest(s, { participantId: "u2", name: "Ben", agendaIndex: 0, interest: "Trustee of applicant", action: "abstain" });
+  s = declareInterest(s, { participantId: "u3", name: "Cat", agendaIndex: 1, interest: "Employer", action: "abstain" });
+  assert.equal(declarationsFor(s, 0).length, 1);
+  assert.equal(declarationsFor(s, 0)[0].action, "abstain");
+  assert.equal(hasDeclaredOnCurrentItem(s, "u2"), true);
+  assert.equal(hasDeclaredOnCurrentItem(s, "u3"), false);
+  assert.equal(hasDeclaredOnCurrentItem(advanceItem(s, 3), "u3"), true);
+  assert.equal(hasDeclaredOnCurrentItem(withdrawDeclaration(s, "u2", 0), "u2"), false);
+});
+
+test("sessions from before declarations existed still work", () => {
+  const legacy = started();
+  delete (legacy as { declarations?: unknown }).declarations;
+  assert.deepEqual(declarationsFor(legacy, 0), []);
+  assert.equal(hasDeclaredOnCurrentItem(legacy, "u1"), false);
 });
