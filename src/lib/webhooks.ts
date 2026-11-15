@@ -1,8 +1,11 @@
 import crypto from "crypto";
+import https from "node:https";
+import dns from "node:dns/promises";
 import { after } from "next/server";
 import { db } from "@/db";
 import { webhooks } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { validateWebhookUrl, resolvePublicAddresses } from "@/lib/net-guard";
 
 export type WebhookEvent =
   | "decision.created"
@@ -19,45 +22,47 @@ function signPayload(payload: string, secret: string): string {
   return crypto.createHmac("sha256", secret).update(payload).digest("hex");
 }
 
+export { validateWebhookUrl };
+
 /**
- * Guard webhook URLs against SSRF: require HTTPS and reject hosts that resolve
- * to loopback, private, link-local or cloud-metadata ranges. This is a
- * hostname-level check — it does not defeat DNS rebinding (resolving + pinning
- * the IP at fetch time would; tracked as future hardening).
+ * POST to a webhook, connecting only to addresses that resolved as public.
+ * The `lookup` hook runs inside the connection itself, so the IP we vet is the
+ * IP we connect to (no DNS-rebinding window). TLS still verifies the hostname.
  */
-export function validateWebhookUrl(
-  raw: string
-): { ok: true; url: string } | { ok: false; reason: string } {
-  let parsed: URL;
-  try {
-    parsed = new URL(raw);
-  } catch {
-    return { ok: false, reason: "Invalid URL" };
-  }
-
-  if (parsed.protocol !== "https:") {
-    return { ok: false, reason: "Webhook URL must use HTTPS" };
-  }
-
-  const host = parsed.hostname.toLowerCase();
-  const isBlocked =
-    host === "localhost" ||
-    host.endsWith(".local") ||
-    host === "0.0.0.0" ||
-    host === "::1" ||
-    host === "169.254.169.254" || // cloud metadata service
-    /^127\./.test(host) ||
-    /^10\./.test(host) ||
-    /^192\.168\./.test(host) ||
-    /^169\.254\./.test(host) ||
-    /^172\.(1[6-9]|2\d|3[01])\./.test(host) ||
-    /^(fc|fd)[0-9a-f]{2}:/.test(host); // IPv6 unique-local
-
-  if (isBlocked) {
-    return { ok: false, reason: "Webhook URL must point to a public host" };
-  }
-
-  return { ok: true, url: parsed.toString() };
+function postPinned(
+  url: string,
+  headers: Record<string, string>,
+  body: string,
+  timeoutMs: number
+): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const req = https.request(
+      url,
+      {
+        method: "POST",
+        headers: { ...headers, "Content-Length": Buffer.byteLength(body).toString() },
+        timeout: timeoutMs,
+        lookup: (hostname, options, callback) => {
+          resolvePublicAddresses(hostname, (h, o) => dns.lookup(h, o))
+            .then((addresses) => {
+              if ((options as { all?: boolean }).all) {
+                (callback as unknown as (e: null, a: typeof addresses) => void)(null, addresses);
+              } else {
+                callback(null, addresses[0].address, addresses[0].family);
+              }
+            })
+            .catch((err: Error) => callback(err as NodeJS.ErrnoException, "", 0));
+        },
+      },
+      (res) => {
+        res.resume(); // drain; we only record the status
+        resolve(res.statusCode ?? 0);
+      }
+    );
+    req.on("timeout", () => req.destroy(new Error("Webhook timed out")));
+    req.on("error", reject);
+    req.end(body);
+  });
 }
 
 /**
@@ -114,22 +119,22 @@ async function deliverWebhooks(
 
       const signature = signPayload(body, hook.secret);
       try {
-        const response = await fetch(hook.url, {
-          method: "POST",
-          headers: {
+        const status = await postPinned(
+          hook.url,
+          {
             "Content-Type": "application/json",
             "X-Glade-Signature": signature,
             "X-Glade-Event": event,
           },
           body,
-          signal: AbortSignal.timeout(10000),
-        });
+          10000
+        );
 
         await db
           .update(webhooks)
           .set({
             lastDeliveryAt: new Date(),
-            lastDeliveryStatus: response.status,
+            lastDeliveryStatus: status,
           })
           .where(eq(webhooks.id, hook.id));
       } catch {
