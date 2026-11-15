@@ -4,14 +4,19 @@
  * Usage: npx tsx src/db/seed.ts
  *        npx tsx src/db/seed.ts --force   (delete existing demo data first)
  *
- * Creates a demo user (demo@glade.app / password123), a space,
- * and the full Riverside Trust governance scenario.
+ * Creates a demo user (demo@glade.app), a space, and the full Riverside
+ * Trust governance scenario. All seeded accounts share one password: set
+ * SEED_PASSWORD, or a random one is generated and printed once.
+ *
+ * Refuses to run against production (NODE_ENV or VERCEL_ENV = production)
+ * unless --allow-production is passed.
  */
 
 import { neon } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-http";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
+import { randomBytes } from "crypto";
 import * as schema from "./schema";
 
 const DATABASE_URL = process.env.DATABASE_URL;
@@ -19,6 +24,18 @@ if (!DATABASE_URL) {
   console.error("DATABASE_URL is required");
   process.exit(1);
 }
+
+if (
+  (process.env.NODE_ENV === "production" || process.env.VERCEL_ENV === "production") &&
+  !process.argv.includes("--allow-production")
+) {
+  console.error("Refusing to seed demo accounts into a production environment.");
+  console.error("Pass --allow-production if you really mean to.");
+  process.exit(1);
+}
+
+// Never a well-known password: seeded accounts are real, loginable users.
+const SEED_PASSWORD = process.env.SEED_PASSWORD || randomBytes(12).toString("base64url");
 
 const sql = neon(DATABASE_URL);
 const db = drizzle(sql, { schema });
@@ -75,7 +92,7 @@ async function seed() {
   console.log("Seeding database...\n");
 
   // --- Users ---
-  const passwordHash = await bcrypt.hash("password123", 12);
+  const passwordHash = await bcrypt.hash(SEED_PASSWORD, 12);
 
   const memberNames = [
     "Amara Osei",
@@ -111,7 +128,7 @@ async function seed() {
     })
     .returning({ id: schema.users.id });
 
-  console.log("Created demo user (demo@glade.app / password123)");
+  console.log("Created demo user (demo@glade.app)");
 
   // Build a lookup by name
   const userByName: Record<string, string> = {};
@@ -950,7 +967,7 @@ async function seed() {
   console.log("Created 3 AI insights (pattern, review, briefing)");
 
   console.log("\nSeed complete!");
-  console.log("Login: demo@glade.app / password123");
+  console.log(`Login: demo@glade.app / ${process.env.SEED_PASSWORD ? "(SEED_PASSWORD)" : SEED_PASSWORD}`);
 }
 
 seed().catch((err) => {
