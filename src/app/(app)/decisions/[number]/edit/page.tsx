@@ -32,14 +32,14 @@ export default async function EditDecisionPage({
       <Breadcrumbs items={[
         { label: "Decision Log", href: "/decisions" },
         { label: `#${decision.number} ${decision.title}`, href: `/decisions/${decision.number}` },
-        { label: "Edit" },
+        { label: "Correct" },
       ]} />
       <header className="mb-10">
         <h1
           className="text-2xl font-medium tracking-tight mb-2"
           style={{ fontFamily: "var(--font-display)" }}
         >
-          Edit decision #{decision.number}
+          Correct decision #{decision.number}
         </h1>
         <p className="text-bark-muted text-sm">{decision.title}</p>
       </header>

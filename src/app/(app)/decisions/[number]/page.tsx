@@ -12,9 +12,11 @@ import {
   getInsightsByDecision,
   getDecisionResponses,
   getDecisionReviews,
+  getDecisionRevisions,
 } from "@/lib/queries";
 import { isAiEnabled } from "@/lib/ai";
 import { formatDate } from "@/lib/utils";
+import { REVISION_FIELD_LABELS, formatRevisionValue } from "@/lib/decision-revisions";
 import {
   CalendarClock,
   CheckCircle2,
@@ -31,6 +33,7 @@ import {
   FileText,
   MessageSquare,
   CalendarDays,
+  History,
 } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -182,6 +185,11 @@ function LifecycleTrack({ status }: { status: DecisionStatus }) {
   );
 }
 
+/** Keep long text values in the record history readable. */
+function truncate(text: string, max = 140) {
+  return text.length > max ? `${text.slice(0, max)}…` : text;
+}
+
 export default async function DecisionDetailPage({
   params,
 }: {
@@ -206,6 +214,7 @@ export default async function DecisionDetailPage({
     relatedInsights,
     decisionResponses,
     reviewHistory,
+    revisions,
   ] = await Promise.all([
     getDecisionLinksWithIds(decision.id),
     getDecisionMeetings(decision.id),
@@ -217,6 +226,7 @@ export default async function DecisionDetailPage({
     getInsightsByDecision(decision.id),
     getDecisionResponses(decision.id),
     getDecisionReviews(decision.id),
+    getDecisionRevisions(decision.id),
   ]);
 
   // Topic→proposal→decision lineage: topic depends on the proposal id.
@@ -285,7 +295,7 @@ export default async function DecisionDetailPage({
               className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-bark-muted hover:text-canopy border border-border rounded-lg hover:border-canopy/30 transition-colors"
             >
               <Pencil size={14} />
-              Edit
+              Correct
             </Link>
             <DeleteDecision decisionId={decision.id} decisionNumber={decision.number} />
           </div>
@@ -651,6 +661,39 @@ export default async function DecisionDetailPage({
                 ))}
               </ul>
             )}
+          </section>
+
+          {/* Record history: every correction, with who, when and why */}
+          <section>
+            <h2 className="text-xs uppercase tracking-wider text-bark-muted font-medium flex items-center gap-2 mb-3">
+              <History size={13} />
+              Record history
+            </h2>
+            <ul className="space-y-3">
+              {revisions.map((r) => (
+                <li key={r.id} className="text-xs">
+                  <div className="text-bark-muted">
+                    {formatDate(r.revisedAt.toISOString())}
+                    {r.revisedByName ? ` · ${r.revisedByName}` : ""}
+                  </div>
+                  <p className="text-bark mt-0.5">{r.reason}</p>
+                  <ul className="mt-1 space-y-0.5">
+                    {Object.entries(r.changes).map(([field, { from, to }]) => (
+                      <li key={field} className="text-bark-muted">
+                        <span className="font-medium text-bark">{REVISION_FIELD_LABELS[field] ?? field}:</span>{" "}
+                        <span className="line-through decoration-earth/60 break-words">
+                          {truncate(formatRevisionValue(field, from))}
+                        </span>{" "}
+                        → <span className="break-words">{truncate(formatRevisionValue(field, to))}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </li>
+              ))}
+              <li className="text-xs text-bark-muted">
+                {formatDate(decision.createdAt.toISOString())} · Recorded
+              </li>
+            </ul>
           </section>
 
           {/* Participants */}

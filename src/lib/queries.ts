@@ -1,5 +1,6 @@
 import { db } from "@/db";
 import {
+  decisionRevisions,
   decisions,
   decisionLinks,
   decisionResponses,
@@ -2199,6 +2200,21 @@ export async function getReviewsDue(spaceId: string) {
 }
 
 /** Review history for a decision (most recent first). */
+export async function getDecisionRevisions(decisionId: string) {
+  return db
+    .select({
+      id: decisionRevisions.id,
+      changes: decisionRevisions.changes,
+      reason: decisionRevisions.reason,
+      revisedAt: decisionRevisions.revisedAt,
+      revisedByName: sql<string | null>`coalesce(${users.name}, ${decisionRevisions.revisedByName})`,
+    })
+    .from(decisionRevisions)
+    .leftJoin(users, eq(users.id, decisionRevisions.revisedBy))
+    .where(eq(decisionRevisions.decisionId, decisionId))
+    .orderBy(desc(decisionRevisions.revisedAt));
+}
+
 export async function getDecisionReviews(decisionId: string) {
   return db
     .select({

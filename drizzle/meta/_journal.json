@@ -43,6 +43,13 @@
       "when": 1787905000000,
       "tag": "0005_superseded_actions",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1795200000000,
+      "tag": "0006_decision_revisions",
+      "breakpoints": true
     }
   ]
 }

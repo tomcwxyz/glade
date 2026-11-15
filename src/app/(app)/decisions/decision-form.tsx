@@ -540,6 +540,25 @@ export function DecisionForm({
           </div>
         )}
 
+        {/* Correction reason: every change to a recorded decision is logged */}
+        {isEditing && (
+          <div className="rounded-lg border border-amber/30 bg-amber/5 p-4">
+            <InputLabel htmlFor="revisionReason">Why are you correcting this record?</InputLabel>
+            <textarea
+              id="revisionReason"
+              name="revisionReason"
+              rows={2}
+              placeholder="e.g. Typo in the outcome; date was entered wrongly"
+              className={inputClass}
+            />
+            <p className="mt-2 text-xs text-bark-muted">
+              Corrections are kept in the record history with your name and this reason. If the
+              board has changed what it decided, record a new decision that amends or supersedes
+              this one instead.
+            </p>
+          </div>
+        )}
+
         {/* Submit */}
         <div className="flex items-center gap-4 pt-4 border-t border-border">
           <button
@@ -550,7 +569,7 @@ export function DecisionForm({
             {loading ? (
               <Loader2 size={16} className="animate-spin" />
             ) : isEditing ? (
-              "Save changes"
+              "Save correction"
             ) : (
               "Log decision"
             )}

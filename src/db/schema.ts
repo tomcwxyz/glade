@@ -375,6 +375,26 @@ export const decisionReviews = pgTable(
   (dr) => [index("decision_reviews_decision_idx").on(dr.decisionId)]
 );
 
+// --- Decision revisions (append-only correction history) ---
+
+export const decisionRevisions = pgTable(
+  "decision_revisions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    decisionId: uuid("decision_id")
+      .notNull()
+      .references(() => decisions.id, { onDelete: "cascade" }),
+    // field → { from, to }, as display values (see decision-revisions.ts).
+    changes: jsonb("changes").notNull().$type<Record<string, { from: unknown; to: unknown }>>(),
+    reason: text("reason").notNull(),
+    revisedBy: uuid("revised_by").references(() => users.id, { onDelete: "set null" }),
+    // Kept so the history still names the person if their account is removed.
+    revisedByName: varchar("revised_by_name", { length: 255 }),
+    revisedAt: timestamp("revised_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (dr) => [index("decision_revisions_decision_idx").on(dr.decisionId)]
+);
+
 // --- Tags ---
 
 export const tags = pgTable(

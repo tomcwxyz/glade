@@ -2,14 +2,15 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { eq, and, count } from "drizzle-orm";
+import { eq, and, count, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { decisions, decisionLinks, decisionReviews, decisionTags, tags, actions, meetingDecisions, meetings, proposals, documentVersions, insights } from "@/db/schema";
+import { decisions, decisionLinks, decisionReviews, decisionRevisions, decisionTags, tags, actions, meetingDecisions, meetings, proposals, documentVersions, insights } from "@/db/schema";
 import { requireSpaceRole } from "@/lib/space";
 import { insertDecisionWithUniqueNumber, getDecisions, syncEntityTags } from "@/lib/queries";
 import { canAddDecision } from "@/lib/billing";
 import { fireWebhooks } from "@/lib/webhooks";
 import { logDeletion } from "@/lib/audit";
+import { diffDecision, type DecisionSnapshot } from "@/lib/decision-revisions";
 import { canTransitionManually, initialStatus, isDecisionStatus, statusAfterReview, type DecisionStatus } from "@/lib/decision-lifecycle";
 
 export async function createDecision(formData: FormData) {
@@ -118,7 +119,7 @@ export async function updateDecision(decisionId: string, formData: FormData) {
 
   // Verify the decision belongs to this space
   const [existing] = await db
-    .select({ id: decisions.id, number: decisions.number, status: decisions.status })
+    .select()
     .from(decisions)
     .where(and(eq(decisions.id, decisionId), eq(decisions.spaceId, space.id)))
     .limit(1);
@@ -152,8 +153,67 @@ export async function updateDecision(decisionId: string, formData: FormData) {
     ? tagIdsRaw.split(",").filter(Boolean)
     : [];
 
-  // Atomic: the update and tag-replace land together.
+  const revisionReason = (formData.get("revisionReason") as string)?.trim() || "";
+
+  // Tag names (scoped to this space) for the before/after snapshots.
+  const tagNames = async (ids: string[]) =>
+    ids.length === 0
+      ? []
+      : (
+          await db
+            .select({ name: tags.name })
+            .from(tags)
+            .where(and(inArray(tags.id, ids), eq(tags.spaceId, space.id)))
+        ).map((t) => t.name);
+  const currentTagIds = (
+    await db.select({ tagId: decisionTags.tagId }).from(decisionTags).where(eq(decisionTags.decisionId, decisionId))
+  ).map((t) => t.tagId);
+
+  const isPublic = formData.get("hideFromPublic") !== "on";
+  const before: DecisionSnapshot = {
+    title: existing.title,
+    description: existing.description,
+    rationale: existing.rationale,
+    outcome: existing.outcome,
+    method: existing.method,
+    participants: existing.participants ?? [],
+    date: existing.date,
+    conditions: existing.conditions,
+    reviewDate: existing.reviewDate,
+    isPublic: existing.isPublic,
+    tags: await tagNames(currentTagIds),
+  };
+  const after: DecisionSnapshot = {
+    title,
+    description,
+    rationale,
+    outcome,
+    method,
+    participants,
+    date: new Date(dateStr),
+    conditions,
+    reviewDate: reviewDateStr ? new Date(reviewDateStr) : null,
+    isPublic,
+    tags: await tagNames(tagIds),
+  };
+  const changes = diffDecision(before, after);
+
+  // Nothing changed: no write, no revision.
+  if (Object.keys(changes).length === 0) redirect(`/decisions/${existing.number}`);
+
+  // The record is append-only in spirit: every correction says why.
+  if (!revisionReason) return { error: "Say why you are correcting this record" };
+
+  // Atomic: the update, tag-replace and revision entry land together.
   await db.transaction(async (tx) => {
+    await tx.insert(decisionRevisions).values({
+      decisionId,
+      changes,
+      reason: revisionReason,
+      revisedBy: user.id,
+      revisedByName: user.name ?? user.email ?? null,
+    });
+
     await tx
       .update(decisions)
       .set({
@@ -166,7 +226,7 @@ export async function updateDecision(decisionId: string, formData: FormData) {
         date: new Date(dateStr),
         conditions,
         reviewDate: reviewDateStr ? new Date(reviewDateStr) : null,
-        isPublic: formData.get("hideFromPublic") !== "on",
+        isPublic,
         updatedAt: new Date(),
       })
       .where(eq(decisions.id, decisionId));
@@ -191,7 +251,7 @@ export async function updateDecisionStatus(
 ) {
   const auth = await requireSpaceRole("member");
   if ("error" in auth) return auth;
-  const { space } = auth;
+  const { user, space } = auth;
 
   if (!isDecisionStatus(status)) return { error: "Unknown status" };
 
@@ -208,10 +268,23 @@ export async function updateDecisionStatus(
   }
 
   // Conditional on the status we checked, so two concurrent clicks can't skip a stage.
-  await db
-    .update(decisions)
-    .set({ status, updatedAt: new Date() })
-    .where(and(eq(decisions.id, decisionId), eq(decisions.spaceId, space.id), eq(decisions.status, current.status)));
+  const moved = await db.transaction(async (tx) => {
+    const rows = await tx
+      .update(decisions)
+      .set({ status, updatedAt: new Date() })
+      .where(and(eq(decisions.id, decisionId), eq(decisions.spaceId, space.id), eq(decisions.status, current.status)))
+      .returning({ id: decisions.id });
+    if (rows.length === 0) return false;
+    await tx.insert(decisionRevisions).values({
+      decisionId,
+      changes: { status: { from: current.status, to: status } },
+      reason: `Marked ${status}`,
+      revisedBy: user.id,
+      revisedByName: user.name ?? user.email ?? null,
+    });
+    return true;
+  });
+  if (!moved) return { error: "This decision was updated by someone else. Refresh and try again." };
 
   fireWebhooks(space.id, "decision.status_changed", {
     id: decisionId,
