@@ -64,6 +64,13 @@
       "when": 1795200200000,
       "tag": "0008_decision_participants",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1795200300000,
+      "tag": "0009_reconcile_schema",
+      "breakpoints": true
     }
   ]
 }
